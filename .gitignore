@@ -1,0 +1,30 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Секреты
+.env
+*.jks
+*.keystore
+
+# Логи и кэши
+*.log
+.cache/
+.kotlin/
+
+# Сборка
+build/
+.gradle/
+local.properties
+
+# AI-инструменты
+AGENTS.md
+.agents/
+docs/superpowers/
