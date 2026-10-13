@@ -13,3 +13,5 @@ build/
 *.keystore
 
 /.ai-docs/
+AGENTS.md
+CLAUDE.md
