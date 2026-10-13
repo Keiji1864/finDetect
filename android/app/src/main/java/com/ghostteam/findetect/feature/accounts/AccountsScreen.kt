@@ -8,7 +8,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ghostteam.findetect.feature.expenses.ExpensesScreen
+import com.ghostteam.findetect.ui.theme.FinDetectTheme
 
 @Composable
 fun AccountsScreen() {
@@ -37,5 +40,13 @@ fun AccountsScreen() {
         ) {
             Text("Добавить счёт")
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AccountsPreview() {
+    FinDetectTheme {
+        AccountsScreen()
     }
 }
