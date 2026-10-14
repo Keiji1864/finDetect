@@ -1,0 +1,2209 @@
+openapi: 3.0.3
+
+info:
+  title: ФинДетектив API
+  version: 1.0.0-draft
+  description: |
+    Серверный API мобильного приложения «ФинДетектив» (учёт доходов и расходов,
+    ИИ-прогноз, геймификация).
+
+    **Принципы контракта**
+    - Приложение работает offline-first: идентификаторы (UUID) создаёт клиент,
+      создание и обновление идемпотентны (`PUT /resource/{id}`).
+    - Синхронизация дельтами: `GET ...?updatedAfter=...` возвращает только изменения,
+      включая удалённые записи (мягкое удаление, поле `deletedAt`).
+    - Конфликты: побеждает последнее изменение (`modifiedAt` от клиента).
+      Удалённая запись не «воскресает».
+    - Деньги передаются строкой с точностью до 2 знаков, например `"1000.00"`.
+    - Даты и время: ISO 8601, UTC (`2026-10-14T09:30:00Z`).
+    - Пользователь определяется по токену, `userId` в запросах не передаётся.
+
+    **Порядок синхронизации** (одна запись может ссылаться на другую, поэтому порядок важен):
+    1. статьи (`GET /categories`);
+    2. счета (`/accounts`);
+    3. операции и корректировки (`/transactions`, `/balance-adjustments`);
+    4. активность, очки, достижения (`/activity-days`, `/xp-events`, `/achievements`);
+    5. итоговое состояние (`GET /progress`) и, при необходимости, прогноз (`GET /forecast`).
+
+    В каждом блоке сначала отправляются локальные изменения (`PUT`, `DELETE`), затем
+    подтягиваются серверные (`GET ...?updatedAfter=...`). Все `GET`, `PUT` и `DELETE`
+    идемпотентны, их безопасно повторять при сетевых сбоях.
+
+    **Часовой пояс.** Сервер не знает часовой пояс пользователя. Там, где нужен
+    «сегодняшний день» (серия, прогноз), клиент передаёт параметр `today`: текущую дату
+    по часовому поясу устройства.
+
+    **Статус:** черновик полного контракта (часть 3 из 3). Открыты: восстановление пароля,
+    смена валюты у счёта с операциями, пакетная отправка (batch), расследование недели
+    и виджет (отложены, см. файлы 01 и 04).
+
+servers:
+  - url: https://api.findetective.example/api/v1
+    description: Рабочий сервер (адрес-заглушка, заменить на реальный)
+  - url: http://localhost:8080/api/v1
+    description: Локальная разработка
+
+tags:
+  - name: Auth
+    description: Регистрация, вход, обновление и отзыв токенов
+  - name: Accounts
+    description: Счета пользователя
+  - name: Transactions
+    description: Операции (доходы и расходы)
+  - name: BalanceAdjustments
+    description: Корректировки баланса счёта (правка баланса в форме счёта)
+  - name: Categories
+    description: Справочник статей (категорий), заполняется на сервере
+  - name: Profile
+    description: Аккаунт и настройки, которые нужны серверу
+  - name: Gamification
+    description: Активные дни, очки, достижения, итоговое состояние (серия, уровень)
+  - name: Forecast
+    description: ИИ-прогноз остатка до следующего поступления и советы
+
+# По умолчанию все ручки закрыты токеном.
+# Открытые ручки (Auth) переопределяют это через `security: []`.
+security:
+  - bearerAuth: []
+
+paths:
+
+  # ==========================================================================
+  # AUTH
+  # ==========================================================================
+  /auth/register:
+    post:
+      tags: [Auth]
+      operationId: register
+      summary: Регистрация
+      description: |
+        Создаёт аккаунт и сразу выдаёт пару токенов (повторный вход не нужен).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Аккаунт создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Пользователь с такой почтой уже существует (`EMAIL_TAKEN`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: EMAIL_TAKEN
+                message: Пользователь с такой почтой уже зарегистрирован
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Вход по почте и паролю
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Вход выполнен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Неверная почта или пароль (`INVALID_CREDENTIALS`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: INVALID_CREDENTIALS
+                message: Неверная почта или пароль
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshTokens
+      summary: Обновить пару токенов
+      description: |
+        Обменивает токен обновления на новую пару токенов.
+        Старый токен обновления после этого перестаёт действовать (ротация).
+        Если обновить не удалось (401), клиент возвращает пользователя на экран входа,
+        локальные данные при этом не удаляются.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Новая пара токенов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Выход (отзыв токена обновления)
+      description: |
+        Отзывает переданный токен обновления. Токен доступа не нужен: к моменту выхода
+        он мог уже истечь, достаточно токена обновления.
+        Операция идемпотентна: повторный выход с тем же токеном тоже даёт 204.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '204':
+          description: Токен отозван
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ==========================================================================
+  # ACCOUNTS
+  # ==========================================================================
+  /accounts:
+    get:
+      tags: [Accounts]
+      operationId: listAccounts
+      summary: Получить счета (с поддержкой дельта-синхронизации)
+      description: |
+        Возвращает счета текущего пользователя, отсортированные по `updatedAt`
+        по возрастанию.
+
+        - Без `updatedAfter` отдаются все счета (первая загрузка).
+        - С `updatedAfter` отдаются только изменённые с этого момента.
+        - **Удалённые счета тоже возвращаются** (`deletedAt` не null) вместе с названием,
+          эмодзи и валютой: операции удалённого счёта остаются в истории, и клиенту
+          нужно знать, в какой валюте они учитываются и как подписать счёт «(удалён)».
+        - Баланс в ответ не входит: он считается по истории (начальный баланс,
+          операции, корректировки).
+      parameters:
+        - $ref: '#/components/parameters/UpdatedAfter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница счетов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /accounts/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AccountId'
+
+    put:
+      tags: [Accounts]
+      operationId: upsertAccount
+      summary: Создать или обновить счёт (идемпотентно)
+      description: |
+        Идентификатор создаёт клиент. Если счёта с таким `id` у пользователя нет,
+        он создаётся (201), иначе обновляется (200). Повторная отправка того же запроса
+        не создаёт дубль и безопасна (можно ретраить после сетевого сбоя).
+
+        **Разрешение конфликтов.** Если на сервере уже есть более поздняя версия
+        (по `modifiedAt`), запрос не применяется, а в ответ возвращается актуальная
+        серверная версия со статусом 200.
+
+        **Удалённый счёт** изменить нельзя: 409 с кодом `ENTITY_DELETED`.
+
+        Правка баланса в этой ручке невозможна: меняется только `initialBalance`.
+        Для корректировки баланса используется отдельная сущность (часть 2).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountUpsertRequest'
+      responses:
+        '200':
+          description: Счёт обновлён (или возвращена более новая серверная версия)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '201':
+          description: Счёт создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: |
+            Конфликт: счёт удалён (`ENTITY_DELETED`) или этот `id` уже занят
+            другим пользователем (`ID_CONFLICT`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: ENTITY_DELETED
+                message: Счёт удалён и не может быть изменён
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Accounts]
+      operationId: deleteAccount
+      summary: Удалить счёт (мягкое удаление)
+      description: |
+        Помечает счёт удалённым (`deletedAt`). Операции счёта **не удаляются**
+        и остаются в истории. Баланс удалённого счёта не входит в итоги и прогноз,
+        новые операции на него добавлять нельзя.
+
+        Операция идемпотентна: повторное удаление уже удалённого счёта тоже даёт 204.
+      responses:
+        '204':
+          description: Счёт удалён
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ==========================================================================
+  # TRANSACTIONS
+  # ==========================================================================
+  /transactions:
+    get:
+      tags: [Transactions]
+      operationId: listTransactions
+      summary: Получить операции (с поддержкой дельта-синхронизации)
+      description: |
+        Возвращает операции текущего пользователя по всем счетам, отсортированные
+        по `updatedAt` по возрастанию. Один запрос вместо запроса на каждый счёт.
+
+        - Без фильтров отдаются все операции (первая загрузка).
+        - С `updatedAfter` отдаются только изменённые с этого момента.
+        - **Удалённые операции тоже возвращаются** (`deletedAt` не null), чтобы клиент
+          знал, что скрыть.
+        - Операции удалённых счетов возвращаются как обычные.
+        - Фильтры `accountId`, `from`, `to` необязательны и сочетаются через «И».
+      parameters:
+        - $ref: '#/components/parameters/UpdatedAfter'
+        - $ref: '#/components/parameters/AccountIdFilter'
+        - $ref: '#/components/parameters/From'
+        - $ref: '#/components/parameters/To'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница операций
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /transactions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/TransactionId'
+
+    put:
+      tags: [Transactions]
+      operationId: upsertTransaction
+      summary: Создать или обновить операцию (идемпотентно)
+      description: |
+        Идентификатор создаёт клиент. Если операции с таким `id` нет, она создаётся (201),
+        иначе обновляется (200). Повторная отправка не создаёт дубль.
+
+        Доход это или расход, определяет статья (`categoryId`). Сумма всегда положительная.
+
+        **Порядок отправки.** Счёт, на который ссылается операция, должен уже существовать
+        на сервере: клиент сначала отправляет счета, потом операции.
+
+        **Счёт удалён.** Сервер принимает операции и для удалённых счетов. Запрет «нельзя
+        добавлять операции на удалённый счёт» действует только в интерфейсе. Иначе операция,
+        созданная офлайн до удаления счёта, не смогла бы синхронизироваться.
+
+        **Конфликты.** Если на сервере версия новее (по `modifiedAt`), запрос не применяется,
+        возвращается актуальная серверная версия (200). Удалённую операцию изменить
+        нельзя (409 `ENTITY_DELETED`).
+
+        Поле `enteredAt` фиксируется при первом создании и при обновлении не меняется
+        (по нему считается серия, см. часть 3).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionUpsertRequest'
+      responses:
+        '200':
+          description: Операция обновлена (или возвращена более новая серверная версия)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '201':
+          description: Операция создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Счёт или статья не найдены (`NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: NOT_FOUND
+                message: Счёт или статья не найдены
+        '409':
+          description: |
+            Операция удалена (`ENTITY_DELETED`) или этот `id` занят другим
+            пользователем (`ID_CONFLICT`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: ENTITY_DELETED
+                message: Операция удалена и не может быть изменена
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Transactions]
+      operationId: deleteTransaction
+      summary: Удалить операцию (мягкое удаление)
+      description: |
+        Помечает операцию удалённой (`deletedAt`). Баланс счёта пересчитывается
+        автоматически (он считается по истории). Серия и очки не отнимаются.
+        Операция идемпотентна: повторное удаление тоже даёт 204.
+      responses:
+        '204':
+          description: Операция удалена
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ==========================================================================
+  # BALANCE ADJUSTMENTS
+  # ==========================================================================
+  /balance-adjustments:
+    get:
+      tags: [BalanceAdjustments]
+      operationId: listBalanceAdjustments
+      summary: Получить корректировки баланса
+      description: |
+        Корректировки неизменяемы и не удаляются, поэтому для дельты используется
+        `createdAfter` (а не `updatedAfter`). Результат отсортирован по `createdAt`
+        по возрастанию.
+      parameters:
+        - $ref: '#/components/parameters/CreatedAfter'
+        - $ref: '#/components/parameters/AccountIdFilter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница корректировок
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceAdjustmentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /balance-adjustments/{id}:
+    parameters:
+      - $ref: '#/components/parameters/BalanceAdjustmentId'
+
+    put:
+      tags: [BalanceAdjustments]
+      operationId: createBalanceAdjustment
+      summary: Создать корректировку баланса (идемпотентно)
+      description: |
+        Создаётся, когда пользователь правит баланс в форме счёта: клиент считает разницу
+        между новым и текущим значением и отправляет её со знаком. Баланс счёта =
+        начальный баланс + доходы - расходы + сумма корректировок.
+
+        Корректировка неизменяема. Если запись с таким `id` уже есть, возвращается она
+        же со статусом 200, а тело запроса игнорируется (так безопасны повторные отправки).
+
+        Корректировка принимается и для удалённого счёта (по той же причине, что и операции).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BalanceAdjustmentRequest'
+      responses:
+        '200':
+          description: Корректировка с таким `id` уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceAdjustment'
+        '201':
+          description: Корректировка создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceAdjustment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Счёт не найден (`NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: NOT_FOUND
+                message: Счёт не найден
+        '409':
+          description: Этот `id` занят другим пользователем (`ID_CONFLICT`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: ID_CONFLICT
+                message: Идентификатор уже используется
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ==========================================================================
+  # CATEGORIES
+  # ==========================================================================
+  /categories:
+    get:
+      tags: [Categories]
+      operationId: listCategories
+      summary: Получить справочник статей
+      description: |
+        Возвращает все статьи (и доходные, и расходные). Справочник создаётся на сервере,
+        пользователь свои статьи не заводит. Он небольшой, поэтому без пагинации
+        и дельты: клиент делит статьи на доходные и расходные у себя по `isIncome`.
+
+        Названия отдаются на обоих языках, клиент выбирает по языку интерфейса,
+        поэтому смена языка работает без запроса к серверу.
+      responses:
+        '200':
+          description: Список статей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ==========================================================================
+  # PROFILE
+  # ==========================================================================
+  /me:
+    get:
+      tags: [Profile]
+      operationId: getMe
+      summary: Получить данные текущего пользователя
+      responses:
+        '200':
+          description: Пользователь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags: [Profile]
+      operationId: deleteMe
+      summary: Удалить аккаунт и все данные
+      description: |
+        Безвозвратно удаляет аккаунт пользователя и все его данные (счета, операции,
+        корректировки, прогресс и т.д.), все токены отзываются. После ответа 204 клиент
+        очищает локальную базу и возвращает пользователя на экран входа.
+      responses:
+        '204':
+          description: Аккаунт и данные удалены
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /me/settings:
+    get:
+      tags: [Profile]
+      operationId: getSettings
+      summary: Получить настройки аккаунта
+      description: |
+        Только то, что нужно серверу для расчётов. Остальные настройки (валюта, тема,
+        язык, напоминания, переключатели) живут на устройстве. ПИН-код на сервер
+        не передаётся никогда.
+      responses:
+        '200':
+          description: Настройки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      tags: [Profile]
+      operationId: updateSettings
+      summary: Сохранить настройки аккаунта
+      description: |
+        Полностью заменяет настройки. Если на сервере уже есть более поздняя версия
+        (по `modifiedAt`), запрос не применяется и возвращается серверная версия.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettingsUpdateRequest'
+      responses:
+        '200':
+          description: Актуальные настройки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Settings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ==========================================================================
+  # GAMIFICATION
+  # ==========================================================================
+  /activity-days:
+    get:
+      tags: [Gamification]
+      operationId: listActivityDays
+      summary: Получить активные дни (с поддержкой дельта-синхронизации)
+      description: |
+        Нужен, чтобы новое устройство восстановило серию: серия не хранится числом,
+        а считается как функция от набора активных дат. Результат отсортирован
+        по `updatedAt` по возрастанию.
+      parameters:
+        - $ref: '#/components/parameters/UpdatedAfter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница активных дней
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityDayPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /activity-days/{date}:
+    parameters:
+      - $ref: '#/components/parameters/ActivityDate'
+
+    put:
+      tags: [Gamification]
+      operationId: upsertActivityDay
+      summary: Сообщить об активном дне (идемпотентно)
+      description: |
+        День активности ключуется по дате (по часовому поясу устройства в момент ввода).
+        Активный день: внесена хотя бы одна операция или нажата отметка «Трат не было».
+
+        **Слияние.** Сервер не заменяет запись, а объединяет: признаки складываются
+        по «ИЛИ» (однажды установленный признак не снимается), `firstEnteredAt` берётся
+        самый ранний. Поэтому данные с нескольких устройств сходятся без конфликтов,
+        а удаление операции день активным быть не перестаёт.
+
+        **Проверка даты.** Сервер отклоняет (400) дату, которая позже времени сервера
+        больше чем на сутки (защита от накрутки серии часами устройства). Даты в прошлом
+        принимаются: пользователь мог работать офлайн несколько дней.
+
+        Ответ 201, если день создан, и 200, если он уже был (возвращается результат слияния).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivityDayRequest'
+      responses:
+        '200':
+          description: День уже существовал, возвращён результат слияния
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityDay'
+        '201':
+          description: Активный день создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityDay'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /xp-events:
+    get:
+      tags: [Gamification]
+      operationId: listXpEvents
+      summary: Получить журнал начисления очков
+      description: |
+        Журнал неизменяем (очки только прибавляются), поэтому дельта строится
+        по `createdAfter`. Результат отсортирован по `createdAt` по возрастанию.
+      parameters:
+        - $ref: '#/components/parameters/CreatedAfter'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Страница событий
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XpEventPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /xp-events/{id}:
+    parameters:
+      - $ref: '#/components/parameters/XpEventId'
+
+    put:
+      tags: [Gamification]
+      operationId: createXpEvent
+      summary: Записать начисление очков (идемпотентно)
+      description: |
+        Событие неизменяемо. Если запись с таким `id` уже есть, возвращается она же
+        со статусом 200, а тело запроса игнорируется.
+
+        Итоговые очки определяет сервер (`GET /progress`): он может не засчитать лишнее,
+        например больше 5 операций в день или повтор одной и той же вехи или достижения
+        с другого устройства (см. `reasonRef`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/XpEventRequest'
+      responses:
+        '200':
+          description: Событие с таким `id` уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XpEvent'
+        '201':
+          description: Событие записано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/XpEvent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Этот `id` занят другим пользователем (`ID_CONFLICT`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: ID_CONFLICT
+                message: Идентификатор уже используется
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /achievements/{code}:
+    parameters:
+      - $ref: '#/components/parameters/AchievementCodeParam'
+
+    put:
+      tags: [Gamification]
+      operationId: putAchievement
+      summary: Сообщить о полученном достижении (идемпотентно)
+      description: |
+        Достижение ключуется по коду. Если оно уже есть, побеждает **более ранняя**
+        дата получения, и возвращается итоговая запись. Список полученных достижений
+        отдаётся в составе `GET /progress`, отдельного списка нет.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AchievementRequest'
+      responses:
+        '200':
+          description: Достижение уже было, возвращена запись с более ранней датой
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Achievement'
+        '201':
+          description: Достижение записано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Achievement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /progress:
+    get:
+      tags: [Gamification]
+      operationId: getProgress
+      summary: Получить итоговое состояние игры
+      description: |
+        Сервер пересчитывает серию, очки, уровень и достижения по всем данным
+        пользователя и возвращает итог, клиент его принимает. Вызывается последним
+        блоком синхронизации.
+
+        Серия считается по правилам из файла 04: один пропуск прощается, запас
+        восстанавливается после 7 активных дней подряд. Сегодняшний день пропущенным
+        не считается, пока не закончился, поэтому нужен параметр `today`.
+      parameters:
+        - $ref: '#/components/parameters/Today'
+      responses:
+        '200':
+          description: Итоговое состояние
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Progress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  # ==========================================================================
+  # FORECAST
+  # ==========================================================================
+  /forecast:
+    get:
+      tags: [Forecast]
+      operationId: getForecast
+      summary: Получить прогноз остатка и советы
+      description: |
+        Отвечает на вопрос «хватит ли денег до следующего поступления и что делать,
+        если нет». Прогноз считается отдельно по каждой валюте (конвертации нет).
+
+        **Перед вызовом** клиент синхронизирует данные, чтобы сервер видел свежие операции.
+
+        **Доступность.** Ответ всегда 200. Если прогноз построить нельзя, это видно
+        в поле `availability`, а `forecast` равен `null`:
+        - `AVAILABLE`: прогноз есть;
+        - `COLLECTING_DATA`: меньше 3 активных дней, в `dataProgress` прогресс
+          («Собираем улики: ещё N дней»);
+        - `NO_INCOME_DATE`: пользователь не указал дату поступления;
+        - `INCOME_DATE_PASSED`: дата прошла, клиент просит указать новую;
+        - `NO_ACCOUNTS`: нет подходящих счетов в этой валюте (нет совсем, все удалены
+          или все выключены из прогноза).
+
+        **Отрицательный остаток** даёт `AVAILABLE` со статусом `RED`.
+
+        **Числа и тексты.** Числа считаются по правилам и статистической моделью
+        (см. файл 03), тексты советов формулирует языковая модель по уже готовым
+        числам. Если генерация текстов не удалась, сервер всё равно отдаёт числа,
+        а `advices` будет пустым (клиент оставляет последние сохранённые советы).
+
+        **Округление** до 50 или 100 единиц для показа пользователю делает клиент,
+        сервер отдаёт точные значения.
+      parameters:
+        - name: currency
+          in: query
+          required: true
+          description: Валюта, для которой нужен прогноз
+          schema:
+            $ref: '#/components/schemas/CurrencyCode'
+        - $ref: '#/components/parameters/Today'
+        - name: language
+          in: query
+          required: false
+          description: Язык текстов советов
+          schema:
+            type: string
+            enum: [ru, en]
+            default: ru
+        - name: includeAdvices
+          in: query
+          required: false
+          description: |
+            Генерировать ли тексты советов. Клиент передаёт `false`, если советы
+            отключены в настройках (тогда показываются только числа).
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Прогноз или причина, по которой его нет
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForecastResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /forecast/advices/{adviceId}/feedback:
+    parameters:
+      - $ref: '#/components/parameters/AdviceId'
+
+    put:
+      tags: [Forecast]
+      operationId: rateAdvice
+      summary: Оценить совет («Полезно» или «Нет»)
+      description: |
+        Оценка сохраняется на устройстве и отправляется при синхронизации. Повторный вызов
+        заменяет предыдущую оценку (последняя побеждает). Нужна для улучшения советов.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdviceFeedbackRequest'
+      responses:
+        '204':
+          description: Оценка сохранена
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Совет не найден или устарел (`NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: NOT_FOUND
+                message: Совет не найден
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+
+  # ==========================================================================
+  # SECURITY
+  # ==========================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Токен доступа из `/auth/login`, `/auth/register` или `/auth/refresh`.
+        Заголовок: `Authorization: Bearer <accessToken>`.
+
+  # ==========================================================================
+  # ПЕРЕИСПОЛЬЗУЕМЫЕ ПАРАМЕТРЫ
+  # ==========================================================================
+  parameters:
+    AccountId:
+      name: id
+      in: path
+      required: true
+      description: Идентификатор счёта (UUID, создаётся приложением)
+      schema:
+        type: string
+        format: uuid
+      example: 3f2b8c1e-7a4d-4c0e-9a55-1d2e6f7b8a90
+
+    UpdatedAfter:
+      name: updatedAfter
+      in: query
+      required: false
+      description: |
+        Вернуть записи, изменённые на сервере не раньше этого момента (`>=`),
+        включая удалённые. Клиент передаёт максимальный `updatedAt` из прошлой
+        синхронизации. Строгое `>` не используется, чтобы не потерять записи с одинаковым
+        временем; возможные повторы безопасны, так как слияние идемпотентно.
+      schema:
+        type: string
+        format: date-time
+      example: '2026-10-14T09:30:00Z'
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Максимум записей на странице
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: |
+        Непрозрачный курсор следующей страницы, значение `nextCursor`
+        из предыдущего ответа. Клиент его не разбирает.
+      schema:
+        type: string
+
+    CreatedAfter:
+      name: createdAfter
+      in: query
+      required: false
+      description: |
+        Вернуть записи, созданные на сервере не раньше этого момента (`>=`).
+        Для неизменяемых сущностей (корректировки баланса).
+      schema:
+        type: string
+        format: date-time
+      example: '2026-10-14T09:30:00Z'
+
+    AccountIdFilter:
+      name: accountId
+      in: query
+      required: false
+      description: Только записи этого счёта (UUID)
+      schema:
+        type: string
+        format: uuid
+
+    From:
+      name: from
+      in: query
+      required: false
+      description: |
+        Начало периода по `transactionDate`, включительно. Это момент времени, а не дата:
+        день операции определяется по часовому поясу устройства, поэтому клиент сам
+        переводит границу своих суток в UTC.
+      schema:
+        type: string
+        format: date-time
+      example: '2026-10-01T00:00:00+03:00'
+
+    To:
+      name: to
+      in: query
+      required: false
+      description: Конец периода по `transactionDate`, не включительно (момент времени)
+      schema:
+        type: string
+        format: date-time
+      example: '2026-11-01T00:00:00+03:00'
+
+    TransactionId:
+      name: id
+      in: path
+      required: true
+      description: Идентификатор операции (UUID, создаётся приложением)
+      schema:
+        type: string
+        format: uuid
+      example: 8d9c2a40-5b1f-4e6a-b3d7-0a1c9e2f4b61
+
+    BalanceAdjustmentId:
+      name: id
+      in: path
+      required: true
+      description: Идентификатор корректировки (UUID, создаётся приложением)
+      schema:
+        type: string
+        format: uuid
+      example: c1a7e5f2-9b34-4d08-8f6e-2b7d0a9c3e15
+
+    ActivityDate:
+      name: date
+      in: path
+      required: true
+      description: Дата активного дня по часовому поясу устройства (`YYYY-MM-DD`)
+      schema:
+        type: string
+        format: date
+      example: '2026-10-14'
+
+    XpEventId:
+      name: id
+      in: path
+      required: true
+      description: Идентификатор события начисления очков (UUID, создаётся приложением)
+      schema:
+        type: string
+        format: uuid
+      example: 5b0e7d3a-2c81-4f9b-a6d4-7e3c1f8a2b09
+
+    AchievementCodeParam:
+      name: code
+      in: path
+      required: true
+      description: Код достижения
+      schema:
+        $ref: '#/components/schemas/AchievementCode'
+
+    AdviceId:
+      name: adviceId
+      in: path
+      required: true
+      description: Идентификатор совета из ответа `GET /forecast`
+      schema:
+        type: string
+        format: uuid
+
+    Today:
+      name: today
+      in: query
+      required: true
+      description: |
+        Сегодняшняя дата по часовому поясу устройства (`YYYY-MM-DD`). Сервер часовой
+        пояс пользователя не знает, а граница суток нужна для серии и прогноза.
+      schema:
+        type: string
+        format: date
+      example: '2026-10-14'
+
+  # ==========================================================================
+  # ПЕРЕИСПОЛЬЗУЕМЫЕ ОТВЕТЫ ОБ ОШИБКАХ
+  # ==========================================================================
+  responses:
+    BadRequest:
+      description: |
+        Некорректный запрос (`VALIDATION_ERROR`): неверный формат данных, не заполнено
+        обязательное поле, значение вне допустимых границ. В `details` указаны поля.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: VALIDATION_ERROR
+            message: Проверьте введённые данные
+            details:
+              - field: initialBalance
+                message: Допускается не более 9 цифр до запятой и 2 после
+
+    Unauthorized:
+      description: |
+        Не авторизован (`UNAUTHORIZED`): токен не передан, недействителен или истёк.
+        Клиент пробует обновить токен через `/auth/refresh`, и только если не вышло,
+        возвращает пользователя на экран входа.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: UNAUTHORIZED
+            message: Требуется вход в аккаунт
+
+    NotFound:
+      description: Запись не найдена (`NOT_FOUND`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: NOT_FOUND
+            message: Запись не найдена
+
+    InternalError:
+      description: Внутренняя ошибка сервера (`INTERNAL_ERROR`). Запрос можно повторить.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INTERNAL_ERROR
+            message: Что-то пошло не так, попробуйте позже
+
+  # ==========================================================================
+  # СХЕМЫ
+  # ==========================================================================
+  schemas:
+
+    # --- Общие типы ---------------------------------------------------------
+    CurrencyCode:
+      type: string
+      description: Код валюты. Конвертации нет, суммы разных валют не смешиваются.
+      enum: [RUB, USD, EUR, CNY]
+      example: RUB
+
+    MoneyAmount:
+      type: string
+      description: |
+        Неотрицательная сумма строкой: до 9 цифр в целой части и до 2 знаков
+        после точки. В ответах сервера всегда ровно 2 знака (`"1000.00"`).
+        Клиент должен приводить сумму к 2 знакам перед отправкой (не `"1000"`, а `"1000.00"`).
+      pattern: '^\d{1,9}(\.\d{1,2})?$'
+      example: '1000.00'
+
+    Emoji:
+      type: string
+      description: Эмодзи-иконка
+      minLength: 1
+      maxLength: 10
+      example: 💵
+
+    # --- Ошибки -------------------------------------------------------------
+    Error:
+      type: object
+      description: |
+        Единый формат ошибки. Клиент показывает пользователю собственный текст по `code`,
+        `message` предназначен для логов и отладки.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Машиночитаемый код ошибки
+          enum:
+            - VALIDATION_ERROR
+            - UNAUTHORIZED
+            - INVALID_CREDENTIALS
+            - FORBIDDEN
+            - NOT_FOUND
+            - EMAIL_TAKEN
+            - ENTITY_DELETED
+            - ID_CONFLICT
+            - INTERNAL_ERROR
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          description: Описание ошибки
+          example: Проверьте введённые данные
+        details:
+          type: array
+          description: Ошибки по отдельным полям (для `VALIDATION_ERROR`)
+          items:
+            $ref: '#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+          description: Имя поля запроса
+          example: initialBalance
+        message:
+          type: string
+          example: Допускается не более 9 цифр до запятой и 2 после
+
+    # --- Пагинация ----------------------------------------------------------
+    # Каждая страница определяется своей схемой (AccountPage и т.д.),
+    # чтобы в items был конкретный тип. Поле nextCursor общее по смыслу.
+
+    # --- Auth ---------------------------------------------------------------
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: detective@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 128
+          example: s3cretPassw0rd
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: Шерлок
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: detective@example.com
+        password:
+          type: string
+          format: password
+          example: s3cretPassw0rd
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    LogoutRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: Короткоживущий токен доступа
+        refreshToken:
+          type: string
+          description: Долгоживущий токен обновления (одноразовый, см. `/auth/refresh`)
+        expiresIn:
+          type: integer
+          description: Время жизни токена доступа, секунды
+          example: 900
+
+    User:
+      type: object
+      required: [id, email, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          example: detective@example.com
+        name:
+          type: string
+          example: Шерлок
+
+    AuthResponse:
+      type: object
+      required: [user, tokens]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        tokens:
+          $ref: '#/components/schemas/TokenPair'
+
+    # --- Accounts -----------------------------------------------------------
+    Account:
+      type: object
+      description: |
+        Счёт. Баланса в схеме нет: он считается как начальный баланс плюс доходы
+        минус расходы плюс корректировки.
+      required:
+        - id
+        - name
+        - emoji
+        - currency
+        - initialBalance
+        - includeInForecast
+        - createdAt
+        - updatedAt
+        - deletedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Основной счёт
+        emoji:
+          $ref: '#/components/schemas/Emoji'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        initialBalance:
+          $ref: '#/components/schemas/MoneyAmount'
+        includeInForecast:
+          type: boolean
+          description: Учитывать остаток счёта в прогнозе (например, выключить для накопительного)
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Когда запись создана на сервере
+        updatedAt:
+          type: string
+          format: date-time
+          description: |
+            Когда запись последний раз менялась на сервере. По этому полю
+            работает `updatedAfter`.
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Момент удаления, `null` для действующего счёта
+
+    AccountUpsertRequest:
+      type: object
+      required: [name, currency, initialBalance, modifiedAt]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Основной счёт
+        emoji:
+          allOf:
+            - $ref: '#/components/schemas/Emoji'
+          default: 💵
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        initialBalance:
+          $ref: '#/components/schemas/MoneyAmount'
+        includeInForecast:
+          type: boolean
+          default: true
+        modifiedAt:
+          type: string
+          format: date-time
+          description: |
+            Когда пользователь внёс это изменение на устройстве. Нужен для
+            разрешения конфликтов (побеждает более позднее изменение).
+          example: '2026-10-14T09:30:00Z'
+
+    AccountPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Курсор следующей страницы, `null`, если это последняя страница
+
+    # --- Деньги: дополнительные варианты ------------------------------------
+    PositiveMoneyAmount:
+      type: string
+      description: |
+        Сумма строго больше нуля: до 9 цифр в целой части и до 2 знаков после точки.
+        В ответах всегда ровно 2 знака.
+      pattern: '^(?!0+(\.0{1,2})?$)\d{1,9}(\.\d{1,2})?$'
+      example: '500.00'
+
+    SignedMoneyAmount:
+      type: string
+      description: |
+        Сумма со знаком, не равная нулю: до 9 цифр в целой части и до 2 знаков
+        после точки. Отрицательное значение уменьшает баланс, например `"-250.50"`.
+      pattern: '^(?!-?0+(\.0{1,2})?$)-?\d{1,9}(\.\d{1,2})?$'
+      example: '-250.50'
+
+    # --- Transactions -------------------------------------------------------
+    Transaction:
+      type: object
+      description: |
+        Операция. Вложенных объектов нет: только `accountId` и `categoryId`.
+        Тип (доход или расход) определяет статья.
+      required:
+        - id
+        - accountId
+        - categoryId
+        - amount
+        - transactionDate
+        - comment
+        - enteredAt
+        - createdAt
+        - updatedAt
+        - deletedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        categoryId:
+          type: string
+          format: uuid
+        amount:
+          $ref: '#/components/schemas/PositiveMoneyAmount'
+        transactionDate:
+          type: string
+          format: date-time
+          description: Дата и время операции, которые указал пользователь
+          example: '2026-10-14T09:30:00Z'
+        comment:
+          type: string
+          nullable: true
+          maxLength: 200
+          description: |
+            Название (комментарий), необязательное. Если пусто, в списке
+            показывается название статьи.
+          example: Кофе с утра
+        enteredAt:
+          type: string
+          format: date-time
+          description: |
+            Когда запись создана в приложении (по часам устройства). От этого момента, а не от
+            `transactionDate`, считается серия дней. Не меняется при редактировании.
+        createdAt:
+          type: string
+          format: date-time
+          description: Когда запись создана на сервере
+        updatedAt:
+          type: string
+          format: date-time
+          description: Когда запись последний раз менялась на сервере (для `updatedAfter`)
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Момент удаления, `null` для действующей операции
+
+    TransactionUpsertRequest:
+      type: object
+      required:
+        - accountId
+        - categoryId
+        - amount
+        - transactionDate
+        - enteredAt
+        - modifiedAt
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        categoryId:
+          type: string
+          format: uuid
+        amount:
+          $ref: '#/components/schemas/PositiveMoneyAmount'
+        transactionDate:
+          type: string
+          format: date-time
+          example: '2026-10-14T09:30:00Z'
+        comment:
+          type: string
+          nullable: true
+          maxLength: 200
+          example: Кофе с утра
+        enteredAt:
+          type: string
+          format: date-time
+          description: |
+            Момент создания записи в приложении. Для уже существующей операции
+            сервер это значение игнорирует.
+        modifiedAt:
+          type: string
+          format: date-time
+          description: |
+            Когда пользователь внёс это изменение на устройстве (для разрешения конфликтов).
+
+    TransactionPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Курсор следующей страницы, `null`, если это последняя страница
+
+    # --- Balance adjustments ------------------------------------------------
+    BalanceAdjustment:
+      type: object
+      description: Неизменяемая запись об изменении баланса счёта вне операций
+      required: [id, accountId, amount, occurredAt, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        amount:
+          $ref: '#/components/schemas/SignedMoneyAmount'
+        occurredAt:
+          type: string
+          format: date-time
+          description: Момент, когда пользователь скорректировал баланс на устройстве
+        createdAt:
+          type: string
+          format: date-time
+          description: Когда запись создана на сервере (для `createdAfter`)
+
+    BalanceAdjustmentRequest:
+      type: object
+      required: [accountId, amount, occurredAt]
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        amount:
+          $ref: '#/components/schemas/SignedMoneyAmount'
+        occurredAt:
+          type: string
+          format: date-time
+
+    BalanceAdjustmentPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BalanceAdjustment'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Курсор следующей страницы, `null`, если это последняя страница
+
+    # --- Categories ---------------------------------------------------------
+    CategoryNames:
+      type: object
+      description: Название статьи на поддерживаемых языках
+      required: [ru, en]
+      properties:
+        ru:
+          type: string
+          example: Зарплата
+        en:
+          type: string
+          example: Salary
+
+    Category:
+      type: object
+      required: [id, key, names, emoji, isIncome]
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          description: Стабильный машинный ключ статьи (не меняется между релизами)
+          example: salary
+        names:
+          $ref: '#/components/schemas/CategoryNames'
+        emoji:
+          $ref: '#/components/schemas/Emoji'
+        isIncome:
+          type: boolean
+          description: "`true` для статьи дохода, `false` для статьи расхода"
+          example: true
+
+    CategoryList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+
+    # --- Settings -----------------------------------------------------------
+    IncomeDateRule:
+      type: string
+      description: |
+        Правило даты следующего поступления:
+        - `CUSTOM_DATE`: конкретная дата (поле `date` обязательно);
+        - `MONTH_START`: начало каждого месяца;
+        - `MONTH_END`: конец каждого месяца.
+      enum: [CUSTOM_DATE, MONTH_START, MONTH_END]
+
+    IncomeDate:
+      type: object
+      description: |
+        Дата следующего поступления. Для `CUSTOM_DATE` поле `date` обязательно,
+        для `MONTH_START` и `MONTH_END` его быть не должно (иначе 400).
+      required: [rule]
+      properties:
+        rule:
+          $ref: '#/components/schemas/IncomeDateRule'
+        date:
+          type: string
+          format: date
+          nullable: true
+          description: Дата поступления (только для `CUSTOM_DATE`)
+          example: '2026-10-27'
+
+    Settings:
+      type: object
+      required: [incomeDate, updatedAt]
+      properties:
+        incomeDate:
+          nullable: true
+          description: Дата поступления. `null`, если пользователь пропустил этот шаг (прогноза нет).
+          allOf:
+            - $ref: '#/components/schemas/IncomeDate'
+        updatedAt:
+          type: string
+          format: date-time
+
+    SettingsUpdateRequest:
+      type: object
+      required: [incomeDate, modifiedAt]
+      properties:
+        incomeDate:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/IncomeDate'
+        modifiedAt:
+          type: string
+          format: date-time
+          description: Когда пользователь внёс изменение на устройстве
+
+    # --- Деньги: ещё один вариант -------------------------------------------
+    SignedMoneyAmountOrZero:
+      type: string
+      description: |
+        Сумма со знаком, ноль допустим: до 9 цифр в целой части и до 2 знаков
+        после точки. Используется там, где результат может быть и нулевым,
+        и отрицательным (например, ожидаемый остаток в прогнозе).
+      pattern: '^-?\d{1,9}(\.\d{1,2})?$'
+      example: '-1200.00'
+
+    # --- Activity days ------------------------------------------------------
+    ActivityDay:
+      type: object
+      description: |
+        День активности. Хранится только дата и тип активности, суммы и названия
+        операций серверу для этого не нужны.
+      required: [date, hasTransaction, hasNoSpendingMark, firstEnteredAt, updatedAt]
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2026-10-14'
+        hasTransaction:
+          type: boolean
+          description: В этот день внесена хотя бы одна операция
+        hasNoSpendingMark:
+          type: boolean
+          description: В этот день нажата отметка «Трат сегодня не было»
+        firstEnteredAt:
+          type: string
+          format: date-time
+          description: Момент первого ввода за этот день (самый ранний из присланных)
+        updatedAt:
+          type: string
+          format: date-time
+          description: Когда запись последний раз менялась на сервере (для `updatedAfter`)
+
+    ActivityDayRequest:
+      type: object
+      description: |
+        Хотя бы один из признаков должен быть `true`, иначе день не активный
+        и сообщать о нём нечего (400).
+      required: [hasTransaction, hasNoSpendingMark, firstEnteredAt]
+      properties:
+        hasTransaction:
+          type: boolean
+        hasNoSpendingMark:
+          type: boolean
+        firstEnteredAt:
+          type: string
+          format: date-time
+          description: Момент первого ввода за этот день по часам устройства
+
+    ActivityDayPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityDay'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Курсор следующей страницы, `null`, если это последняя страница
+
+    # --- XP events ----------------------------------------------------------
+    XpReason:
+      type: string
+      description: |
+        Причина начисления:
+        - `TRANSACTION`: внесена операция (+10, не больше 5 в день);
+        - `NO_SPENDING_MARK`: отметка «Трат не было» (+5);
+        - `STREAK_MILESTONE`: веха серии (3, 7, 14, 30, 100 дней);
+        - `ACHIEVEMENT`: полученное достижение (+20...100).
+      enum: [TRANSACTION, NO_SPENDING_MARK, STREAK_MILESTONE, ACHIEVEMENT]
+
+    XpEvent:
+      type: object
+      description: Запись журнала очков. Очки только прибавляются, ничего не отнимается.
+      required: [id, reason, reasonRef, amount, occurredAt, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        reason:
+          $ref: '#/components/schemas/XpReason'
+        reasonRef:
+          type: string
+          nullable: true
+          description: |
+            Уточнение причины: для `STREAK_MILESTONE` число дней (`"7"`), для `ACHIEVEMENT`
+            код достижения, для остальных `null`. По паре (`reason`, `reasonRef`) сервер
+            не засчитывает одну и ту же веху или достижение дважды, если два устройства
+            создали события с разными `id`.
+          example: '7'
+        amount:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          example: 10
+        occurredAt:
+          type: string
+          format: date-time
+          description: Когда очки начислены на устройстве
+        createdAt:
+          type: string
+          format: date-time
+          description: Когда запись создана на сервере (для `createdAfter`)
+
+    XpEventRequest:
+      type: object
+      required: [reason, amount, occurredAt]
+      properties:
+        reason:
+          $ref: '#/components/schemas/XpReason'
+        reasonRef:
+          type: string
+          nullable: true
+          example: '7'
+        amount:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          example: 10
+        occurredAt:
+          type: string
+          format: date-time
+
+    XpEventPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/XpEvent'
+        nextCursor:
+          type: string
+          nullable: true
+          description: Курсор следующей страницы, `null`, если это последняя страница
+
+    # --- Achievements -------------------------------------------------------
+    AchievementCode:
+      type: string
+      description: |
+        Код достижения. Стартовый набор из 11 (файл 04). Когда вернётся «расследование
+        недели», список пополнится.
+        - `FIRST_CLUE`: «Первая улика», первая операция;
+        - `STREAK_3`, `STREAK_7`, `STREAK_14`, `STREAK_30`, `STREAK_100`: серии
+          («Три дня в деле» и так далее);
+        - `BACK_IN_ACTION`: «Снова в строю», после обнуления серии набрано 3 дня подряд;
+        - `FRESH_CLUES`: «Свежие улики», 7 дней подряд все операции внесены в день совершения;
+        - `WITHIN_LIMIT`: «В рамках дела», неделя в пределах безопасного лимита (нужен прогноз);
+        - `REACHED_INCOME`: «Дотянул до поступления», без ухода в минус (нужен прогноз);
+        - `FORECASTER`: «Прогнозист», задана дата поступления.
+      enum:
+        - FIRST_CLUE
+        - STREAK_3
+        - STREAK_7
+        - STREAK_14
+        - STREAK_30
+        - STREAK_100
+        - BACK_IN_ACTION
+        - FRESH_CLUES
+        - WITHIN_LIMIT
+        - REACHED_INCOME
+        - FORECASTER
+
+    Achievement:
+      type: object
+      required: [code, earnedAt]
+      properties:
+        code:
+          $ref: '#/components/schemas/AchievementCode'
+        earnedAt:
+          type: string
+          format: date-time
+          description: Когда получено (самая ранняя из присланных дат)
+
+    AchievementRequest:
+      type: object
+      required: [earnedAt]
+      properties:
+        earnedAt:
+          type: string
+          format: date-time
+          description: Когда достижение получено на устройстве
+
+    # --- Progress -----------------------------------------------------------
+    Progress:
+      type: object
+      description: |
+        Итоговое состояние игры, пересчитанное сервером. Титулы уровней
+        (Стажёр, Следователь, Старший следователь, Детектив, Главный детектив)
+        клиент подставляет по номеру уровня.
+      required:
+        - currentStreak
+        - bestStreak
+        - graceDayAvailable
+        - totalXp
+        - level
+        - xpToNextLevel
+        - achievements
+      properties:
+        currentStreak:
+          type: integer
+          minimum: 0
+          description: Текущая серия, дней подряд
+          example: 12
+        bestStreak:
+          type: integer
+          minimum: 0
+          description: Лучшая серия за всё время
+          example: 21
+        graceDayAvailable:
+          type: boolean
+          description: Доступен ли «льготный день» (запас на один пропуск)
+        totalXp:
+          type: integer
+          minimum: 0
+          description: Сумма очков
+          example: 340
+        level:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Номер уровня (1 это Стажёр, 5 это Главный детектив)
+          example: 2
+        xpToNextLevel:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Сколько очков до следующего уровня, `null` на максимальном уровне
+          example: 160
+        achievements:
+          type: array
+          description: Полученные достижения
+          items:
+            $ref: '#/components/schemas/Achievement'
+
+    # --- Forecast -----------------------------------------------------------
+    ForecastAvailability:
+      type: string
+      description: |
+        Есть ли прогноз. Если не `AVAILABLE`, поле `forecast` равно `null`
+        (подробности в описании `GET /forecast`).
+      enum:
+        - AVAILABLE
+        - COLLECTING_DATA
+        - NO_INCOME_DATE
+        - INCOME_DATE_PASSED
+        - NO_ACCOUNTS
+
+    ForecastStatus:
+      type: string
+      description: |
+        Светофор:
+        - `GREEN`: ожидаемый остаток не меньше запаса на 3 дня расходов;
+        - `YELLOW`: остаток положительный, но меньше этого запаса, либо осторожный
+          сценарий уходит в минус;
+        - `RED`: ожидаемый остаток отрицательный.
+      enum: [GREEN, YELLOW, RED]
+
+    ForecastConfidence:
+      type: string
+      description: |
+        Уровень доверия:
+        - `PRELIMINARY`: предварительный (3-6 активных дней, широкий диапазон);
+        - `NORMAL`: обычный (от 7 активных дней за последние 14);
+        - `RELIABLE`: надёжный (от 21 активного дня).
+      enum: [PRELIMINARY, NORMAL, RELIABLE]
+
+    BalanceRange:
+      type: object
+      description: Ожидаемый остаток на дату поступления в трёх сценариях
+      required: [expected, cautious, optimistic]
+      properties:
+        expected:
+          $ref: '#/components/schemas/SignedMoneyAmountOrZero'
+        cautious:
+          $ref: '#/components/schemas/SignedMoneyAmountOrZero'
+        optimistic:
+          $ref: '#/components/schemas/SignedMoneyAmountOrZero'
+
+    SpendingRange:
+      type: object
+      description: Дневной расход в трёх сценариях
+      required: [expected, cautious, optimistic]
+      properties:
+        expected:
+          $ref: '#/components/schemas/MoneyAmount'
+        cautious:
+          $ref: '#/components/schemas/MoneyAmount'
+        optimistic:
+          $ref: '#/components/schemas/MoneyAmount'
+
+    CriticalCategory:
+      type: object
+      description: |
+        Статья, расходы которой за последние 14 дней выросли сильнее всего
+        по сравнению с предыдущими 14 днями (при равенстве побеждает та, у которой
+        больше сумма).
+      required: [categoryId, growthPercent, requiredCutAmount, requiredCutSharePercent]
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        growthPercent:
+          type: number
+          description: Рост расходов по статье, проценты
+          example: 40
+        requiredCutAmount:
+          allOf:
+            - $ref: '#/components/schemas/MoneyAmount'
+          nullable: true
+          description: |
+            На сколько нужно сократить расходы, чтобы дотянуть до поступления.
+            Только для статуса `RED`, иначе `null`.
+        requiredCutSharePercent:
+          type: number
+          nullable: true
+          description: |
+            Какую долю от расходов по этой статье составляет `requiredCutAmount`, проценты.
+            Только для статуса `RED`, иначе `null`.
+          example: 20
+
+    AdviceType:
+      type: string
+      description: |
+        Тип совета (шаблоны в файле 03, раздел 10):
+        `LIMIT` (лимит на день), `CATEGORY` (критичная статья), `TREND` (сравнение
+        с прошлой неделей), `POSITIVE` (идёте в плане), `DATA_COLLECTION` (внесите ещё дни).
+      enum: [LIMIT, CATEGORY, TREND, POSITIVE, DATA_COLLECTION]
+
+    Advice:
+      type: object
+      required: [id, type, text]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Идентификатор совета, нужен для оценки (`PUT .../feedback`)
+        type:
+          $ref: '#/components/schemas/AdviceType'
+        text:
+          type: string
+          description: Готовый текст на запрошенном языке
+          example: Чтобы дотянуть до 27 октября, тратьте не больше 1 240 ₽ в день
+
+    ForecastExplanation:
+      type: object
+      description: |
+        Входные числа для экрана «Почему такой прогноз». Подписи и оговорки
+        (например, что прогноз не знает о неучтённых крупных тратах) клиент
+        подставляет сам.
+      required: [currentBalance, dailySpending, historyDays]
+      properties:
+        currentBalance:
+          $ref: '#/components/schemas/SignedMoneyAmountOrZero'
+        dailySpending:
+          $ref: '#/components/schemas/SpendingRange'
+        historyDays:
+          type: integer
+          minimum: 0
+          maximum: 28
+          description: За сколько последних дней взята история расходов (не больше 28)
+          example: 28
+
+    ForecastResult:
+      type: object
+      required:
+        - status
+        - confidence
+        - incomeDate
+        - daysUntilIncome
+        - lastsUntil
+        - expectedBalance
+        - safeDailyLimit
+        - criticalCategory
+        - advices
+        - explanation
+        - calculatedAt
+      properties:
+        status:
+          $ref: '#/components/schemas/ForecastStatus'
+        confidence:
+          $ref: '#/components/schemas/ForecastConfidence'
+        incomeDate:
+          type: string
+          format: date
+          description: Дата следующего поступления, до которой считается прогноз
+          example: '2026-10-27'
+        daysUntilIncome:
+          type: integer
+          minimum: 1
+          example: 13
+        lastsUntil:
+          type: string
+          format: date
+          nullable: true
+          description: |
+            Дата, на которую хватит денег при ожидаемом расходе. `null`, если
+            дневной расход равен нулю (хватит с запасом).
+          example: '2026-10-24'
+        expectedBalance:
+          $ref: '#/components/schemas/BalanceRange'
+        safeDailyLimit:
+          allOf:
+            - $ref: '#/components/schemas/MoneyAmount'
+          description: |
+            Безопасный лимит на день (остаток за вычетом небольшого резерва, делённый
+            на число дней). Не меньше нуля.
+          example: '1240.00'
+        criticalCategory:
+          nullable: true
+          description: Критичная статья, `null`, если определить не удалось
+          allOf:
+            - $ref: '#/components/schemas/CriticalCategory'
+        advices:
+          type: array
+          description: |
+            2-3 совета. Пустой массив, если советы не запрашивались (`includeAdvices=false`)
+            или тексты не удалось сгенерировать.
+          items:
+            $ref: '#/components/schemas/Advice'
+        explanation:
+          $ref: '#/components/schemas/ForecastExplanation'
+        calculatedAt:
+          type: string
+          format: date-time
+          description: Время расчёта на сервере
+
+    DataProgress:
+      type: object
+      description: Прогресс сбора данных для первого прогноза («Собираем улики»)
+      required: [activeDays, required]
+      properties:
+        activeDays:
+          type: integer
+          minimum: 0
+          example: 1
+        required:
+          type: integer
+          description: Сколько активных дней нужно для первого прогноза
+          example: 3
+
+    ForecastResponse:
+      type: object
+      required: [availability, dataProgress, forecast]
+      properties:
+        availability:
+          $ref: '#/components/schemas/ForecastAvailability'
+        dataProgress:
+          nullable: true
+          description: Заполнено только при `COLLECTING_DATA`, иначе `null`
+          allOf:
+            - $ref: '#/components/schemas/DataProgress'
+        forecast:
+          nullable: true
+          description: Заполнено только при `AVAILABLE`, иначе `null`
+          allOf:
+            - $ref: '#/components/schemas/ForecastResult'
+
+    AdviceRating:
+      type: string
+      enum: [USEFUL, NOT_USEFUL]
+
+    AdviceFeedbackRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating:
+          $ref: '#/components/schemas/AdviceRating'
