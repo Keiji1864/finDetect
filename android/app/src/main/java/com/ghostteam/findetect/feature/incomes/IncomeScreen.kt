@@ -1,4 +1,4 @@
-package com.ghostteam.findetect.feature.income
+package com.ghostteam.findetect.feature.incomes
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
