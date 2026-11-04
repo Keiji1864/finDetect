@@ -35,17 +35,17 @@ import com.ghostteam.findetect.core.designsystem.component.*
 import com.ghostteam.findetect.core.designsystem.theme.*
 import com.ghostteam.findetect.core.navigation.BottomBar
 
-/** Геометрия основных экранов: шапка, независимый список и кнопка над навигацией. */
 @Composable
 fun PrototypeScreen(
     @StringRes title: Int,
     modifier: Modifier = Modifier,
     floatingAction: Boolean = false,
     action: (@Composable () -> Unit)? = null,
+    onSettings: () -> Unit = {},
     content: LazyListScope.() -> Unit,
 ) {
     Column(modifier.fillMaxSize().background(FinTheme.colors.paper).statusBarsPadding()) {
-        MainHeader(title)
+        MainHeader(title, onSettings)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(
                 state = rememberLazyListState(),
@@ -72,7 +72,7 @@ fun PrototypeScreen(
 }
 
 @Composable
-private fun MainHeader(@StringRes title: Int) {
+private fun MainHeader(@StringRes title: Int, onSettings: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 52.dp)
             .padding(start = FinDimens.screenPadding, end = 12.dp),
@@ -84,7 +84,7 @@ private fun MainHeader(@StringRes title: Int) {
             Icon(Icons.Outlined.BarChart, stringResource(R.string.ui_analytics), tint = FinTheme.colors.navy,
                 modifier = Modifier.size(FinDimens.iconSize))
         }
-        IconButton(onClick = {}, enabled = false, modifier = Modifier.size(40.dp)) {
+        IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Outlined.Settings, stringResource(R.string.ui_settings), tint = FinTheme.colors.navy,
                 modifier = Modifier.size(FinDimens.iconSize))
         }
@@ -171,11 +171,11 @@ private fun LegendRow(label: String, color: Color, percent: Int) {
 }
 
 @Composable
-fun TransactionsContent(isIncome: Boolean, onAdd: () -> Unit) {
+fun TransactionsContent(isIncome: Boolean, onAdd: () -> Unit, onSettings: () -> Unit = {}) {
     var period by rememberSaveable { mutableIntStateOf(0) }
     var showPeriod by rememberSaveable { mutableStateOf(false) }
     val periodLabels = listOf(R.string.ui_october, R.string.ui_september, R.string.ui_all_time)
-    PrototypeScreen(if (isIncome) R.string.ui_income else R.string.ui_expenses, action = {
+    PrototypeScreen(if (isIncome) R.string.ui_income else R.string.ui_expenses, onSettings = onSettings, action = {
         FinButton(stringResource(if (isIncome) R.string.ui_add_income else R.string.ui_add_expense), onAdd)
     }) {
         item(key = "summary") {

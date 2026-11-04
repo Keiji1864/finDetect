@@ -30,11 +30,15 @@ import com.ghostteam.findetect.core.navigation.Destination
 import com.ghostteam.findetect.feature.prototype.*
 
 @Composable
-fun HomeScreen(onAddTransaction: () -> Unit = {}) {
-    PrototypeScreen(R.string.ui_home, floatingAction = true, action = {
+fun HomeScreen(
+    onAddTransaction: () -> Unit = {},
+    onOpenProfile: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+) {
+    PrototypeScreen(R.string.ui_home, floatingAction = true, onSettings = onOpenSettings, action = {
         FinButton(stringResource(R.string.ui_add_transaction), onAddTransaction)
     }) {
-        item(key = "profile") { ProfileCard() }
+        item(key = "profile") { ProfileCard(onOpenProfile) }
         item(key = "streak") { StreakCard() }
         item(key = "today") { TodayCard() }
         item(key = "advice") {
@@ -65,8 +69,8 @@ fun HomeScreen(onAddTransaction: () -> Unit = {}) {
 }
 
 @Composable
-private fun ProfileCard() {
-    FinCard {
+private fun ProfileCard(onClick: () -> Unit) {
+    FinCard(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             UiIconTile(Icons.Outlined.PersonOutline)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

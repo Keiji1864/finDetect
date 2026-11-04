@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
+import androidx.compose.ui.text.TextStyle
 
 /**
  * App bar (DESIGN.md 5.10)
@@ -49,6 +50,7 @@ fun FinTopBar(
     title: String,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
+    titleStyle: TextStyle = FinTheme.typography.heading,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
@@ -74,7 +76,7 @@ fun FinTopBar(
         }
         Text(
             text = title,
-            style = FinTheme.typography.heading,
+            style = titleStyle,
             color = FinTheme.colors.navy,
             modifier = Modifier.weight(1f),
             maxLines = 1,

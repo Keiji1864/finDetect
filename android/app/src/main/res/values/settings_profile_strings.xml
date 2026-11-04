@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Настройки: главный экран -->
+    <string name="ui_settings_appearance">Оформление и язык</string>
+    <string name="ui_settings_appearance_hint">Светлая · Русский</string>
+    <string name="ui_settings_currency">Валюта</string>
+    <string name="ui_settings_currency_hint">Российский рубль</string>
+    <string name="ui_settings_security">Безопасность</string>
+    <string name="ui_settings_security_hint">PIN-код включён</string>
+    <string name="ui_settings_reminders">Напоминания</string>
+    <string name="ui_settings_reminders_hint">Каждый день в 20:00</string>
+    <string name="ui_settings_gamification">Игровые элементы</string>
+    <string name="ui_settings_gamification_hint">Серии дней и достижения</string>
+
+    <!-- Оформление и язык -->
+    <string name="ui_theme">Тема</string>
+    <string name="ui_language">Язык</string>
+    <string name="ui_theme_light">Светлая</string>
+    <string name="ui_theme_dark">Тёмная</string>
+    <string name="ui_theme_system">Системная</string>
+    <string name="ui_language_ru">Русский</string>
+    <string name="ui_language_en">English</string>
+    <string name="ui_preview">Предпросмотр</string>
+    <string name="ui_preview_hint">Светлый фон, тёмно-синий текст и жёлтые акценты</string>
+
+    <!-- Валюта отображения -->
+    <string name="ui_currency_title">Валюта отображения</string>
+    <string name="ui_currency_rub">RUB</string>
+    <string name="ui_currency_rub_name">Российский рубль</string>
+    <string name="ui_currency_usd">USD</string>
+    <string name="ui_currency_usd_name">Доллар США</string>
+    <string name="ui_currency_eur">EUR</string>
+    <string name="ui_currency_eur_name">Евро</string>
+    <string name="ui_currency_cny">CNY</string>
+    <string name="ui_currency_cny_name">Китайский юань</string>
+    <string name="ui_no_conversion">Без конвертации</string>
+    <string name="ui_no_conversion_hint">Показываем операции и счета только в выбранной валюте.</string>
+
+    <!-- Напоминания -->
+    <string name="ui_reminders_toggle">Напоминать об учёте</string>
+    <string name="ui_reminders_time">Время</string>
+    <string name="ui_reminders_period">Периодичность</string>
+    <string name="ui_reminders_choose_time">Время напоминания</string>
+    <string name="ui_notifications_permission">Разрешение на уведомления</string>
+    <string name="ui_notifications_permission_hint">Включите уведомления в настройках устройства</string>
+    <string name="ui_open_settings">Открыть настройки</string>
+    <string-array name="ui_reminder_times">
+        <item>18:00</item>
+        <item>19:00</item>
+        <item>20:00</item>
+        <item>21:00</item>
+        <item>22:00</item>
+    </string-array>
+    <string-array name="ui_reminder_periods">
+        <item>Ежедневно</item>
+        <item>По будням</item>
+        <item>Раз в неделю</item>
+    </string-array>
+
+    <!-- Игровые элементы -->
+    <string name="ui_gamification_about">Что входит</string>
+    <string name="ui_gamification_about_hint">Серия дней, очки, уровни, достижения и напоминания. Если выключить, эти блоки скроются.</string>
+
+    <!-- Безопасность / PIN -->
+    <string name="ui_pin_create">Придумайте PIN-код</string>
+    <string name="ui_pin_repeat">Повторите PIN-код</string>
+    <string name="ui_pin_hint">4 цифры. PIN-код хранится только на этом устройстве.</string>
+    <string name="ui_pin_delete">Удалить цифру</string>
+
+    <!-- Профиль -->
+    <string name="ui_profile_title">Профиль</string>
+    <string name="ui_profile_name_label">Имя</string>
+    <string name="ui_profile_name_value">Вилена</string>
+    <string name="ui_profile_email_label">Электронная почта</string>
+    <string name="ui_profile_email_value">name@example.com</string>
+    <string name="ui_change_password">Сменить пароль</string>
+    <string name="ui_change_password_hint">Последнее изменение: 12 октября</string>
+    <string name="ui_level">Уровень</string>
+    <string name="ui_level_hint">Следователь · 140 / 250 XP</string>
+    <string name="ui_sign_out">Выйти из аккаунта</string>
+    <string name="ui_delete_account">Удалить аккаунт</string>
+</resources>

@@ -8,8 +8,8 @@ import com.ghostteam.findetect.feature.prototype.MainScreenPreview
 import com.ghostteam.findetect.feature.prototype.TransactionsContent
 
 @Composable
-fun ExpensesScreen(onAddTransaction: () -> Unit = {}) {
-    TransactionsContent(isIncome = false, onAdd = onAddTransaction)
+fun ExpensesScreen(onAddTransaction: () -> Unit = {}, onOpenSettings: () -> Unit = {}) {
+    TransactionsContent(isIncome = false, onAdd = onAddTransaction, onSettings = onOpenSettings)
 }
 
 @Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
