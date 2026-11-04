@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_categories">Категории</string>
+    <string name="ui_chart_expense_days">Траты по дням</string>
+    <string name="ui_chart_income_days">Доходы по дням</string>
+    <string name="ui_chart_expense_months">Траты по месяцам</string>
+    <string name="ui_chart_income_months">Доходы по месяцам</string>
+    <string name="ui_analytics_chart_description">Демонстрационный столбчатый график.</string>
+    <string name="ui_share_of_expense">Доля в расходах: %1$d%%</string>
+    <string name="ui_share_of_income">Доля в доходах: %1$d%%</string>
+    <string-array name="ui_analytics_months">
+        <item>Май</item>
+        <item>Июн</item>
+        <item>Июл</item>
+        <item>Авг</item>
+        <item>Сен</item>
+        <item>Окт</item>
+    </string-array>
+</resources>
