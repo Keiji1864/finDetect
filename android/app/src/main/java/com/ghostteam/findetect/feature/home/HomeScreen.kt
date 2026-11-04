@@ -34,8 +34,9 @@ fun HomeScreen(
     onAddTransaction: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenAnalytics: () -> Unit = {},
 ) {
-    PrototypeScreen(R.string.ui_home, floatingAction = true, onSettings = onOpenSettings, action = {
+    PrototypeScreen(R.string.ui_home, floatingAction = true, onSettings = onOpenSettings, onAnalytics = onOpenAnalytics, action = {
         FinButton(stringResource(R.string.ui_add_transaction), onAddTransaction)
     }) {
         item(key = "profile") { ProfileCard(onOpenProfile) }

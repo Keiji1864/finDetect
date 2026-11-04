@@ -42,10 +42,11 @@ fun PrototypeScreen(
     floatingAction: Boolean = false,
     action: (@Composable () -> Unit)? = null,
     onSettings: () -> Unit = {},
+    onAnalytics: (() -> Unit)? = null,
     content: LazyListScope.() -> Unit,
 ) {
     Column(modifier.fillMaxSize().background(FinTheme.colors.paper).statusBarsPadding()) {
-        MainHeader(title, onSettings)
+        MainHeader(title, onSettings, onAnalytics)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(
                 state = rememberLazyListState(),
@@ -72,7 +73,7 @@ fun PrototypeScreen(
 }
 
 @Composable
-private fun MainHeader(@StringRes title: Int, onSettings: () -> Unit) {
+private fun MainHeader(@StringRes title: Int, onSettings: () -> Unit, onAnalytics: (() -> Unit)?) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 52.dp)
             .padding(start = FinDimens.screenPadding, end = 12.dp),
@@ -80,7 +81,7 @@ private fun MainHeader(@StringRes title: Int, onSettings: () -> Unit) {
     ) {
         Text(stringResource(title), Modifier.weight(1f), style = FinTheme.typography.title,
             color = FinTheme.colors.navy, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        IconButton(onClick = {}, enabled = false, modifier = Modifier.size(40.dp)) {
+        IconButton(onClick = { onAnalytics?.invoke() }, enabled = onAnalytics != null, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Outlined.BarChart, stringResource(R.string.ui_analytics), tint = FinTheme.colors.navy,
                 modifier = Modifier.size(FinDimens.iconSize))
         }
@@ -171,11 +172,11 @@ private fun LegendRow(label: String, color: Color, percent: Int) {
 }
 
 @Composable
-fun TransactionsContent(isIncome: Boolean, onAdd: () -> Unit, onSettings: () -> Unit = {}) {
+fun TransactionsContent(isIncome: Boolean, onAdd: () -> Unit, onSettings: () -> Unit = {}, onAnalytics: (() -> Unit)? = null) {
     var period by rememberSaveable { mutableIntStateOf(0) }
     var showPeriod by rememberSaveable { mutableStateOf(false) }
     val periodLabels = listOf(R.string.ui_october, R.string.ui_september, R.string.ui_all_time)
-    PrototypeScreen(if (isIncome) R.string.ui_income else R.string.ui_expenses, onSettings = onSettings, action = {
+    PrototypeScreen(if (isIncome) R.string.ui_income else R.string.ui_expenses, onSettings = onSettings, onAnalytics = onAnalytics, action = {
         FinButton(stringResource(if (isIncome) R.string.ui_add_income else R.string.ui_add_expense), onAdd)
     }) {
         item(key = "summary") {
@@ -223,7 +224,7 @@ fun TransactionsContent(isIncome: Boolean, onAdd: () -> Unit, onSettings: () -> 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PeriodSheet(selected: Int, onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
+fun PeriodSheet(selected: Int, onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
     FinBottomSheet(onDismiss = onDismiss) {
         Text(stringResource(R.string.ui_choose_period), style = FinTheme.typography.sheetTitle, color = FinTheme.colors.navy)
         listOf(R.string.ui_october, R.string.ui_september, R.string.ui_all_time).forEachIndexed { index, title ->
