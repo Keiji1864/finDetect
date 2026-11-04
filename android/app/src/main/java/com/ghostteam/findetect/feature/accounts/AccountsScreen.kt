@@ -18,8 +18,8 @@ import com.ghostteam.findetect.core.navigation.Destination
 import com.ghostteam.findetect.feature.prototype.*
 
 @Composable
-fun AccountsScreen(onOpenSettings: () -> Unit = {}) {
-    PrototypeScreen(R.string.ui_accounts, onSettings = onOpenSettings) {
+fun AccountsScreen(onOpenSettings: () -> Unit = {}, onOpenAnalytics: () -> Unit = {}) {
+    PrototypeScreen(R.string.ui_accounts, onSettings = onOpenSettings, onAnalytics = onOpenAnalytics) {
         item(key = "balance") {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(R.string.ui_total_balance), style = FinTheme.typography.caption, color = FinTheme.colors.muted)

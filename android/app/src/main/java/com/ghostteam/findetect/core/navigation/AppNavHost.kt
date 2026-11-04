@@ -7,9 +7,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.feature.accounts.AccountsScreen
+import com.ghostteam.findetect.feature.analytics.AnalyticsScreen
+import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
 import com.ghostteam.findetect.feature.expenses.ExpensesScreen
 import com.ghostteam.findetect.feature.home.HomeScreen
 import com.ghostteam.findetect.feature.incomes.IncomeScreen
@@ -23,7 +27,7 @@ import com.ghostteam.findetect.feature.settings.SettingsScreen
 import com.ghostteam.findetect.feature.transaction.AddTransactionMode
 import com.ghostteam.findetect.feature.transaction.AddTransactionSheet
 
-/** Нижняя навигация показывается только на четырёх главных вкладках (DESIGN.md 5.11). */
+/** Нижняя навигация показывается только на четырёх главных вкладках */
 private val mainRoutes = setOf(
     Destination.Home.route,
     Destination.Expenses.route,
@@ -43,6 +47,10 @@ fun AppNavHost() {
     val back: () -> Unit = { controller.popBackStack() }
     val open: (Destination) -> Unit = { controller.navigate(it.route) { launchSingleTop = true } }
     val openSettings = { open(Destination.Settings) }
+    /** Иконка графика в шапке: тип по умолчанию зависит от вкладки-источника. */
+    val openAnalytics: (Boolean) -> Unit = { income ->
+        controller.navigate(Destination.Analytics.createRoute(income)) { launchSingleTop = true }
+    }
 
     Scaffold(
         containerColor = FinTheme.colors.paper,
@@ -65,21 +73,58 @@ fun AppNavHost() {
                     onAddTransaction = { sheetMode = AddTransactionMode.Switchable.name },
                     onOpenProfile = { open(Destination.Profile) },
                     onOpenSettings = openSettings,
+                    onOpenAnalytics = { openAnalytics(false) },
                 )
             }
             composable(Destination.Expenses.route) {
                 ExpensesScreen(
                     onAddTransaction = { sheetMode = AddTransactionMode.Expense.name },
                     onOpenSettings = openSettings,
+                    onOpenAnalytics = { openAnalytics(false) },
                 )
             }
             composable(Destination.Incomes.route) {
                 IncomeScreen(
                     onAddTransaction = { sheetMode = AddTransactionMode.Income.name },
                     onOpenSettings = openSettings,
+                    onOpenAnalytics = { openAnalytics(true) },
                 )
             }
-            composable(Destination.Accounts.route) { AccountsScreen(onOpenSettings = openSettings) }
+            composable(Destination.Accounts.route) {
+                AccountsScreen(onOpenSettings = openSettings, onOpenAnalytics = { openAnalytics(false) })
+            }
+
+            composable(
+                Destination.Analytics.route,
+                arguments = listOf(navArgument(Destination.Analytics.ARG_TYPE) { type = NavType.StringType }),
+            ) { backStackEntry ->
+                val income = backStackEntry.arguments?.getString(Destination.Analytics.ARG_TYPE) == "income"
+                AnalyticsScreen(
+                    initialIncome = income,
+                    onBack = back,
+                    onOpenCategory = { isIncome, index, period ->
+                        controller.navigate(Destination.CategoryDetail.createRoute(isIncome, index, period)) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+            composable(
+                Destination.CategoryDetail.route,
+                arguments = listOf(
+                    navArgument(Destination.CategoryDetail.ARG_TYPE) { type = NavType.StringType },
+                    navArgument(Destination.CategoryDetail.ARG_INDEX) { type = NavType.IntType },
+                    navArgument(Destination.CategoryDetail.ARG_PERIOD) { type = NavType.IntType },
+                ),
+            ) { backStackEntry ->
+                val args = backStackEntry.arguments
+                CategoryDetailScreen(
+                    isIncome = args?.getString(Destination.CategoryDetail.ARG_TYPE) == "income",
+                    categoryIndex = args?.getInt(Destination.CategoryDetail.ARG_INDEX) ?: 0,
+                    initialPeriod = args?.getInt(Destination.CategoryDetail.ARG_PERIOD) ?: 0,
+                    onBack = back,
+                )
+            }
 
             composable(Destination.Profile.route) {
                 // TODO: onLogout -> экран входа (Destination.Login), когда он появится
