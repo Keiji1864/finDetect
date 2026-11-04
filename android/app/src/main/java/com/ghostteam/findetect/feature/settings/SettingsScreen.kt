@@ -2,13 +2,17 @@ package com.ghostteam.findetect.feature.settings
 
 import android.content.res.Configuration
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -18,12 +22,9 @@ import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.feature.prototype.UiIconTile
 
-/**
- * Настройки (Figma 07): пять строк, каждая ведёт на свой подэкран.
- * Выхода из аккаунта здесь нет, он только в Профиле.
- */
 @Composable
 fun SettingsScreen(
+    onLogout: () -> Unit = {},
     onBack: () -> Unit = {},
     onOpenAppearance: () -> Unit = {},
     onOpenCurrency: () -> Unit = {},
@@ -31,12 +32,51 @@ fun SettingsScreen(
     onOpenReminders: () -> Unit = {},
     onOpenGamification: () -> Unit = {},
 ) {
-    FinSubScreen(title = stringResource(R.string.ui_settings), onBack = onBack) {
-        SettingsRow(R.string.ui_settings_appearance, R.string.ui_settings_appearance_hint, Icons.Outlined.Settings, onOpenAppearance)
-        SettingsRow(R.string.ui_settings_currency, R.string.ui_settings_currency_hint, Icons.Outlined.Payments, onOpenCurrency)
-        SettingsRow(R.string.ui_settings_security, R.string.ui_settings_security_hint, Icons.Outlined.Lock, onOpenSecurity)
-        SettingsRow(R.string.ui_settings_reminders, R.string.ui_settings_reminders_hint, Icons.Outlined.CalendarMonth, onOpenReminders)
-        SettingsRow(R.string.ui_settings_gamification, R.string.ui_settings_gamification_hint, Icons.Outlined.EmojiEvents, onOpenGamification)
+    FinSubScreen(
+        title = stringResource(R.string.ui_settings),
+        onBack = onBack
+    ) {
+        SettingsRow(
+            R.string.ui_settings_appearance,
+            R.string.ui_settings_appearance_hint,
+            Icons.Outlined.Settings,
+            onOpenAppearance
+        )
+
+        SettingsRow(
+            R.string.ui_settings_currency,
+            R.string.ui_settings_currency_hint,
+            Icons.Outlined.Payments,
+            onOpenCurrency
+        )
+
+        SettingsRow(
+            R.string.ui_settings_security,
+            R.string.ui_settings_security_hint,
+            Icons.Outlined.Lock,
+            onOpenSecurity
+        )
+
+        SettingsRow(
+            R.string.ui_settings_reminders,
+            R.string.ui_settings_reminders_hint,
+            Icons.Outlined.CalendarMonth,
+            onOpenReminders
+        )
+
+        SettingsRow(
+            R.string.ui_settings_gamification,
+            R.string.ui_settings_gamification_hint,
+            Icons.Outlined.EmojiEvents,
+            onOpenGamification
+        )
+
+        OutlinedButton(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Выйти из аккаунта")
+        }
     }
 }
 
@@ -50,12 +90,28 @@ private fun SettingsRow(
     FinRow(
         title = stringResource(title),
         subtitle = stringResource(subtitle),
-        leading = { UiIconTile(icon) },
-        onClick = onClick,
+        leading = {
+            UiIconTile(icon)
+        },
+        onClick = onClick
     )
 }
 
-@Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
-@Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    widthDp = 412,
+    heightDp = 892
+)
+@Preview(
+    showBackground = true,
+    widthDp = 360,
+    heightDp = 740,
+    uiMode = Configuration.UI_MODE_NIGHT_YES
+)
 @Composable
-private fun SettingsScreenPreview() { FinDetectTheme { SettingsScreen() } }
+private fun SettingsScreenPreview() {
+    FinDetectTheme {
+        SettingsScreen()
+    }
+}
