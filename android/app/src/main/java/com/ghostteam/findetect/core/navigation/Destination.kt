@@ -1,6 +1,7 @@
 package com.ghostteam.findetect.core.navigation
 
 sealed class Destination(val route: String) {
+    data object Home : Destination("home")
     data object Expenses : Destination("expenses")
     data object Incomes : Destination("incomes")
     data object Accounts : Destination("accounts")

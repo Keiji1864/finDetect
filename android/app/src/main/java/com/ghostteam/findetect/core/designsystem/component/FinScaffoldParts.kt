@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -103,11 +104,12 @@ fun FinTopBarIcon(
     )
 }
 
-/** Описание вкладки нижней навигации. Иконки — векторы из UI-kit (res/drawable), перекрашиваются кодом. */
+/** Вкладка с ресурсной иконкой или стандартным вектором Material. */
 data class FinTab(
     val route: String,
     val label: String,
-    @DrawableRes val iconRes: Int,
+    @DrawableRes val iconRes: Int? = null,
+    val icon: ImageVector? = null,
 )
 
 /** Нижняя навигация (DESIGN.md 5.11): 4 вкладки, высота 72, обводка сверху 1 dp, индикатор 28 x 3 yellow. */
@@ -142,12 +144,22 @@ fun FinBottomBar(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Icon(
-                        painter = painterResource(tab.iconRes),
-                        contentDescription = null,
-                        tint = if (active) c.navy else c.muted,
-                        modifier = Modifier.size(FinDimens.iconSize),
-                    )
+                    val tint = if (active) c.navy else c.muted
+                    if (tab.icon != null) {
+                        Icon(
+                            imageVector = tab.icon,
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.size(FinDimens.iconSize),
+                        )
+                    } else if (tab.iconRes != null) {
+                        Icon(
+                            painter = painterResource(tab.iconRes),
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.size(FinDimens.iconSize),
+                        )
+                    }
                     Text(
                         text = tab.label,
                         style = if (active) FinTheme.typography.captionMedium else FinTheme.typography.caption,

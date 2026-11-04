@@ -1,32 +1,18 @@
 package com.ghostteam.findetect.feature.incomes
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import com.ghostteam.findetect.core.navigation.Destination
+import com.ghostteam.findetect.feature.prototype.MainScreenPreview
+import com.ghostteam.findetect.feature.prototype.TransactionsContent
 
 @Composable
-fun IncomeScreen() {
-    Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp)
-    ) {
-        Text(
-            text = "Доходы",
-            style = MaterialTheme.typography.headlineSmall
-        )
-
-        Text(
-            text = "Доходы, всего: 0 ₽",
-            modifier = Modifier.padding(top = 12.dp)
-        )
-
-        Text(
-            text = "Пока нет доходов",
-            modifier = Modifier.padding(top = 24.dp)
-        )
-    }
+fun IncomeScreen(onAddTransaction: () -> Unit = {}) {
+    TransactionsContent(isIncome = true, onAdd = onAddTransaction)
 }
+
+@Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
+@Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun IncomeScreenPreview() { MainScreenPreview(Destination.Incomes.route) { IncomeScreen() } }

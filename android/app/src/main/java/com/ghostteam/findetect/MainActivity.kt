@@ -4,23 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
-import com.ghostteam.findetect.feature.expenses.ExpensesScreen
+import com.ghostteam.findetect.core.navigation.AppNavHost
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { FinDetectTheme { ExpensesScreen() } }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MainPreview() {
-    FinDetectTheme {
-        ExpensesScreen()
+        setContent { FinDetectTheme { AppNavHost() } }
     }
 }
