@@ -30,6 +30,7 @@ import com.ghostteam.findetect.core.designsystem.component.FinButtonStyle
 import com.ghostteam.findetect.core.designsystem.component.FinNotice
 import com.ghostteam.findetect.core.designsystem.component.FinRow
 import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
+import com.ghostteam.findetect.core.designsystem.component.FinSwitchPanel
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
@@ -54,7 +55,7 @@ fun RemindersSettingsScreen(onBack: () -> Unit = {}) {
     val dimmed = Modifier.alpha(if (enabled) 1f else 0.4f)
 
     FinSubScreen(title = stringResource(R.string.ui_settings_reminders), onBack = onBack) {
-        SettingsSwitchPanel(
+        FinSwitchPanel(
             title = stringResource(R.string.ui_reminders_toggle),
             checked = enabled,
             onCheckedChange = { enabled = it },

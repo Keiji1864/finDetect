@@ -11,6 +11,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.FinNotice
 import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
+import com.ghostteam.findetect.core.designsystem.component.FinSwitchPanel
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 
 /**
@@ -22,7 +23,7 @@ fun GamificationSettingsScreen(onBack: () -> Unit = {}) {
     var enabled by rememberSaveable { mutableStateOf(true) }
 
     FinSubScreen(title = stringResource(R.string.ui_settings_gamification), onBack = onBack) {
-        SettingsSwitchPanel(
+        FinSwitchPanel(
             title = stringResource(R.string.ui_settings_gamification),
             checked = enabled,
             onCheckedChange = { enabled = it },

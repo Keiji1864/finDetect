@@ -109,11 +109,13 @@ fun DisplayRow(
     icon: ImageVector,
     isIncome: Boolean = false,
     compact: Boolean = false,
+    onClick: (() -> Unit)? = null,
 ) {
     FinRow(
         title = stringResource(title),
         subtitle = stringResource(subtitle),
         compact = compact,
+        onClick = onClick,
         leading = { UiIconTile(icon) },
         trailing = {
             Text(stringResource(amount), style = FinTheme.typography.label,

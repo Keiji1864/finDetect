@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_acc_new_title">Новый счёт</string>
+    <string name="ui_acc_edit_title">Изменить счёт</string>
+    <string name="ui_acc_name_label">Название</string>
+    <string name="ui_acc_currency_label">Валюта</string>
+    <string name="ui_acc_currency_rub">Российский рубль · RUB</string>
+    <string name="ui_acc_balance_label">Начальный баланс</string>
+    <string name="ui_acc_zero_balance">0 ₽</string>
+    <string name="ui_acc_icon_label">Значок</string>
+    <string name="ui_acc_icon_cash">Купюры</string>
+    <string name="ui_acc_forecast">Учитывать в прогнозе</string>
+    <string name="ui_acc_delete">Удалить счёт</string>
+</resources>
