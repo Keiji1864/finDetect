@@ -2,7 +2,7 @@ openapi: 3.0.3
 
 info:
   title: ФинДетектив API
-  version: 1.1.0-draft
+  version: 1.2.0-draft
   description: |
     Серверный API мобильного приложения «ФинДетектив» (учёт доходов и расходов,
     ИИ-прогноз, геймификация).
@@ -20,6 +20,17 @@ info:
     - Деньги передаются строкой с точностью до 2 знаков, например `"1000.00"`.
     - Даты и время: ISO 8601, UTC (`2026-10-14T09:30:00Z`).
     - Пользователь определяется по токену, `userId` в запросах не передаётся.
+
+    **Изменения 1.2**
+    - Account, AccountUpsertRequest и Category используют iconId вместо прежнего
+      символьного значка. Поле iconId обязательно в полном PUT счёта. Клиент и
+      сервер обновляют DTO, начальные данные и локальные схемы согласованно.
+    - Иконки поставляются в клиентском SVG-наборе, отдельного upload/download API нет.
+    - IncomeDate поддерживает MONTHLY с dayOfMonth для «Каждый месяц» из макета.
+    - В актуальном UI кнопка «Совет полезен» отправляет USEFUL; NOT_USEFUL
+      сохранён для совместимости, отдельная кнопка в дизайне не показана.
+    - Методов изменения имени/почты, смены и восстановления пароля пока нет:
+      это открытые задачи интеграции профиля, а не реализованные возможности API.
 
     **Порядок синхронизации** (одна запись может ссылаться на другую, поэтому порядок важен):
     1. статьи (`GET /categories`);
@@ -53,7 +64,7 @@ info:
     передаётся `timeZone` (IANA, например `Europe/Moscow`). Для очков день события клиент
     передаёт сам (`localDate`), для активных дней дата в пути и есть ключ.
 
-    **Статус:** черновик 1.1. Открыты: восстановление пароля, пакетная отправка (batch),
+    **Статус:** черновик 1.2 от 10.11.2026. Открыты: восстановление пароля, пакетная отправка (batch),
     расследование недели и виджет (отложены, см. файлы 01 и 04). Смена валюты у счёта
     решена: разрешена только у счёта без операций и корректировок (см. `PUT /accounts/{id}`).
 
@@ -71,7 +82,7 @@ tags:
   - name: Transactions
     description: Операции (доходы и расходы)
   - name: BalanceAdjustments
-    description: Корректировки баланса счёта (правка баланса в форме счёта)
+    description: Корректировки через отдельную шторку «Баланс счёта»
   - name: Categories
     description: Справочник статей (категорий), заполняется на сервере
   - name: Profile
@@ -240,7 +251,7 @@ paths:
         - Без `updatedAfter` отдаются все счета (первая загрузка).
         - С `updatedAfter` отдаются только изменённые с этого момента.
         - **Удалённые счета тоже возвращаются** (`deletedAt` не null) вместе с названием,
-          эмодзи и валютой: операции удалённого счёта остаются в истории, и клиенту
+          iconId и валютой: операции удалённого счёта остаются в истории, и клиенту
           нужно знать, в какой валюте они учитываются и как подписать счёт «(удалён)».
         - Баланс в ответ не входит: он считается по истории (начальный баланс,
           операции, корректировки).
@@ -1350,12 +1361,34 @@ components:
       pattern: '^(0|[1-9]\d{0,8})(\.\d{1,2})?$'
       example: '1000.00'
 
-    Emoji:
+    IconId:
       type: string
-      description: Эмодзи-иконка
-      minLength: 1
-      maxLength: 10
-      example: 💵
+      description: |
+        Стабильный ключ векторной иконки из встроенного SVG-набора FinDetect.
+        Используется у счетов и статей. Передаётся ключ, а не SVG-разметка,
+        URL, Unicode-символ или имя Android-ресурса.
+        Клиент сопоставляет ключ локальному векторному ресурсу; неизвестный
+        новой версии сервера ключ отображает резервной иконкой wallet.
+        На клиенте поле рекомендуется декодировать строкой для совместимости
+        с расширением набора; сервер валидирует значения текущего каталога.
+      enum:
+        - wallet
+        - chart
+        - user
+        - gear
+        - basket
+        - coffee
+        - bus
+        - cash
+        - calendar
+        - trophy
+        - flame
+        - spark
+        - lock
+        - receipt
+        - plus
+        - check
+      example: wallet
 
     # --- Ошибки -------------------------------------------------------------
     Error:
@@ -1504,7 +1537,7 @@ components:
       required:
         - id
         - name
-        - emoji
+        - iconId
         - currency
         - initialBalance
         - includeInForecast
@@ -1521,8 +1554,8 @@ components:
           minLength: 1
           maxLength: 100
           example: Основной счёт
-        emoji:
-          $ref: '#/components/schemas/Emoji'
+        iconId:
+          $ref: '#/components/schemas/IconId'
         currency:
           $ref: '#/components/schemas/CurrencyCode'
         initialBalance:
@@ -1556,17 +1589,20 @@ components:
 
     AccountUpsertRequest:
       type: object
-      required: [name, currency, initialBalance, modifiedAt]
+      required: [name, iconId, currency, initialBalance, modifiedAt]
       properties:
         name:
           type: string
           minLength: 1
           maxLength: 100
           example: Основной счёт
-        emoji:
+        iconId:
           allOf:
-            - $ref: '#/components/schemas/Emoji'
-          default: 💳
+            - $ref: '#/components/schemas/IconId'
+          description: |
+            Обязателен при полном PUT. Для нового счёта клиент выбирает wallet
+            по умолчанию; сохранение остальных полей не должно сбрасывать значок.
+          example: wallet
         currency:
           $ref: '#/components/schemas/CurrencyCode'
         initialBalance:
@@ -1798,7 +1834,7 @@ components:
 
     Category:
       type: object
-      required: [id, key, names, emoji, isIncome, isArchived]
+      required: [id, key, names, iconId, isIncome, isArchived]
       properties:
         id:
           type: string
@@ -1809,8 +1845,8 @@ components:
           example: salary
         names:
           $ref: '#/components/schemas/CategoryNames'
-        emoji:
-          $ref: '#/components/schemas/Emoji'
+        iconId:
+          $ref: '#/components/schemas/IconId'
         isIncome:
           type: boolean
           description: "`true` для статьи дохода, `false` для статьи расхода"
@@ -1834,16 +1870,23 @@ components:
       type: string
       description: |
         Правило даты следующего поступления:
-        - `CUSTOM_DATE`: конкретная дата (поле `date` обязательно);
-        - `MONTH_START`: начало каждого месяца;
-        - `MONTH_END`: конец каждого месяца.
-      enum: [CUSTOM_DATE, MONTH_START, MONTH_END]
+        - CUSTOM_DATE: одноразовая дата, поле date обязательно;
+        - MONTHLY: каждый месяц в dayOfMonth (1-31); если такого дня нет,
+          используется последний день месяца, исходное число правила сохраняется;
+        - MONTH_START: начало каждого месяца;
+        - MONTH_END: конец каждого месяца.
+        MONTHLY соответствует варианту «Каждый месяц» в актуальном дизайне.
+        Регулярное правило вычисляет ближайшее будущее вхождение относительно
+        today; ожидаемый доход сам по себе не создаёт операцию.
+      enum: [CUSTOM_DATE, MONTHLY, MONTH_START, MONTH_END]
 
     IncomeDate:
       type: object
       description: |
-        Дата следующего поступления. Для `CUSTOM_DATE` поле `date` обязательно,
-        для `MONTH_START` и `MONTH_END` его быть не должно (иначе 400).
+        Настройка следующего дохода. CUSTOM_DATE требует только date,
+        MONTHLY — только dayOfMonth. Для MONTH_START/MONTH_END оба поля
+        отсутствуют. Неподходящие поля, включая null вместо отсутствия,
+        отклоняются с VALIDATION_ERROR.
       required: [rule]
       properties:
         rule:
@@ -1851,9 +1894,37 @@ components:
         date:
           type: string
           format: date
-          nullable: true
-          description: Дата поступления (только для `CUSTOM_DATE`)
+          description: Одноразовая дата (только CUSTOM_DATE)
           example: '2026-10-27'
+        dayOfMonth:
+          type: integer
+          minimum: 1
+          maximum: 31
+          description: Исходное число ежемесячного дохода (только MONTHLY)
+          example: 27
+      oneOf:
+        - properties:
+            rule:
+              type: string
+              enum: [CUSTOM_DATE]
+          required: [date]
+          not:
+            required: [dayOfMonth]
+        - properties:
+            rule:
+              type: string
+              enum: [MONTHLY]
+          required: [dayOfMonth]
+          not:
+            required: [date]
+        - properties:
+            rule:
+              type: string
+              enum: [MONTH_START, MONTH_END]
+          not:
+            anyOf:
+              - required: [date]
+              - required: [dayOfMonth]
 
     Settings:
       type: object
@@ -2290,7 +2361,7 @@ components:
     ForecastExplanation:
       type: object
       description: |
-        Входные числа для экрана «Почему такой прогноз». Подписи и оговорки
+        Входные числа для экрана «Как это работает». Подписи и оговорки
         (например, что прогноз не знает о неучтённых крупных тратах) клиент
         подставляет сам.
       required: [currentBalance, dailySpending, historyDays]
@@ -2411,3 +2482,4 @@ components:
       properties:
         rating:
           $ref: '#/components/schemas/AdviceRating'
+          
