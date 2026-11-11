@@ -14,7 +14,7 @@ import com.ghostteam.findetect.data.local.entity.TransactionEntity
 
 @Database(
     entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, AdjustmentEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
