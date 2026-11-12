@@ -3,6 +3,7 @@ package com.ghostteam.findetect.core.di
 import android.content.Context
 import androidx.room.Room
 import com.ghostteam.findetect.data.local.AppDatabase
+import com.ghostteam.findetect.data.local.migration.MIGRATION_1_2
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,11 +17,14 @@ import javax.inject.Singleton
 object DatabaseModule {
     @Provides @Singleton
     fun db(@ApplicationContext ctx: Context): AppDatabase =
-        Room.databaseBuilder(ctx, AppDatabase::class.java, "findetective.db").build()
+        Room.databaseBuilder(ctx, AppDatabase::class.java, "findetective.db")
+            .addMigrations(MIGRATION_1_2)
+            .build()
 
     @Provides
     fun accountDao(db: AppDatabase) = db.accountDao()
     @Provides fun transactionDao(db: AppDatabase) = db.transactionDao()
     @Provides fun categoryDao(db: AppDatabase) = db.categoryDao()
     @Provides fun adjustmentDao(db: AppDatabase) = db.adjustmentDao()
+    @Provides fun balanceDao(db: AppDatabase) = db.balanceDao()
 }
