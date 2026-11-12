@@ -5,6 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.ghostteam.findetect.data.local.dao.AccountDao
 import com.ghostteam.findetect.data.local.dao.AdjustmentDao
+import com.ghostteam.findetect.data.local.dao.BalanceDao
 import com.ghostteam.findetect.data.local.dao.CategoryDao
 import com.ghostteam.findetect.data.local.dao.TransactionDao
 import com.ghostteam.findetect.data.local.entity.AccountEntity
@@ -23,4 +24,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun categoryDao(): CategoryDao
     abstract fun transactionDao(): TransactionDao
     abstract fun adjustmentDao(): AdjustmentDao
+    abstract fun balanceDao(): BalanceDao
 }

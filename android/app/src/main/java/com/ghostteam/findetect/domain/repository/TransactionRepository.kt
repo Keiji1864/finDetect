@@ -12,7 +12,11 @@ interface TransactionRepository {
 
     suspend fun getById(id: String): Transaction?
 
-    suspend fun create(transaction: Transaction): Transaction
+    /**
+     * Checks the expected category type together with account/category availability before insertion.
+     * Expected validation failures throw TransactionCreationException; database failures propagate.
+     */
+    suspend fun create(transaction: Transaction, expectedIsIncome: Boolean): Transaction
 
     suspend fun update(transaction: Transaction): Transaction
 

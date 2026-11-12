@@ -10,6 +10,8 @@ import com.ghostteam.findetect.data.mapper.toEntity
 import com.ghostteam.findetect.data.mapper.toUpsertRequest
 import com.ghostteam.findetect.domain.model.SyncStatus
 import com.ghostteam.findetect.domain.model.Transaction
+import com.ghostteam.findetect.domain.model.TransactionCreationError
+import com.ghostteam.findetect.domain.model.TransactionCreationException
 import com.ghostteam.findetect.domain.model.TransactionFilter
 import com.ghostteam.findetect.domain.model.toMoneyAmount
 import com.ghostteam.findetect.domain.repository.TransactionRepository
@@ -49,22 +51,39 @@ class LocalTransactionRepository @Inject constructor(
 
     override suspend fun getById(id: String): Transaction? = transactionDao.getById(id)?.toDomain()
 
-    override suspend fun create(transaction: Transaction): Transaction = database.withTransaction {
-        require(transaction.id.isNotBlank()) { "A transaction ID is required" }
-        require(!transaction.isDeleted) { "A new transaction cannot be deleted" }
-        check(transactionDao.getById(transaction.id) == null) { "Transaction already exists" }
-        val account = requireNotNull(accountDao.getById(transaction.accountId)) { "Account does not exist" }
-        require(account.deletedAt == null) { "A new transaction requires an active account" }
-        val category = requireNotNull(categoryDao.getById(transaction.categoryId)) { "Category does not exist" }
-        require(!category.isArchived) { "A new transaction requires an available category" }
+    override suspend fun create(transaction: Transaction, expectedIsIncome: Boolean): Transaction = database.withTransaction {
+        if (transaction.id.isBlank()) throw TransactionCreationException(TransactionCreationError.INVALID_TRANSACTION_ID)
+        if (transaction.isDeleted) throw TransactionCreationException(TransactionCreationError.TRANSACTION_ALREADY_DELETED)
+        if (transaction.accountId.isBlank()) throw TransactionCreationException(TransactionCreationError.ACCOUNT_REQUIRED)
+        if (transaction.categoryId.isBlank()) throw TransactionCreationException(TransactionCreationError.CATEGORY_REQUIRED)
+        if (transaction.comment != null && transaction.comment.length > 200) {
+            throw TransactionCreationException(TransactionCreationError.COMMENT_TOO_LONG)
+        }
+        if (transactionDao.getById(transaction.id) != null) {
+            throw TransactionCreationException(TransactionCreationError.DUPLICATE_TRANSACTION_ID)
+        }
+        val account = accountDao.getById(transaction.accountId)
+            ?: throw TransactionCreationException(TransactionCreationError.ACCOUNT_NOT_FOUND)
+        if (account.deletedAt != null) throw TransactionCreationException(TransactionCreationError.ACCOUNT_DELETED)
+        val category = categoryDao.getById(transaction.categoryId)
+            ?: throw TransactionCreationException(TransactionCreationError.CATEGORY_NOT_FOUND)
+        if (category.isArchived) throw TransactionCreationException(TransactionCreationError.CATEGORY_ARCHIVED)
+        if (category.isIncome != expectedIsIncome) {
+            throw TransactionCreationException(TransactionCreationError.CATEGORY_TYPE_MISMATCH)
+        }
         val local = transaction.copy(
             modifiedAt = nextModifiedAt(),
             createdAt = null,
             updatedAt = null,
             syncStatus = SyncStatus.PENDING_CREATE,
         )
-        local.toUpsertRequest()
-        val entity = local.toEntity()
+        val entity = try {
+            local.toEntity()
+        } catch (error: ArithmeticException) {
+            throw TransactionCreationException(TransactionCreationError.INVALID_AMOUNT, error)
+        } catch (error: IllegalArgumentException) {
+            throw TransactionCreationException(TransactionCreationError.INVALID_AMOUNT, error)
+        }
         transactionDao.insert(entity)
         entity.toDomain()
     }

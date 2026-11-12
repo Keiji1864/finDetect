@@ -26,4 +26,5 @@ object DatabaseModule {
     @Provides fun transactionDao(db: AppDatabase) = db.transactionDao()
     @Provides fun categoryDao(db: AppDatabase) = db.categoryDao()
     @Provides fun adjustmentDao(db: AppDatabase) = db.adjustmentDao()
+    @Provides fun balanceDao(db: AppDatabase) = db.balanceDao()
 }
