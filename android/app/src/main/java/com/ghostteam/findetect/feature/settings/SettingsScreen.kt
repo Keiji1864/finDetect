@@ -1,15 +1,9 @@
 package com.ghostteam.findetect.feature.settings
 
 import android.content.res.Configuration
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.EmojiEvents
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Payments
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.ghostteam.findetect.R
@@ -32,11 +26,11 @@ fun SettingsScreen(
     onOpenGamification: () -> Unit = {},
 ) {
     FinSubScreen(title = stringResource(R.string.ui_settings), onBack = onBack) {
-        SettingsRow(R.string.ui_settings_appearance, R.string.ui_settings_appearance_hint, Icons.Outlined.Settings, onOpenAppearance)
-        SettingsRow(R.string.ui_settings_currency, R.string.ui_settings_currency_hint, Icons.Outlined.Payments, onOpenCurrency)
-        SettingsRow(R.string.ui_settings_security, R.string.ui_settings_security_hint, Icons.Outlined.Lock, onOpenSecurity)
-        SettingsRow(R.string.ui_settings_reminders, R.string.ui_settings_reminders_hint, Icons.Outlined.CalendarMonth, onOpenReminders)
-        SettingsRow(R.string.ui_settings_gamification, R.string.ui_settings_gamification_hint, Icons.Outlined.EmojiEvents, onOpenGamification)
+        SettingsRow(R.string.ui_settings_appearance, R.string.ui_settings_appearance_hint, R.drawable.ic_settings, onOpenAppearance)
+        SettingsRow(R.string.ui_settings_currency, R.string.ui_settings_currency_hint, R.drawable.ic_cash, onOpenCurrency)
+        SettingsRow(R.string.ui_settings_security, R.string.ui_settings_security_hint, R.drawable.ic_lock, onOpenSecurity)
+        SettingsRow(R.string.ui_settings_reminders, R.string.ui_settings_reminders_hint, R.drawable.ic_calendar, onOpenReminders)
+        SettingsRow(R.string.ui_settings_gamification, R.string.ui_settings_gamification_hint, R.drawable.ic_trophy, onOpenGamification)
     }
 }
 
@@ -44,7 +38,7 @@ fun SettingsScreen(
 private fun SettingsRow(
     @StringRes title: Int,
     @StringRes subtitle: Int,
-    icon: ImageVector,
+    @DrawableRes icon: Int,
     onClick: () -> Unit,
 ) {
     FinRow(

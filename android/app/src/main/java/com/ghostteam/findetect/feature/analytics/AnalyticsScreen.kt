@@ -1,19 +1,12 @@
 package com.ghostteam.findetect.feature.analytics
 
 import android.content.res.Configuration
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DirectionsBus
-import androidx.compose.material.icons.outlined.LocalCafe
-import androidx.compose.material.icons.outlined.MoreHoriz
-import androidx.compose.material.icons.outlined.Payments
-import androidx.compose.material.icons.outlined.Savings
-import androidx.compose.material.icons.outlined.ShoppingBasket
-import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -27,7 +20,6 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -103,7 +95,7 @@ internal fun PeriodSummary(total: Int, period: Int, onChipClick: () -> Unit) {
 
 internal val PeriodLabels = listOf(R.string.ui_october, R.string.ui_september, R.string.ui_all_time)
 
-internal class CategoryStat(@StringRes val name: Int, val icon: ImageVector, val amount: Int)
+internal class CategoryStat(@StringRes val name: Int, @DrawableRes val icon: Int, val amount: Int)
 
 internal class PeriodStats(
     val categories: List<CategoryStat>,
@@ -117,19 +109,19 @@ internal class PeriodStats(
     fun share(amount: Int): Int = if (total == 0) 0 else (amount * 100f / total).roundToInt()
 }
 
-private class CategoryDef(@StringRes val name: Int, val icon: ImageVector)
+private class CategoryDef(@StringRes val name: Int, @DrawableRes val icon: Int)
 
 private val expenseDefs = listOf(
-    CategoryDef(R.string.ui_groceries, Icons.Outlined.ShoppingBasket),
-    CategoryDef(R.string.ui_cafe, Icons.Outlined.LocalCafe),
-    CategoryDef(R.string.ui_transport, Icons.Outlined.DirectionsBus),
-    CategoryDef(R.string.ui_other, Icons.Outlined.MoreHoriz),
+    CategoryDef(R.string.ui_groceries, R.drawable.ic_basket),
+    CategoryDef(R.string.ui_cafe, R.drawable.ic_coffee),
+    CategoryDef(R.string.ui_transport, R.drawable.ic_bus),
+    CategoryDef(R.string.ui_other, R.drawable.ic_wallet),
 )
 private val incomeDefs = listOf(
-    CategoryDef(R.string.ui_salary, Icons.Outlined.Payments),
-    CategoryDef(R.string.ui_transfers, Icons.Outlined.SwapHoriz),
-    CategoryDef(R.string.ui_interest, Icons.Outlined.Savings),
-    CategoryDef(R.string.ui_other, Icons.Outlined.MoreHoriz),
+    CategoryDef(R.string.ui_salary, R.drawable.ic_cash),
+    CategoryDef(R.string.ui_transfers, R.drawable.ic_accounts),
+    CategoryDef(R.string.ui_interest, R.drawable.ic_spark),
+    CategoryDef(R.string.ui_other, R.drawable.ic_wallet),
 )
 
 // строки: октябрь, сентябрь, за всё время; столбцы: категории

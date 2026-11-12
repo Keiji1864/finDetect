@@ -1,9 +1,8 @@
 package com.ghostteam.findetect.feature.settings
 
 import android.content.res.Configuration
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -19,13 +18,13 @@ import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.feature.prototype.UiIconTile
 
-private data class CurrencyOption(@StringRes val code: Int, @StringRes val name: Int)
+private data class CurrencyOption(@StringRes val code: Int, @StringRes val name: Int, @DrawableRes val icon: Int)
 
 private val currencies = listOf(
-    CurrencyOption(R.string.ui_currency_rub, R.string.ui_currency_rub_name),
-    CurrencyOption(R.string.ui_currency_usd, R.string.ui_currency_usd_name),
-    CurrencyOption(R.string.ui_currency_eur, R.string.ui_currency_eur_name),
-    CurrencyOption(R.string.ui_currency_cny, R.string.ui_currency_cny_name),
+    CurrencyOption(R.string.ui_currency_rub, R.string.ui_currency_rub_name, R.drawable.ic_currency_rub),
+    CurrencyOption(R.string.ui_currency_usd, R.string.ui_currency_usd_name, R.drawable.ic_currency_usd),
+    CurrencyOption(R.string.ui_currency_eur, R.string.ui_currency_eur_name, R.drawable.ic_currency_eur),
+    CurrencyOption(R.string.ui_currency_cny, R.string.ui_currency_cny_name, R.drawable.ic_currency_cny),
 )
 
 @Composable
@@ -37,7 +36,7 @@ fun CurrencySettingsScreen(onBack: () -> Unit = {}) {
             FinRow(
                 title = stringResource(currency.code),
                 subtitle = stringResource(currency.name),
-                leading = { UiIconTile(Icons.Outlined.Payments) },
+                leading = { UiIconTile(currency.icon) },
                 onClick = { selected = index },
                 trailing = { FinRadio(selected = index == selected, onClick = null) },
             )

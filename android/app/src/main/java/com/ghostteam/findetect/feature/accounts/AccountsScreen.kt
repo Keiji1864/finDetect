@@ -5,9 +5,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,17 +36,17 @@ private val accountItems = listOf(
     AccountItem(
         key = "main",
         subtitle = R.string.ui_ruble_account,
-        sample = AccountSheetSample(R.string.ui_main_account, R.string.ui_main_balance, Icons.Outlined.AccountBalanceWallet, R.string.ui_wallet),
+        sample = AccountSheetSample(R.string.ui_main_account, R.string.ui_main_balance, R.drawable.ic_wallet, R.string.ui_wallet),
     ),
     AccountItem(
         key = "cash",
         subtitle = R.string.ui_wallet,
-        sample = AccountSheetSample(R.string.ui_cash, R.string.ui_cash_balance, Icons.Outlined.Payments, R.string.ui_acc_icon_cash),
+        sample = AccountSheetSample(R.string.ui_cash, R.string.ui_cash_balance, R.drawable.ic_cash, R.string.ui_acc_icon_cash),
     ),
     AccountItem(
         key = "savings",
         subtitle = R.string.ui_future,
-        sample = AccountSheetSample(R.string.ui_savings, R.string.ui_savings_balance, Icons.Outlined.AccountBalanceWallet, R.string.ui_wallet),
+        sample = AccountSheetSample(R.string.ui_savings, R.string.ui_savings_balance, R.drawable.ic_wallet, R.string.ui_wallet),
     ),
 )
 
