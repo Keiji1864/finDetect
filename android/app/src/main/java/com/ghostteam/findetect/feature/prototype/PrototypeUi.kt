@@ -1,29 +1,42 @@
 package com.ghostteam.findetect.feature.prototype
 
 import android.content.res.Configuration
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material.icons.outlined.Payments
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.ShoppingBasket
-import androidx.compose.material.icons.outlined.LocalCafe
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -31,8 +44,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.R
-import com.ghostteam.findetect.core.designsystem.component.*
-import com.ghostteam.findetect.core.designsystem.theme.*
+import com.ghostteam.findetect.core.designsystem.component.FinAdviceCard
+import com.ghostteam.findetect.core.designsystem.component.FinBottomSheet
+import com.ghostteam.findetect.core.designsystem.component.FinButton
+import com.ghostteam.findetect.core.designsystem.component.FinCard
+import com.ghostteam.findetect.core.designsystem.component.FinFloatingActionPanel
+import com.ghostteam.findetect.core.designsystem.component.FinIconTile
+import com.ghostteam.findetect.core.designsystem.component.FinPeriodChip
+import com.ghostteam.findetect.core.designsystem.component.FinRadio
+import com.ghostteam.findetect.core.designsystem.component.FinRow
+import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
+import com.ghostteam.findetect.core.designsystem.theme.FinDimens
+import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.core.navigation.BottomBar
 
 @Composable
@@ -43,10 +66,11 @@ fun PrototypeScreen(
     action: (@Composable () -> Unit)? = null,
     onSettings: () -> Unit = {},
     onAnalytics: (() -> Unit)? = null,
+    showLogo: Boolean = false,
     content: LazyListScope.() -> Unit,
 ) {
     Column(modifier.fillMaxSize().background(FinTheme.colors.paper).statusBarsPadding()) {
-        MainHeader(title, onSettings, onAnalytics)
+        MainHeader(title, onSettings, onAnalytics, showLogo)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(
                 state = rememberLazyListState(),
@@ -73,20 +97,31 @@ fun PrototypeScreen(
 }
 
 @Composable
-private fun MainHeader(@StringRes title: Int, onSettings: () -> Unit, onAnalytics: (() -> Unit)?) {
+private fun MainHeader(@StringRes title: Int, onSettings: () -> Unit, onAnalytics: (() -> Unit)?, showLogo: Boolean) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 52.dp)
             .padding(start = FinDimens.screenPadding, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(stringResource(title), Modifier.weight(1f), style = FinTheme.typography.title,
-            color = FinTheme.colors.navy, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (showLogo) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_findetective),
+                    contentDescription = stringResource(R.string.app_name),
+                    tint = FinTheme.colors.navy,
+                    modifier = Modifier.size(width = 104.dp, height = 22.dp),
+                )
+            }
+        } else {
+            Text(stringResource(title), Modifier.weight(1f), style = FinTheme.typography.title,
+                color = FinTheme.colors.navy, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
         IconButton(onClick = { onAnalytics?.invoke() }, enabled = onAnalytics != null, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Outlined.BarChart, stringResource(R.string.ui_analytics), tint = FinTheme.colors.navy,
+            Icon(painterResource(R.drawable.ic_chart), stringResource(R.string.ui_analytics), tint = FinTheme.colors.navy,
                 modifier = Modifier.size(FinDimens.iconSize))
         }
         IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Outlined.Settings, stringResource(R.string.ui_settings), tint = FinTheme.colors.navy,
+            Icon(painterResource(R.drawable.ic_settings), stringResource(R.string.ui_settings), tint = FinTheme.colors.navy,
                 modifier = Modifier.size(FinDimens.iconSize))
         }
     }
@@ -94,9 +129,9 @@ private fun MainHeader(@StringRes title: Int, onSettings: () -> Unit, onAnalytic
 
 /** Иконка в кремовой плитке из готовой дизайн-системы. */
 @Composable
-fun UiIconTile(icon: ImageVector, modifier: Modifier = Modifier) {
+fun UiIconTile(@DrawableRes icon: Int, modifier: Modifier = Modifier) {
     FinIconTile(modifier = modifier) {
-        Icon(icon, contentDescription = null, tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp))
+        Icon(painterResource(icon), contentDescription = null, tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp))
     }
 }
 
@@ -106,7 +141,7 @@ fun DisplayRow(
     @StringRes title: Int,
     @StringRes subtitle: Int,
     @StringRes amount: Int,
-    icon: ImageVector,
+    @DrawableRes icon: Int,
     isIncome: Boolean = false,
     compact: Boolean = false,
     onClick: (() -> Unit)? = null,
@@ -129,7 +164,7 @@ fun DisplayRow(
 fun CategoryChart(isIncome: Boolean) {
     val c = FinTheme.colors
     val categories = if (isIncome) listOf(R.string.ui_salary, R.string.ui_transfers, R.string.ui_interest, R.string.ui_other)
-        else listOf(R.string.ui_groceries, R.string.ui_cafe, R.string.ui_transport, R.string.ui_other)
+    else listOf(R.string.ui_groceries, R.string.ui_cafe, R.string.ui_transport, R.string.ui_other)
     val colors = listOf(c.yellow, c.navy, c.slate, c.cream)
     val description = stringResource(R.string.ui_chart_description)
     val percentages = listOf(50, 20, 15, 15)
@@ -202,20 +237,20 @@ fun TransactionsContent(isIncome: Boolean, onAdd: () -> Unit, onSettings: () -> 
         if (isIncome) {
             item(key = "salary") {
                 DisplayRow(R.string.ui_salary, R.string.ui_employer, R.string.ui_salary_amount,
-                    Icons.Outlined.Payments, isIncome = true)
+                    R.drawable.ic_cash, isIncome = true)
             }
             item(key = "freelance") {
                 DisplayRow(R.string.ui_side_job, R.string.ui_freelance, R.string.ui_freelance_amount,
-                    Icons.Outlined.AccountBalanceWallet, isIncome = true)
+                    R.drawable.ic_wallet, isIncome = true)
             }
         } else {
             item(key = "groceries") {
                 DisplayRow(R.string.ui_groceries, R.string.ui_store, R.string.ui_groceries_amount,
-                    Icons.Outlined.ShoppingBasket)
+                    R.drawable.ic_basket)
             }
             item(key = "coffee") {
                 DisplayRow(R.string.ui_coffee, R.string.ui_coffee_shop, R.string.ui_coffee_amount,
-                    Icons.Outlined.LocalCafe)
+                    R.drawable.ic_coffee)
             }
         }
     }
@@ -256,7 +291,7 @@ private fun ComponentsPreview() {
     FinDetectTheme {
         Column(Modifier.background(FinTheme.colors.paper).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             CategoryChart(isIncome = false)
-            DisplayRow(R.string.ui_main_account, R.string.ui_ruble_account, R.string.ui_main_balance, Icons.Outlined.AccountBalanceWallet)
+            DisplayRow(R.string.ui_main_account, R.string.ui_ruble_account, R.string.ui_main_balance, R.drawable.ic_wallet)
         }
     }
 }

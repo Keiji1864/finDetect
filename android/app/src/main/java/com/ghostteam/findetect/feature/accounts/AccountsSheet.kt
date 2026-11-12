@@ -1,13 +1,12 @@
 package com.ghostteam.findetect.feature.accounts
 
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.FinBottomSheet
@@ -33,7 +31,7 @@ import com.ghostteam.findetect.feature.prototype.UiIconTile
 data class AccountSheetSample(
     @StringRes val name: Int,
     @StringRes val balance: Int,
-    val icon: ImageVector,
+    @DrawableRes val icon: Int,
     @StringRes val iconName: Int,
 )
 
@@ -80,7 +78,7 @@ fun AccountSheet(sample: AccountSheetSample?, onDismiss: () -> Unit) {
             FinRow(
                 title = stringResource(R.string.ui_acc_icon_label),
                 subtitle = stringResource(sample?.iconName ?: R.string.ui_wallet),
-                leading = { UiIconTile(sample?.icon ?: Icons.Outlined.AccountBalanceWallet) },
+                leading = { UiIconTile(sample?.icon ?: R.drawable.ic_wallet) },
                 inSheet = true,
             )
             FinSwitchPanel(

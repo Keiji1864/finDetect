@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.EmojiEvents
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -70,7 +67,7 @@ fun ProfileScreen(
                     .background(FinTheme.colors.cream),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Outlined.PersonOutline, null, tint = FinTheme.colors.navy, modifier = Modifier.size(40.dp))
+                Icon(painterResource(R.drawable.ic_user), null, tint = FinTheme.colors.navy, modifier = Modifier.size(40.dp))
             }
             Text(
                 text = name,
@@ -100,13 +97,13 @@ fun ProfileScreen(
         FinRow(
             title = stringResource(R.string.ui_change_password),
             subtitle = stringResource(R.string.ui_change_password_hint),
-            leading = { UiIconTile(Icons.Outlined.Lock) },
+            leading = { UiIconTile(R.drawable.ic_lock) },
             onClick = onChangePassword,
         )
         FinRow(
             title = stringResource(R.string.ui_level),
             subtitle = stringResource(R.string.ui_level_hint),
-            leading = { UiIconTile(Icons.Outlined.EmojiEvents) },
+            leading = { UiIconTile(R.drawable.ic_trophy) },
         )
         FinButton(
             text = stringResource(R.string.ui_sign_out),

@@ -17,8 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -36,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import androidx.compose.ui.text.TextStyle
@@ -65,9 +64,8 @@ fun FinTopBar(
                 modifier = Modifier.size(40.dp).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                // TODO: заменить на векторную иконку Icon/back из UI-kit (res/drawable)
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    painter = painterResource(R.drawable.ic_back),
                     contentDescription = null,
                     tint = FinTheme.colors.navy,
                     modifier = Modifier.size(FinDimens.iconSize),

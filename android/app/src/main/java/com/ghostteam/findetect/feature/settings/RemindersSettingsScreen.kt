@@ -7,8 +7,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -70,7 +68,7 @@ fun RemindersSettingsScreen(onBack: () -> Unit = {}) {
             title = stringResource(R.string.ui_reminders_period),
             subtitle = periods[periodIndex],
             modifier = dimmed,
-            leading = { UiIconTile(Icons.Outlined.CalendarMonth) },
+            leading = { UiIconTile(R.drawable.ic_calendar) },
             onClick = if (enabled) ({ sheet = RemindersSheet.Period }) else null,
         )
         FinNotice(

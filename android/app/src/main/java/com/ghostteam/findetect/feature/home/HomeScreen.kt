@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,7 +37,7 @@ fun HomeScreen(
     onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
 ) {
-    PrototypeScreen(R.string.ui_home, floatingAction = true, onSettings = onOpenSettings, onAnalytics = onOpenAnalytics, action = {
+    PrototypeScreen(R.string.ui_home, floatingAction = true, showLogo = true, onSettings = onOpenSettings, onAnalytics = onOpenAnalytics, action = {
         FinButton(stringResource(R.string.ui_add_transaction), onAddTransaction)
     }) {
         item(key = "profile") { ProfileCard(onOpenProfile) }
@@ -56,15 +57,15 @@ fun HomeScreen(
         }
         item(key = "groceries") {
             DisplayRow(R.string.ui_groceries, R.string.ui_store_today, R.string.ui_groceries_amount,
-                Icons.Outlined.ShoppingBasket, compact = true)
+                R.drawable.ic_basket, compact = true)
         }
         item(key = "coffee") {
             DisplayRow(R.string.ui_coffee, R.string.ui_coffee_today, R.string.ui_coffee_amount,
-                Icons.Outlined.LocalCafe, compact = true)
+                R.drawable.ic_coffee, compact = true)
         }
         item(key = "salary") {
             DisplayRow(R.string.ui_salary, R.string.ui_employer_today, R.string.ui_salary_amount,
-                Icons.Outlined.Payments, isIncome = true, compact = true)
+                R.drawable.ic_cash, isIncome = true, compact = true)
         }
     }
 }
@@ -73,7 +74,7 @@ fun HomeScreen(
 private fun ProfileCard(onClick: () -> Unit) {
     FinCard(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            UiIconTile(Icons.Outlined.PersonOutline)
+            UiIconTile(R.drawable.ic_user)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(stringResource(R.string.ui_profile), style = FinTheme.typography.label, color = FinTheme.colors.navy)
                 Text(stringResource(R.string.ui_profile_hint), style = FinTheme.typography.caption, color = FinTheme.colors.muted,
@@ -93,7 +94,7 @@ private fun StreakCard() {
     FinCard(background = c.cream) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Outlined.LocalFireDepartment, null, tint = c.yellow, modifier = Modifier.size(26.dp))
+                Icon(painterResource(R.drawable.ic_flame), null, tint = c.yellow, modifier = Modifier.size(24.dp))
                 Text(stringResource(R.string.ui_streak), Modifier.weight(1f), style = FinTheme.typography.subheading,
                     color = c.navy, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(stringResource(R.string.ui_record), style = FinTheme.typography.caption, color = c.muted)
@@ -103,7 +104,7 @@ private fun StreakCard() {
                     R.string.ui_fri, R.string.ui_sat, R.string.ui_sun).forEach { day ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Box(Modifier.size(32.dp).background(c.yellow, FinTheme.shapes.chip), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.Check, null, tint = c.navy, modifier = Modifier.size(20.dp))
+                            Icon(painterResource(R.drawable.ic_check), null, tint = c.navy, modifier = Modifier.size(20.dp))
                         }
                         Text(stringResource(day), style = FinTheme.typography.caption, color = c.muted)
                     }
@@ -117,7 +118,7 @@ private fun StreakCard() {
 private fun TodayCard() {
     FinCard {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            UiIconTile(Icons.Outlined.AccountBalanceWallet)
+            UiIconTile(R.drawable.ic_wallet)
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.ui_spent_today), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
                 Text(stringResource(R.string.ui_spent_amount), style = FinTheme.typography.title, color = FinTheme.colors.navy)
@@ -140,7 +141,7 @@ private fun AchievementsCard() {
                 Icon(Icons.Outlined.ChevronRight, null, tint = FinTheme.colors.muted, modifier = Modifier.size(20.dp))
             }
             FinRow(stringResource(R.string.ui_achievements_title), subtitle = stringResource(R.string.ui_achievements_hint),
-                compact = true, inSheet = true, leading = { UiIconTile(Icons.Outlined.EmojiEvents) })
+                compact = true, inSheet = true, leading = { UiIconTile(R.drawable.ic_trophy) })
         }
     }
 }
