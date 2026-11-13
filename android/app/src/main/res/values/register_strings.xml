@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Регистрация -->
+    <string name="ui_register_title">Создать аккаунт</string>
+    <string name="ui_register_name_label">Имя</string>
+    <string name="ui_register_name_placeholder">Ваше имя</string>
+    <string name="ui_register_name_error">Введите имя</string>
+    <string name="ui_register_password_error">Минимум 6 символов</string>
+    <string name="ui_register_repeat_label">Повторите пароль</string>
+    <string name="ui_register_repeat_error">Пароли не совпадают</string>
+    <string name="ui_register_submit">Создать аккаунт</string>
+</resources>

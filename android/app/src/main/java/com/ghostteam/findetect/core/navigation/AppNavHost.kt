@@ -6,7 +6,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
@@ -17,7 +16,11 @@ import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
 import com.ghostteam.findetect.feature.expenses.ExpensesScreen
 import com.ghostteam.findetect.feature.home.HomeScreen
 import com.ghostteam.findetect.feature.incomes.IncomeScreen
+import com.ghostteam.findetect.feature.login.LoginScreen
+import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
+import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
 import com.ghostteam.findetect.feature.profile.ProfileScreen
+import com.ghostteam.findetect.feature.register.RegisterScreen
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
 import com.ghostteam.findetect.feature.settings.CurrencySettingsScreen
 import com.ghostteam.findetect.feature.settings.GamificationSettingsScreen
@@ -42,7 +45,7 @@ fun AppNavHost() {
     var sheetMode by rememberSaveable { mutableStateOf<String?>(null) }
 
     val currentRoute = entry?.destination?.route
-    val showBottomBar = currentRoute == null || currentRoute in mainRoutes
+    val showBottomBar = currentRoute in mainRoutes
 
     val back: () -> Unit = { controller.popBackStack() }
     val open: (Destination) -> Unit = { controller.navigate(it.route) { launchSingleTop = true } }
@@ -59,7 +62,7 @@ fun AppNavHost() {
             if (showBottomBar) {
                 BottomBar(currentRoute ?: Destination.Home.route) { route ->
                     controller.navigate(route) {
-                        popUpTo(controller.graph.findStartDestination().id) { saveState = true }
+                        popUpTo(Destination.Home.route) { saveState = true }
                         launchSingleTop = true
                         restoreState = true
                     }
@@ -67,7 +70,44 @@ fun AppNavHost() {
             }
         },
     ) { padding ->
-        NavHost(controller, Destination.Home.route, Modifier.padding(padding)) {
+        NavHost(controller, Destination.Login.route, Modifier.padding(padding)) {
+            composable(Destination.Login.route) {
+                LoginScreen(
+                    onLogin = {
+                        controller.navigate(Destination.Home.route) {
+                            popUpTo(Destination.Login.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    // TODO: экран восстановления пароля (в макете его пока нет)
+                    onForgotPassword = {},
+                    onRegister = { open(Destination.Register) },
+                )
+            }
+            composable(Destination.Register.route) {
+                RegisterScreen(
+                    onBack = back,
+                    onRegister = { open(Destination.Onboarding) },
+                )
+            }
+            composable(Destination.Onboarding.route) {
+                OnboardingIncomeScreen(
+                    onBack = back,
+                    onContinue = { open(Destination.OnboardingPin) },
+                    onSkip = { open(Destination.OnboardingPin) },
+                )
+            }
+            composable(Destination.OnboardingPin.route) {
+                OnboardingPinScreen(
+                    onBack = back,
+                    onDone = {
+                        controller.navigate(Destination.Home.route) {
+                            popUpTo(Destination.Login.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
             composable(Destination.Home.route) {
                 HomeScreen(
                     onAddTransaction = { sheetMode = AddTransactionMode.Switchable.name },
@@ -127,8 +167,15 @@ fun AppNavHost() {
             }
 
             composable(Destination.Profile.route) {
-                // TODO: onLogout -> экран входа (Destination.Login), когда он появится
-                ProfileScreen(onBack = back)
+                ProfileScreen(
+                    onBack = back,
+                    onLogout = {
+                        controller.navigate(Destination.Login.route) {
+                            popUpTo(controller.graph.id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                )
             }
             composable(Destination.Settings.route) {
                 SettingsScreen(
