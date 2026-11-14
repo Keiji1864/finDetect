@@ -1,10 +1,8 @@
 package com.ghostteam.findetect.feature.accounts
 
 import android.content.res.Configuration
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
@@ -16,12 +14,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -34,7 +29,6 @@ import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.domain.model.AccountCreationError
 import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.domain.model.CreateAccountInput
-import com.ghostteam.findetect.domain.model.FinanceIcon
 
 /** Controlled creation sheet. Picker pages share the same modal and preserve the form draft. */
 @Composable
@@ -61,31 +55,10 @@ fun AccountSheet(
         ) {
             when (state.picker) {
                 AccountPicker.CURRENCY -> {
-                    Text(stringResource(R.string.ui_acc_currency_label), style = FinTheme.typography.sheetTitle, color = FinTheme.colors.navy)
-                    AppCurrency.entries.forEach { currency ->
-                        FinRow(title = stringResource(currency.codeResource), subtitle = stringResource(currency.nameResource),
-                            inSheet = true, onClick = { onCurrency(currency) },
-                            trailing = { FinRadio(state.draft.currency == currency.name, onClick = null) })
-                    }
-                    FinButton(stringResource(R.string.ui_close), onClosePicker, style = FinButtonStyle.Secondary)
+                    AccountCurrencyPicker(state.draft.currency, onCurrency, onClosePicker, enabled = !state.isSaving)
                 }
                 AccountPicker.ICON -> {
-                    Text(stringResource(R.string.accounts_icon_title), style = FinTheme.typography.sheetTitle, color = FinTheme.colors.navy)
-                    FinanceIcon.entries.chunked(4).forEach { row ->
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { icon ->
-                                Box(Modifier.weight(1f).height(64.dp).clip(FinTheme.shapes.r12)
-                                    .background(if (state.pendingIcon == icon.key) FinTheme.colors.cream else FinTheme.colors.paper)
-                                    .selectable(state.pendingIcon == icon.key, role = Role.RadioButton, onClick = { onIcon(icon.key) }),
-                                    contentAlignment = Alignment.Center) {
-                                    Icon(painterResource(icon.drawableResource), stringResource(icon.labelResource),
-                                        tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp))
-                                }
-                            }
-                        }
-                    }
-                    FinButton(stringResource(R.string.accounts_icon_choose), onConfirmIcon)
-                    FinButton(stringResource(R.string.ui_close), onClosePicker, style = FinButtonStyle.Secondary)
+                    AccountIconPicker(state.pendingIcon, onIcon, onConfirmIcon, onClosePicker, enabled = !state.isSaving)
                 }
                 null -> {
                     val draft = state.draft

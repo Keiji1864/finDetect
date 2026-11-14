@@ -3,14 +3,15 @@ package com.ghostteam.findetect.feature.accounts
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -18,9 +19,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.*
-import com.ghostteam.findetect.core.designsystem.drawableResource
-import com.ghostteam.findetect.core.designsystem.financeIcon
-import com.ghostteam.findetect.core.designsystem.nameResource
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.core.navigation.Destination
 import com.ghostteam.findetect.core.util.formatMoney
@@ -29,9 +27,17 @@ import com.ghostteam.findetect.feature.prototype.PrototypeScreen
 import java.math.BigDecimal
 
 @Composable
-fun AccountsRoute(onOpenAnalytics: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewModel: AccountsViewModel = hiltViewModel()) {
+fun AccountsRoute(onOpenAnalytics: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewModel: AccountsViewModel = hiltViewModel(),
+    editor: AccountEditorViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    AccountsScreen(state, viewModel::openForm, viewModel::retryRead, viewModel::retryCurrencySwitch, onOpenAnalytics, onOpenSettings)
+    val editorState by editor.state.collectAsStateWithLifecycle()
+    val currencySwitch by editor.currencySwitch.collectAsStateWithLifecycle()
+    Box(Modifier.fillMaxSize()) {
+        AccountsScreen(state, viewModel::openForm, viewModel::retryRead, viewModel::retryCurrencySwitch, onOpenAnalytics, onOpenSettings,
+            onEditAccount = { editor.open(it) }, onAdjustBalance = { editor.open(it, balanceOnly = true) },
+            accountActionsEnabled = !state.formOpen && !state.switchingCurrency && editorState.page == null && currencySwitch == null)
+        AccountManagementContent(editor, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    }
     if (state.formOpen) {
         AccountSheet(state, viewModel::changeDraft, viewModel::openPicker, viewModel::closePicker,
             viewModel::selectCurrency, viewModel::selectIcon, viewModel::confirmIcon, viewModel::save, viewModel::closeForm)
@@ -46,6 +52,9 @@ fun AccountsScreen(
     onRetryCurrency: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onEditAccount: (String) -> Unit = {},
+    onAdjustBalance: (String) -> Unit = {},
+    accountActionsEnabled: Boolean = true,
 ) {
     PrototypeScreen(R.string.ui_accounts, onAnalytics = onOpenAnalytics, onSettings = onOpenSettings) {
         if (state.summary != null || (!state.loading && !state.readError)) {
@@ -82,18 +91,8 @@ fun AccountsScreen(
             }
         }
         items(state.summary?.accounts.orEmpty(), key = { it.account.id }) { balance ->
-            FinRow(
-                title = balance.account.name,
-                subtitle = stringResource(state.currency.nameResource),
-                leading = {
-                    FinIconTile {
-                        Icon(painterResource(financeIcon(balance.account.iconId).drawableResource), null,
-                            tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp))
-                    }
-                },
-                trailing = { Text(formatMoney(balance.balance, balance.account.currency),
-                    style = FinTheme.typography.label, color = FinTheme.colors.navy) },
-            )
+            AccountRow(balance, onEdit = { onEditAccount(balance.account.id) },
+                onBalance = { onAdjustBalance(balance.account.id) }, enabled = accountActionsEnabled)
         }
         item(key = "add") {
             FinButton(stringResource(R.string.ui_add_account), onCreate, style = FinButtonStyle.Secondary,

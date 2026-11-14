@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_balance_title">Баланс счёта</string>
+    <string name="account_current_balance">Текущий баланс</string>
+    <string name="account_actual_balance">Фактический баланс</string>
+    <string name="account_balance_confirm">Подтвердить</string>
+    <string name="account_balance_action">Изменить баланс счёта «%1$s»: %2$s</string>
+    <string name="account_initial_balance_hint">Начальный баланс сохраняется. Изменить текущий остаток можно в разделе «Текущий баланс».</string>
+    <string name="account_currency_locked_hint">Валюту нельзя изменить после первой операции или корректировки.</string>
+    <string name="account_balance_hint">На разницу будет создана корректировка. Она не считается расходом или доходом.</string>
+    <string name="account_delete_title">Удалить счёт «%1$s»?</string>
+    <string name="account_delete_history_hint">Операции останутся в истории.</string>
+    <string name="account_delete_confirm">Удалить</string>
+    <string name="account_delete_cancel">Отмена</string>
+    <string name="account_deleted">Счёт удалён</string>
+    <string name="account_undo">Отменить</string>
+    <string name="account_undo_failed">Не удалось восстановить счёт. Время отмены могло истечь.</string>
+    <string name="account_edit_currency_error">Счёт сохранён, но валюту отображения переключить не удалось.</string>
+    <string name="account_edit_load_error">Не удалось загрузить счёт. Попробуйте ещё раз.</string>
+    <string name="account_edit_save_error">Не удалось сохранить изменения. Введённые данные сохранены, попробуйте ещё раз.</string>
+    <string name="account_edit_conflict">Счёт изменился. Обновите данные и проверьте изменения перед сохранением.</string>
+    <string name="account_edit_currency_locked">В счёте уже появились операции или корректировки. Обновите данные и проверьте валюту.</string>
+    <string name="account_edit_unavailable">Счёт удалён или больше недоступен.</string>
+    <string name="account_edit_delete_error">Не удалось удалить счёт. Попробуйте ещё раз.</string>
+    <string name="account_edit_balance_error">Не удалось подтвердить баланс. Введённая сумма сохранена, попробуйте ещё раз.</string>
+</resources>
