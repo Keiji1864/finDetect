@@ -5,17 +5,21 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 data class Period(val start: LocalDate, val end: LocalDate) {
+    init { require(start <= end) { "Period start must not follow its end" } }
 
     companion object {
         fun today(): LocalDate =
             Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 
-        /** По умолчанию: с 1-го числа текущего месяца по сегодня */
-        fun currentMonth(today: LocalDate = today()) =
-            Period(LocalDate(today.year, today.month, 1), today)
+        /** Полный календарный месяц, включая последний день. */
+        fun currentMonth(today: LocalDate = today()): Period {
+            val first = LocalDate(today.year, today.month, 1)
+            return Period(first, first.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY))
+        }
 
         fun lastWeek(today: LocalDate = today()) =
             Period(today.minus(7, DateTimeUnit.DAY), today)

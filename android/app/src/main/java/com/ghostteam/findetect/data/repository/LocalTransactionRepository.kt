@@ -13,6 +13,7 @@ import com.ghostteam.findetect.domain.model.Transaction
 import com.ghostteam.findetect.domain.model.TransactionCreationError
 import com.ghostteam.findetect.domain.model.TransactionCreationException
 import com.ghostteam.findetect.domain.model.TransactionFilter
+import com.ghostteam.findetect.domain.model.TransactionDetails
 import com.ghostteam.findetect.domain.model.toMoneyAmount
 import com.ghostteam.findetect.domain.repository.TransactionRepository
 import java.math.BigDecimal
@@ -26,6 +27,15 @@ class LocalTransactionRepository @Inject constructor(
     private val accountDao: AccountDao,
     private val categoryDao: CategoryDao,
 ) : TransactionRepository {
+    override fun observeDetails(filter: TransactionFilter): Flow<List<TransactionDetails>> = transactionDao.observeDetails(
+        currency = filter.currency,
+        accountId = filter.accountId,
+        categoryId = filter.categoryId,
+        isIncome = filter.isIncome,
+        fromInclusive = filter.fromInclusive,
+        toExclusive = filter.toExclusive,
+    ).map { rows -> rows.map { it.toDomain() } }
+
     override fun observe(filter: TransactionFilter): Flow<List<Transaction>> = transactionDao.observeFiltered(
         currency = filter.currency,
         accountId = filter.accountId,

@@ -10,13 +10,15 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.feature.accounts.AccountsRoute
 import com.ghostteam.findetect.feature.analytics.AnalyticsScreen
 import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
-import com.ghostteam.findetect.feature.expenses.ExpensesScreen
+import com.ghostteam.findetect.feature.expenses.ExpensesRoute
 import com.ghostteam.findetect.feature.home.HomeScreen
-import com.ghostteam.findetect.feature.incomes.IncomeScreen
+import com.ghostteam.findetect.feature.incomes.IncomeRoute
 import com.ghostteam.findetect.feature.profile.ProfileScreen
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
 import com.ghostteam.findetect.feature.settings.CurrencySettingsScreen
@@ -26,6 +28,8 @@ import com.ghostteam.findetect.feature.settings.SecuritySettingsScreen
 import com.ghostteam.findetect.feature.settings.SettingsScreen
 import com.ghostteam.findetect.feature.transaction.AddTransactionMode
 import com.ghostteam.findetect.feature.transaction.AddTransactionRoute
+import com.ghostteam.findetect.feature.transaction.FinancePeriodViewModel
+import com.ghostteam.findetect.feature.transaction.FinancePeriodSheet
 import java.util.UUID
 
 /** Нижняя навигация показывается только на четырёх главных вкладках */
@@ -38,6 +42,8 @@ private val mainRoutes = setOf(
 
 @Composable
 fun AppNavHost() {
+    val financePeriodViewModel: FinancePeriodViewModel = hiltViewModel()
+    val financePeriod by financePeriodViewModel.state.collectAsStateWithLifecycle()
     val controller = rememberNavController()
     val entry by controller.currentBackStackEntryAsState()
     var sheetMode by rememberSaveable { mutableStateOf<String?>(null) }
@@ -83,14 +89,18 @@ fun AppNavHost() {
                 )
             }
             composable(Destination.Expenses.route) {
-                ExpensesScreen(
+                ExpensesRoute(
+                    period = financePeriod.selected,
+                    onOpenPeriod = financePeriodViewModel::open,
                     onAddTransaction = { openTransaction(AddTransactionMode.Expense) },
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(false) },
                 )
             }
             composable(Destination.Incomes.route) {
-                IncomeScreen(
+                IncomeRoute(
+                    period = financePeriod.selected,
+                    onOpenPeriod = financePeriodViewModel::open,
                     onAddTransaction = { openTransaction(AddTransactionMode.Income) },
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(true) },
@@ -156,4 +166,5 @@ fun AppNavHost() {
     sheetMode?.let { mode ->
         AddTransactionRoute(transactionSessionId.ifEmpty { mode }, AddTransactionMode.valueOf(mode), onDismiss = { sheetMode = null })
     }
+    if (financePeriod.open) FinancePeriodSheet(financePeriodViewModel)
 }
