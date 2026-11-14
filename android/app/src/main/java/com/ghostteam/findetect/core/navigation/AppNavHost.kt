@@ -25,7 +25,8 @@ import com.ghostteam.findetect.feature.settings.RemindersSettingsScreen
 import com.ghostteam.findetect.feature.settings.SecuritySettingsScreen
 import com.ghostteam.findetect.feature.settings.SettingsScreen
 import com.ghostteam.findetect.feature.transaction.AddTransactionMode
-import com.ghostteam.findetect.feature.transaction.AddTransactionSheet
+import com.ghostteam.findetect.feature.transaction.AddTransactionRoute
+import java.util.UUID
 
 /** Нижняя навигация показывается только на четырёх главных вкладках */
 private val mainRoutes = setOf(
@@ -40,6 +41,11 @@ fun AppNavHost() {
     val controller = rememberNavController()
     val entry by controller.currentBackStackEntryAsState()
     var sheetMode by rememberSaveable { mutableStateOf<String?>(null) }
+    var transactionSessionId by rememberSaveable { mutableStateOf("") }
+    val openTransaction: (AddTransactionMode) -> Unit = { mode ->
+        transactionSessionId = UUID.randomUUID().toString()
+        sheetMode = mode.name
+    }
 
     val currentRoute = entry?.destination?.route
     val showBottomBar = currentRoute == null || currentRoute in mainRoutes
@@ -70,7 +76,7 @@ fun AppNavHost() {
         NavHost(controller, Destination.Home.route, Modifier.padding(padding)) {
             composable(Destination.Home.route) {
                 HomeScreen(
-                    onAddTransaction = { sheetMode = AddTransactionMode.Switchable.name },
+                    onAddTransaction = { openTransaction(AddTransactionMode.Switchable) },
                     onOpenProfile = { open(Destination.Profile) },
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(false) },
@@ -78,14 +84,14 @@ fun AppNavHost() {
             }
             composable(Destination.Expenses.route) {
                 ExpensesScreen(
-                    onAddTransaction = { sheetMode = AddTransactionMode.Expense.name },
+                    onAddTransaction = { openTransaction(AddTransactionMode.Expense) },
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(false) },
                 )
             }
             composable(Destination.Incomes.route) {
                 IncomeScreen(
-                    onAddTransaction = { sheetMode = AddTransactionMode.Income.name },
+                    onAddTransaction = { openTransaction(AddTransactionMode.Income) },
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(true) },
                 )
@@ -148,6 +154,6 @@ fun AppNavHost() {
         }
     }
     sheetMode?.let { mode ->
-        AddTransactionSheet(AddTransactionMode.valueOf(mode), onDismiss = { sheetMode = null })
+        AddTransactionRoute(transactionSessionId.ifEmpty { mode }, AddTransactionMode.valueOf(mode), onDismiss = { sheetMode = null })
     }
 }

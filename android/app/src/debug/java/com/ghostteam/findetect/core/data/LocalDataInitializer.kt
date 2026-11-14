@@ -8,7 +8,7 @@ import com.ghostteam.findetect.domain.model.SyncStatus
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Fills a completely empty debug database once, preserving all existing records and tombstones. */
+/** Seeds history only for an empty debug database, and repairs a missing catalogue independently. */
 @Singleton
 class LocalDataInitializer @Inject constructor(
     private val database: AppDatabase,
@@ -21,9 +21,10 @@ class LocalDataInitializer @Inject constructor(
                 OR EXISTS(SELECT 1 FROM transactions)
                 OR EXISTS(SELECT 1 FROM balance_adjustments)""",
         ).use { cursor -> cursor.moveToFirst() && cursor.getInt(0) != 0 }
+        val hasCategories = database.openHelper.writableDatabase.query("SELECT EXISTS(SELECT 1 FROM categories)")
+            .use { cursor -> cursor.moveToFirst() && cursor.getInt(0) != 0 }
+        if (!hasCategories) database.categoryDao().upsertAll(data.categories.map { it.toEntity() })
         if (hasData) return@withTransaction
-
-        database.categoryDao().upsertAll(data.categories.map { it.toEntity() })
         data.accounts.forEach { account ->
             database.accountDao().insert(account.toEntity().copy(
                 createdAt = null,

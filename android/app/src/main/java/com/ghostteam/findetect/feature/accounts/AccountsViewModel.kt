@@ -19,6 +19,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -40,6 +41,8 @@ data class AccountsUiState(
     val pendingIcon: String = "wallet",
     val pendingCurrency: AppCurrency? = null,
     val switchingCurrency: Boolean = false,
+    val createdAccountId: String? = null,
+    val creationRequestId: String? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -65,6 +68,8 @@ class AccountsViewModel @Inject constructor(
         picker = AccountPicker.entries.firstOrNull { it.name == savedState.get<String>("picker") },
         pendingIcon = savedState["pendingIcon"] ?: restoredDraft.iconId,
         pendingCurrency = AppCurrency.entries.firstOrNull { it.name == savedState.get<String>("pendingCurrency") },
+        createdAccountId = savedState["createdAccountId"],
+        creationRequestId = savedState["creationRequest"],
     ))
     val state = mutableState.asStateFlow()
     private val reload = MutableStateFlow(0)
@@ -97,8 +102,18 @@ class AccountsViewModel @Inject constructor(
         if (!state.value.currencyReady || state.value.isSaving || state.value.switchingCurrency) return
         val draft = CreateAccountInput(currency = state.value.currency.name)
         mutableState.update { it.copy(formOpen = true, draft = draft, validationError = draft.validationError(parser),
-            saveError = null, picker = null, pendingIcon = draft.iconId) }
+            saveError = null, picker = null, pendingIcon = draft.iconId, createdAccountId = null) }
+        savedState["createdAccountId"] = null
         persistDraft()
+    }
+
+    /** Opens the shared creation form once for a caller, including after Activity recreation. */
+    fun beginCreation(requestId: String) {
+        if (!state.value.currencyReady || state.value.isSaving || state.value.switchingCurrency ||
+            savedState.get<String>("creationRequest") == requestId) return
+        openForm()
+        savedState["creationRequest"] = requestId
+        mutableState.update { it.copy(creationRequestId = requestId) }
     }
 
     fun closeForm() {
@@ -149,7 +164,9 @@ class AccountsViewModel @Inject constructor(
                 is CreateAccountResult.Success -> {
                     val currency = AppCurrency.valueOf(result.account.currency)
                     savedState["pendingCurrency"] = currency.name
-                    mutableState.update { it.copy(formOpen = false, picker = null, isSaving = false, pendingCurrency = currency) }
+                    savedState["createdAccountId"] = result.account.id
+                    mutableState.update { it.copy(formOpen = false, picker = null, isSaving = false,
+                        pendingCurrency = currency, createdAccountId = result.account.id) }
                     persistDraft()
                     retryCurrencySwitch()
                 }
