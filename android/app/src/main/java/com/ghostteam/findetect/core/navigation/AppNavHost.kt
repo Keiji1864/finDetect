@@ -11,7 +11,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
-import com.ghostteam.findetect.feature.accounts.AccountsScreen
+import com.ghostteam.findetect.feature.accounts.AccountsRoute
 import com.ghostteam.findetect.feature.analytics.AnalyticsScreen
 import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
 import com.ghostteam.findetect.feature.expenses.ExpensesScreen
@@ -91,7 +91,7 @@ fun AppNavHost() {
                 )
             }
             composable(Destination.Accounts.route) {
-                AccountsScreen(onOpenSettings = openSettings, onOpenAnalytics = { openAnalytics(false) })
+                AccountsRoute(onOpenSettings = openSettings, onOpenAnalytics = { openAnalytics(false) })
             }
 
             composable(
