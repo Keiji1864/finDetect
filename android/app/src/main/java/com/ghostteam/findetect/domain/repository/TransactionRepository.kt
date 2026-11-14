@@ -9,8 +9,11 @@ import kotlinx.coroutines.flow.Flow
 interface TransactionRepository {
     fun observe(filter: TransactionFilter = TransactionFilter()): Flow<List<Transaction>>
 
-    /** Includes category metadata for historical records, even for deleted accounts or archived categories. */
-    fun observeDetails(filter: TransactionFilter): Flow<List<TransactionDetails>>
+    /**
+     * Historical category metadata, including deleted accounts and archived categories.
+     * Ordered by operation date, newest first; an optional positive limit is applied in storage.
+     */
+    fun observeDetails(filter: TransactionFilter, limit: Int? = null): Flow<List<TransactionDetails>>
 
     fun observeTotalAmount(filter: TransactionFilter): Flow<BigDecimal>
 

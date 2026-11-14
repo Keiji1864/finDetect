@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_finance_read_error">Не удалось загрузить финансовые данные. Попробуйте ещё раз.</string>
+    <string name="home_finance_unavailable">Данные недоступны</string>
+    <string name="home_spending_more">На %1$s больше, чем вчера</string>
+    <string name="home_spending_less">На %1$s меньше, чем вчера</string>
+    <string name="home_spending_same">Столько же, сколько вчера</string>
+    <string name="home_no_spending_two_days">Сегодня и вчера расходов не было</string>
+    <string name="home_no_transactions">Пока нет операций в этой валюте</string>
+    <string name="home_no_transactions_hint">Добавьте расход или доход — здесь появятся последние операции.</string>
+    <string name="home_transaction_subtitle">%1$s · %2$s</string>
+</resources>

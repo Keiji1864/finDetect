@@ -27,14 +27,18 @@ class LocalTransactionRepository @Inject constructor(
     private val accountDao: AccountDao,
     private val categoryDao: CategoryDao,
 ) : TransactionRepository {
-    override fun observeDetails(filter: TransactionFilter): Flow<List<TransactionDetails>> = transactionDao.observeDetails(
-        currency = filter.currency,
-        accountId = filter.accountId,
-        categoryId = filter.categoryId,
-        isIncome = filter.isIncome,
-        fromInclusive = filter.fromInclusive,
-        toExclusive = filter.toExclusive,
-    ).map { rows -> rows.map { it.toDomain() } }
+    override fun observeDetails(filter: TransactionFilter, limit: Int?): Flow<List<TransactionDetails>> {
+        require(limit == null || limit > 0) { "Transaction limit must be positive" }
+        return transactionDao.observeDetails(
+            currency = filter.currency,
+            accountId = filter.accountId,
+            categoryId = filter.categoryId,
+            isIncome = filter.isIncome,
+            fromInclusive = filter.fromInclusive,
+            toExclusive = filter.toExclusive,
+            limit = limit ?: -1,
+        ).map { rows -> rows.map { it.toDomain() } }
+    }
 
     override fun observe(filter: TransactionFilter): Flow<List<Transaction>> = transactionDao.observeFiltered(
         currency = filter.currency,

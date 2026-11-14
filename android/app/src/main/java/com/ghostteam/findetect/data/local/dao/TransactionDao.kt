@@ -26,7 +26,8 @@ interface TransactionDao {
                 AND (:isIncome IS NULL OR c.isIncome = :isIncome)
                 AND (:fromInclusive IS NULL OR t.transactionDate >= :fromInclusive)
                 AND (:toExclusive IS NULL OR t.transactionDate < :toExclusive)
-            ORDER BY t.transactionDate DESC, t.id DESC""",
+            ORDER BY t.transactionDate DESC, t.id DESC
+            LIMIT :limit""",
     )
     fun observeDetails(
         currency: String?,
@@ -35,6 +36,7 @@ interface TransactionDao {
         isIncome: Boolean?,
         fromInclusive: Instant?,
         toExclusive: Instant?,
+        limit: Int,
     ): Flow<List<TransactionDetailsRow>>
 
     @Query("SELECT * FROM transactions WHERE id = :id")

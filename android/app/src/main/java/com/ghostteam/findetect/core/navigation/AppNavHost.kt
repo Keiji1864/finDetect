@@ -17,7 +17,7 @@ import com.ghostteam.findetect.feature.accounts.AccountsRoute
 import com.ghostteam.findetect.feature.analytics.AnalyticsScreen
 import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
 import com.ghostteam.findetect.feature.expenses.ExpensesRoute
-import com.ghostteam.findetect.feature.home.HomeScreen
+import com.ghostteam.findetect.feature.home.HomeRoute
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
 import com.ghostteam.findetect.feature.profile.ProfileScreen
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
@@ -81,7 +81,7 @@ fun AppNavHost() {
     ) { padding ->
         NavHost(controller, Destination.Home.route, Modifier.padding(padding)) {
             composable(Destination.Home.route) {
-                HomeScreen(
+                HomeRoute(
                     onAddTransaction = { openTransaction(AddTransactionMode.Switchable) },
                     onOpenProfile = { open(Destination.Profile) },
                     onOpenSettings = openSettings,

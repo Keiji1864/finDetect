@@ -131,11 +131,15 @@ fun TransactionsScreen(
     }
 }
 
-/** Historical row with category metadata, optional comment and an exact signed monetary value. */
+/** Historical row with an exact signed value; home uses a compact row and a dated subtitle. */
 @Composable
-fun TransactionRow(details: TransactionDetails) {
+fun TransactionRow(
+    details: TransactionDetails,
+    compact: Boolean = false,
+    subtitle: String? = details.transaction.comment?.takeUnless { it.isBlank() },
+) {
     val locale = LocalConfiguration.current.locales[0]
-    FinRow(title = details.category.localizedName(), subtitle = details.transaction.comment?.takeUnless { it.isBlank() },
+    FinRow(title = details.category.localizedName(), subtitle = subtitle, compact = compact,
         leading = {
             FinIconTile { Icon(painterResource(financeIcon(details.category.iconId).drawableResource), null,
                 tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp)) }
@@ -176,4 +180,14 @@ private fun TransactionsScreenPreview() {
 @Composable
 private fun TransactionRowPreview() {
     FinDetectTheme { TransactionRow(transactionsPreviewSummary().days.first().transactions.first()) }
+}
+
+@Preview(showBackground = true, widthDp = 364)
+@Preview(showBackground = true, widthDp = 364, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun CompactTransactionRowPreview() {
+    FinDetectTheme {
+        TransactionRow(transactionsPreviewSummary(true).days.first().transactions.first(), compact = true,
+            subtitle = LocalDate(2026, 11, 14).formatDate())
+    }
 }
