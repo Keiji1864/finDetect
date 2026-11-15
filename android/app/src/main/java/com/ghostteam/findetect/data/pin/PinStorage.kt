@@ -7,7 +7,8 @@ import android.util.Base64
 import com.ghostteam.findetect.domain.repository.PinRepository
 import com.ghostteam.findetect.domain.repository.PinResult
 import com.ghostteam.findetect.domain.repository.PinStatus
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.ghostteam.findetect.data.session.UserAccessGate
+import com.ghostteam.findetect.data.session.canonicalUserId
 import java.security.KeyStore
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -17,54 +18,50 @@ import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 /** Salted verifier and attempt limits are encrypted with a non-exportable Android Keystore key. */
-@Singleton
-class PinStorage @Inject constructor(@ApplicationContext context: Context) : PinRepository {
-    private val preferences = context.getSharedPreferences("pin_security", Context.MODE_PRIVATE)
-    private val mutex = Mutex()
+class PinStorage(context: Context, userId: String, private val gate: UserAccessGate) : PinRepository {
+    private val owner = canonicalUserId(userId)
+    private val preferences = context.getSharedPreferences("pin_security_$owner", Context.MODE_PRIVATE)
+    private val keyAlias = "findetect.pin.v2.$owner"
     private val mutableStatus = MutableStateFlow(PinStatus.LOADING)
     override val status = mutableStatus.asStateFlow()
 
     override suspend fun refresh() = withContext(Dispatchers.IO) {
-        mutex.withLock { readSafely(); Unit }
+        gate.use { readSafely(); Unit }
     }
 
     override suspend fun create(pin: String): PinResult = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        gate.use {
             requireValid(pin)
             readSafely()
-            if (mutableStatus.value != PinStatus.DISABLED) return@withLock PinResult.StorageError
+            if (mutableStatus.value != PinStatus.DISABLED) return@use PinResult.StorageError
             writeSafely(newRecord(pin), allowNewKey = true)
         }
     }
 
     override suspend fun verify(pin: String): PinResult = withContext(Dispatchers.IO) {
-        mutex.withLock { verifyPin(pin) }
+        gate.use { verifyPin(pin) }
     }
 
     override suspend fun change(oldPin: String, newPin: String): PinResult = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        gate.use {
             requireValid(newPin)
             val result = verifyPin(oldPin)
-            if (result != PinResult.Success) return@withLock result
+            if (result != PinResult.Success) return@use result
             writeSafely(newRecord(newPin))
         }
     }
 
     override suspend fun disable(pin: String): PinResult = withContext(Dispatchers.IO) {
-        mutex.withLock {
+        gate.use {
             val result = verifyPin(pin)
-            if (result != PinResult.Success) return@withLock result
+            if (result != PinResult.Success) return@use result
             try {
                 check(preferences.edit().remove(RECORD).remove(CONFIGURED).commit())
                 deleteKey()
@@ -103,7 +100,7 @@ class PinStorage @Inject constructor(@ApplicationContext context: Context) : Pin
         val configured = preferences.getBoolean(CONFIGURED, false)
         if (payload == null && !configured) {
             // Empty/corrupt preferences must not disable a PIN whose Keystore key still exists.
-            check(!keyStore().containsAlias(KEY_ALIAS))
+            check(!keyStore().containsAlias(keyAlias))
             mutableStatus.value = PinStatus.DISABLED
             null
         } else {
@@ -154,10 +151,10 @@ class PinStorage @Inject constructor(@ApplicationContext context: Context) : Pin
 
     private fun key(allowCreate: Boolean): SecretKey {
         val store = keyStore()
-        (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        (store.getKey(keyAlias, null) as? SecretKey)?.let { return it }
         check(allowCreate)
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
-            init(KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+            init(KeyGenParameterSpec.Builder(keyAlias, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setKeySize(256).build())
             generateKey()
@@ -165,7 +162,7 @@ class PinStorage @Inject constructor(@ApplicationContext context: Context) : Pin
     }
 
     private fun keyStore(): KeyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-    private fun deleteKey() = keyStore().deleteEntry(KEY_ALIAS)
+    private fun deleteKey() = keyStore().deleteEntry(keyAlias)
 
     private fun newRecord(pin: String): Record {
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
@@ -182,8 +179,12 @@ class PinStorage @Inject constructor(@ApplicationContext context: Context) : Pin
 
     private fun requireValid(pin: String) { require(pin.length == 4 && pin.all { it in '0'..'9' }) }
     private data class Record(val salt: ByteArray, val verifier: ByteArray, val failures: Int, val blockedUntil: Long)
-    private companion object {
-        const val KEY_ALIAS = "findetect.pin.v1"
+    companion object {
+        internal fun clearStored(context: Context, userId: String) {
+            val id = canonicalUserId(userId)
+            check(context.getSharedPreferences("pin_security_$id", Context.MODE_PRIVATE).edit().clear().commit())
+            KeyStore.getInstance("AndroidKeyStore").apply { load(null); deleteEntry("findetect.pin.v2.$id") }
+        }
         const val CONFIGURED = "configured"
         const val RECORD = "encrypted_record"
     }

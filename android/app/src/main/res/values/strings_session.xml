@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="session_password_required">Введите пароль</string>
+    <string name="session_invalid_credentials">Неверная почта или пароль</string>
+    <string name="session_email_taken">Аккаунт с такой почтой уже существует</string>
+    <string name="session_network_error">Не удалось подключиться. Проверьте интернет и попробуйте ещё раз.</string>
+    <string name="session_server_error">Сервис временно недоступен. Попробуйте позже.</string>
+    <string name="session_storage_error">Не удалось восстановить защищённую сессию. Повторите попытку или войдите заново.</string>
+    <string name="session_expired">Сессия завершена. Войдите ещё раз, чтобы продолжить.</string>
+    <string name="session_sign_in_again">Войти заново</string>
+    <string name="session_logout_title">Выйти из аккаунта?</string>
+    <string name="session_logout_pending">Есть изменения, которые ещё не отправлены на сервер. При выходе локальные данные этого аккаунта будут удалены. Эти изменения будут потеряны.</string>
+    <string name="session_stay">Остаться</string>
+    <string name="session_action_error">Не удалось сохранить изменения. Попробуйте ещё раз.</string>
+</resources>

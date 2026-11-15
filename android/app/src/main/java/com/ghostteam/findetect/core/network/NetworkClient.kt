@@ -15,7 +15,8 @@ internal fun <T : HttpClientEngineConfig> createNetworkClient(
     engine: HttpClientEngineFactory<T>,
     serializer: Json,
 ): HttpClient = HttpClient(engine) {
-    expectSuccess = true
+    expectSuccess = false
+    followRedirects = false
     install(ContentNegotiation) { json(serializer) }
     install(HttpTimeout) { requestTimeoutMillis = 15_000 }
     defaultRequest {

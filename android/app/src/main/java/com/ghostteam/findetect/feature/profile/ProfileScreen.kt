@@ -13,10 +13,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,8 +35,7 @@ import com.ghostteam.findetect.feature.prototype.UiIconTile
 /**
  * Профиль (Figma 09): аватар, имя и почта, поля, "Сменить пароль", "Уровень", выход и удаление аккаунта.
  * Выход из аккаунта только здесь (из Настроек убран).
- * onChangePassword, onLogout, onDeleteAccount пока без реализации: экранов смены пароля и входа,
- * а также диалога удаления в макете нет.
+ * Identity comes from the session. Profile editing, password change and deletion are separate work.
  */
 @Composable
 fun ProfileScreen(
@@ -49,11 +44,14 @@ fun ProfileScreen(
     onLogout: () -> Unit = {},
     onDeleteAccount: () -> Unit = {},
     gameElementsEnabled: Boolean = true,
+    userName: String? = null,
+    userEmail: String? = null,
+    working: Boolean = false,
 ) {
-    val defaultName = stringResource(R.string.ui_profile_name_value)
-    val defaultEmail = stringResource(R.string.ui_profile_email_value)
-    var name by rememberSaveable { mutableStateOf(defaultName) }
-    var email by rememberSaveable { mutableStateOf(defaultEmail) }
+    val defaultName = userName ?: stringResource(R.string.ui_profile_name_value)
+    val defaultEmail = userEmail ?: stringResource(R.string.ui_profile_email_value)
+    val name = defaultName
+    val email = defaultEmail
 
     FinSubScreen(title = stringResource(R.string.ui_profile_title), onBack = onBack) {
         Column(
@@ -85,13 +83,15 @@ fun ProfileScreen(
         FinTextField(
             label = stringResource(R.string.ui_profile_name_label),
             value = name,
-            onValueChange = { name = it.take(40) },
+            onValueChange = {},
+            enabled = false,
             placeholder = defaultName,
         )
         FinTextField(
             label = stringResource(R.string.ui_profile_email_label),
             value = email,
-            onValueChange = { email = it.take(60) },
+            onValueChange = {},
+            enabled = false,
             placeholder = defaultEmail,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
         )
@@ -109,6 +109,8 @@ fun ProfileScreen(
         FinButton(
             text = stringResource(R.string.ui_sign_out),
             onClick = onLogout,
+            loading = working,
+            enabled = !working,
             style = FinButtonStyle.Secondary,
         )
         Text(

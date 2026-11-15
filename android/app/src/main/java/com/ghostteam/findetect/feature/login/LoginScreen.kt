@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,23 +47,24 @@ import com.ghostteam.findetect.core.designsystem.theme.FinTheme
  * ниже "Зарегистрироваться", "Войти" и "Забыли пароль?". Нижней навигации и стрелки "назад" нет.
  * Всё содержимое сдвинуто вниз: сверху свободное место, кнопки идут сразу под полями.
  *
- * Поля необязательные: можно сразу нажать «Войти». Если почта введена, проверяется её формат. Настоящей
- * авторизации пока нет, [onLogin] вызывается, когда проверка пройдена. Экранов регистрации и восстановления пароля
- * в макете нет, поэтому [onForgotPassword] и [onRegister] по умолчанию ничего не делают.
+ * Credentials are submitted to the session layer; passwords are never put in saved instance state.
  */
 @Composable
 fun LoginScreen(
-    onLogin: () -> Unit = {},
+    onLogin: (String, String) -> Unit = { _, _ -> },
     onForgotPassword: () -> Unit = {},
     onRegister: () -> Unit = {},
+    initialEmail: String = "",
+    working: Boolean = false,
+    message: String? = null,
+    onRetry: (() -> Unit)? = null,
 ) {
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable { mutableStateOf(initialEmail) }
+    var password by remember { mutableStateOf("") }
     // Ошибки показываем только после первого нажатия на "Войти"
     var submitted by rememberSaveable { mutableStateOf(false) }
 
-    // Пустая почта допустима; если что-то введено, оно должно быть похоже на адрес
-    val emailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+    val emailValid = email.isNotBlank() && Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
     val c = FinTheme.colors
 
     Column(
@@ -102,7 +104,8 @@ fun LoginScreen(
             FinTextField(
                 label = stringResource(R.string.ui_login_email_label),
                 value = email,
-                onValueChange = { email = it.take(60) },
+                onValueChange = { email = it.take(254) },
+                enabled = !working,
                 placeholder = stringResource(R.string.ui_login_email_placeholder),
                 errorText = if (submitted && !emailValid) stringResource(R.string.ui_login_email_error) else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
@@ -110,7 +113,9 @@ fun LoginScreen(
             FinTextField(
                 label = stringResource(R.string.ui_login_password_label),
                 value = password,
-                onValueChange = { password = it.take(64) },
+                onValueChange = { password = it.take(128) },
+                enabled = !working,
+                errorText = if (submitted && password.isEmpty()) stringResource(R.string.session_password_required) else null,
                 placeholder = stringResource(R.string.ui_login_password_placeholder),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 visualTransformation = PasswordVisualTransformation(),
@@ -123,12 +128,16 @@ fun LoginScreen(
         Column(
             verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap),
         ) {
+            if (message != null) Text(message, style = FinTheme.typography.caption, color = c.red)
+            if (onRetry != null) FinButton(stringResource(R.string.finance_retry), onRetry, enabled = !working, style = FinButtonStyle.Secondary)
             FinButton(
                 text = stringResource(R.string.ui_login_sign_in),
                 onClick = {
                     submitted = true
-                    if (emailValid) onLogin()
+                    if (emailValid && password.isNotEmpty() && !working) onLogin(email.trim(), password)
                 },
+                loading = working,
+                enabled = !working,
             )
             FinButton(
                 text = stringResource(R.string.ui_login_forgot),
@@ -144,6 +153,7 @@ fun LoginScreen(
             FinButton(
                 text = stringResource(R.string.ui_login_register),
                 onClick = onRegister,
+                enabled = !working,
                 style = FinButtonStyle.Secondary,
             )
         }

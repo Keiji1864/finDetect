@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -14,6 +18,10 @@ import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
+import com.ghostteam.findetect.R
+import com.ghostteam.findetect.domain.model.SessionState
+import com.ghostteam.findetect.domain.model.OnboardingStep
+import com.ghostteam.findetect.feature.session.UserSessionViewModel
 import com.ghostteam.findetect.core.util.Period
 import com.ghostteam.findetect.feature.accounts.AccountsRoute
 import com.ghostteam.findetect.feature.analytics.AnalyticsRoute
@@ -21,11 +29,9 @@ import com.ghostteam.findetect.feature.analytics.CategoryDetailRoute
 import com.ghostteam.findetect.feature.expenses.ExpensesRoute
 import com.ghostteam.findetect.feature.home.HomeRoute
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
-import com.ghostteam.findetect.feature.login.LoginScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
 import com.ghostteam.findetect.feature.profile.ProfileScreen
-import com.ghostteam.findetect.feature.register.RegisterScreen
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
 import com.ghostteam.findetect.feature.settings.CurrencySettingsScreen
 import com.ghostteam.findetect.feature.settings.GamificationSettingsScreen
@@ -50,7 +56,15 @@ private val mainRoutes = setOf(
 )
 
 @Composable
-fun AppNavHost(homeRequest: Int = 0) {
+fun AppNavHost(session: SessionState.Active, sessionModel: UserSessionViewModel, homeRequest: Int = 0, onExit: () -> Unit = {}) {
+    val sessionUi by sessionModel.state.collectAsStateWithLifecycle()
+    val start = remember(session.identity) {
+        when (session.onboarding) {
+            OnboardingStep.INCOME -> Destination.Onboarding.route
+            OnboardingStep.PIN -> Destination.OnboardingPin.route
+            OnboardingStep.DONE -> Destination.Home.route
+        }
+    }
     val editTransactionViewModel: EditTransactionViewModel = hiltViewModel()
     val transactionSnackbar = remember { SnackbarHostState() }
     val financePeriodViewModel: FinancePeriodViewModel = hiltViewModel()
@@ -82,8 +96,8 @@ fun AppNavHost(homeRequest: Int = 0) {
         controller.navigate(Destination.IncomeMonth.createRoute(period)) { launchSingleTop = true }
     }
 
-    LaunchedEffect(homeRequest) {
-        if (homeRequest > 0 && homeRequest != handledHomeRequest) {
+    LaunchedEffect(homeRequest, session.onboarding) {
+        if (session.onboarding == OnboardingStep.DONE && homeRequest > 0 && homeRequest != handledHomeRequest) {
             sheetMode = null
             financePeriodViewModel.dismiss()
             editTransactionViewModel.dismiss()
@@ -111,40 +125,25 @@ fun AppNavHost(homeRequest: Int = 0) {
             }
         },
     ) { padding ->
-        NavHost(controller, Destination.Login.route, Modifier.padding(padding)) {
-            composable(Destination.Login.route) {
-                LoginScreen(
-                    onLogin = {
-                        controller.navigate(Destination.Home.route) {
-                            popUpTo(Destination.Login.route) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
-                    // TODO: экран восстановления пароля (в макете его пока нет)
-                    onForgotPassword = {},
-                    onRegister = { open(Destination.Register) },
-                )
-            }
-            composable(Destination.Register.route) {
-                RegisterScreen(
-                    onBack = back,
-                    onRegister = { open(Destination.Onboarding) },
-                )
-            }
+        NavHost(controller, start, Modifier.padding(padding)) {
             composable(Destination.Onboarding.route) {
                 OnboardingIncomeScreen(
-                    onBack = back,
-                    onContinue = { open(Destination.OnboardingPin) },
-                    onSkip = { open(Destination.OnboardingPin) },
+                    onBack = onExit,
+                    onContinue = { sessionModel.advance(OnboardingStep.PIN) { open(Destination.OnboardingPin) } },
+                    onSkip = { sessionModel.advance(OnboardingStep.PIN) { open(Destination.OnboardingPin) } },
                 )
             }
             composable(Destination.OnboardingPin.route) {
                 OnboardingPinScreen(
-                    onBack = back,
+                    onBack = { sessionModel.advance(OnboardingStep.INCOME) {
+                        controller.navigate(Destination.Onboarding.route) { popUpTo(controller.graph.id) { inclusive = true } }
+                    } },
                     onDone = {
-                        controller.navigate(Destination.Home.route) {
-                            popUpTo(Destination.Login.route) { inclusive = true }
-                            launchSingleTop = true
+                        sessionModel.advance(OnboardingStep.DONE) {
+                            controller.navigate(Destination.Home.route) {
+                                popUpTo(controller.graph.id) { inclusive = true }
+                                launchSingleTop = true
+                            }
                         }
                     },
                 )
@@ -231,14 +230,12 @@ fun AppNavHost(homeRequest: Int = 0) {
                 val settingsViewModel: SettingsViewModel = hiltViewModel()
                 val settings by settingsViewModel.state.collectAsStateWithLifecycle()
                 ProfileScreen(
+                    userName = session.user.name,
+                    userEmail = session.user.email,
                     gameElementsEnabled = settings.settings?.gameElementsEnabled == true,
                     onBack = back,
-                    onLogout = {
-                        controller.navigate(Destination.Login.route) {
-                            popUpTo(controller.graph.id) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
+                    onLogout = { sessionModel.logout() },
+                    working = sessionUi.working,
                 )
             }
             composable(Destination.Settings.route) {
@@ -263,4 +260,18 @@ fun AppNavHost(homeRequest: Int = 0) {
     }
     if (financePeriod.open) FinancePeriodSheet(financePeriodViewModel)
     EditTransactionRoute(editTransactionViewModel, transactionSnackbar)
+    val sessionError = stringResource(R.string.session_action_error)
+    LaunchedEffect(sessionUi.error) { if (sessionUi.error) transactionSnackbar.showSnackbar(sessionError) }
+    if (sessionUi.confirmLogout) AlertDialog(
+        onDismissRequest = sessionModel::dismissLogout,
+        containerColor = FinTheme.colors.paper,
+        title = { Text(stringResource(R.string.session_logout_title), style = FinTheme.typography.heading, color = FinTheme.colors.navy) },
+        text = { Text(stringResource(R.string.session_logout_pending), style = FinTheme.typography.body, color = FinTheme.colors.navy) },
+        confirmButton = { TextButton(onClick = { sessionModel.logout(confirmed = true) }) {
+            Text(stringResource(R.string.ui_sign_out), color = FinTheme.colors.red, style = FinTheme.typography.label)
+        } },
+        dismissButton = { TextButton(onClick = sessionModel::dismissLogout) {
+            Text(stringResource(R.string.session_stay), color = FinTheme.colors.navy, style = FinTheme.typography.label)
+        } },
+    )
 }

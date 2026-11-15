@@ -22,12 +22,14 @@ import com.ghostteam.findetect.core.security.AppLockState
 
 /** Removes app windows while locked and restores navigation/form state after successful verification. */
 @Composable
-fun AppLockHost(lock: AppLockManager, onExit: () -> Unit, content: @Composable () -> Unit) {
+fun AppLockHost(lock: AppLockManager, sessionId: String, onExit: () -> Unit, onReauthenticate: () -> Unit,
+    content: @Composable () -> Unit) {
     val state by lock.state.collectAsStateWithLifecycle()
     val holder = rememberSaveableStateHolder()
-    when (state) {
+    val lockState = if (state.sessionId == sessionId) state.lock else AppLockState.LOADING
+    when (lockState) {
         AppLockState.UNLOCKED -> holder.SaveableStateProvider("app") { content() }
-        AppLockState.LOCKED -> PinUnlockScreen(onExit)
+        AppLockState.LOCKED -> PinUnlockScreen(onExit, onReauthenticate)
         AppLockState.LOADING -> {
             BackHandler(onBack = onExit)
             Box(Modifier.fillMaxSize().background(FinTheme.colors.paper), contentAlignment = Alignment.Center) {
@@ -39,6 +41,7 @@ fun AppLockHost(lock: AppLockManager, onExit: () -> Unit, content: @Composable (
             FinSubScreen(stringResource(R.string.pin_unlock_title), onExit) {
                 FinNotice(stringResource(R.string.settings_pin_error), text = stringResource(R.string.pin_storage_error))
                 FinButton(stringResource(R.string.finance_retry), lock::retry)
+                FinButton(stringResource(R.string.session_sign_in_again), onReauthenticate)
             }
         }
     }

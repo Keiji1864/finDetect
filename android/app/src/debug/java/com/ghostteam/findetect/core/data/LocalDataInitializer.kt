@@ -11,10 +11,9 @@ import javax.inject.Singleton
 /** Seeds history only for an empty debug database, and repairs a missing catalogue independently. */
 @Singleton
 class LocalDataInitializer @Inject constructor(
-    private val database: AppDatabase,
     private val data: DemoData,
 ) {
-    suspend fun initialize() = database.withTransaction {
+    suspend fun initialize(database: AppDatabase, userId: String) = database.withTransaction {
         val hasData = database.openHelper.writableDatabase.query(
             """SELECT EXISTS(SELECT 1 FROM categories)
                 OR EXISTS(SELECT 1 FROM accounts)
@@ -24,7 +23,8 @@ class LocalDataInitializer @Inject constructor(
         val hasCategories = database.openHelper.writableDatabase.query("SELECT EXISTS(SELECT 1 FROM categories)")
             .use { cursor -> cursor.moveToFirst() && cursor.getInt(0) != 0 }
         if (!hasCategories) database.categoryDao().upsertAll(data.categories.map { it.toEntity() })
-        if (hasData) return@withTransaction
+        // Only explicitly named demo accounts receive example finances. Regular accounts start empty.
+        if (hasData || userId !in com.ghostteam.findetect.data.demo.DebugAuthFixtures.demoUserIds) return@withTransaction
         data.accounts.forEach { account ->
             database.accountDao().insert(account.toEntity().copy(
                 createdAt = null,

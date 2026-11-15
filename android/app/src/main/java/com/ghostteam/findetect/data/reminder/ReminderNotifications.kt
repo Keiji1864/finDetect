@@ -14,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.ghostteam.findetect.MainActivity
 import com.ghostteam.findetect.R
+import com.ghostteam.findetect.domain.model.SessionIdentity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,10 +43,12 @@ class ReminderNotifications @Inject constructor(@ApplicationContext private val 
     } else Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${context.packageName}"))
 
     @Suppress("MissingPermission") // Rechecked immediately before posting, including the channel switch.
-    fun show() {
+    fun show(owner: SessionIdentity) {
         if (!allowed()) return
         val intent = Intent(context, MainActivity::class.java)
             .setAction(ACTION_OPEN_HOME)
+            .putExtra(EXTRA_USER_ID, owner.userId)
+            .putExtra(EXTRA_SESSION_ID, owner.sessionId)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val pendingIntent = PendingIntent.getActivity(context, 20, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notification = NotificationCompat.Builder(context, CHANNEL)
@@ -64,6 +67,8 @@ class ReminderNotifications @Inject constructor(@ApplicationContext private val 
 
     companion object {
         const val ACTION_OPEN_HOME = "com.ghostteam.findetect.OPEN_HOME_FROM_REMINDER"
+        const val EXTRA_USER_ID = "notification_user_id"
+        const val EXTRA_SESSION_ID = "notification_session_id"
         private const val CHANNEL = "daily_accounting"
         private const val NOTIFICATION_ID = 20
     }

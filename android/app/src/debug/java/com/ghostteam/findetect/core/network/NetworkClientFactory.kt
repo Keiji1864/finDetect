@@ -2,6 +2,7 @@ package com.ghostteam.findetect.core.network
 
 import com.ghostteam.findetect.BuildConfig
 import com.ghostteam.findetect.data.demo.DemoData
+import com.ghostteam.findetect.data.demo.DebugAuthFixtures
 import com.ghostteam.findetect.data.remote.dto.AccountPageDto
 import com.ghostteam.findetect.data.remote.dto.ApiErrorDto
 import com.ghostteam.findetect.data.remote.dto.BalanceAdjustmentPageDto
@@ -31,6 +32,11 @@ class NetworkClientFactory @Inject constructor(
             engine = MockEngine.config {
                 addHandler { request ->
                     val path = request.url.encodedPath.trimEnd('/').removePrefix(basePath)
+                    val auth = DebugAuthFixtures.response(path, request, json)
+                    if (auth != null) return@addHandler respond(
+                        content = auth.body, status = HttpStatusCode.fromValue(auth.status),
+                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                    )
                     val body = if (request.method == HttpMethod.Get && request.url.parameters.names().isEmpty()) {
                         when (path) {
                             "/categories" -> json.encodeToString(CategoryListDto(data.categories))

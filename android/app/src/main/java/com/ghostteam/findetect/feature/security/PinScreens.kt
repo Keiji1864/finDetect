@@ -71,7 +71,8 @@ fun PinSetupScreen(onBack: () -> Unit, onDone: () -> Unit = onBack, autoCreate: 
 }
 
 @Composable
-fun PinUnlockScreen(onExit: () -> Unit, viewModel: PinEntryViewModel = hiltViewModel(key = "app-lock-pin")) {
+fun PinUnlockScreen(onExit: () -> Unit, onReauthenticate: () -> Unit = {},
+    viewModel: PinEntryViewModel = hiltViewModel(key = "app-lock-pin")) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     ClearPinOnLeave(viewModel)
     LaunchedEffect(state.stage, state.status) {
@@ -82,6 +83,7 @@ fun PinUnlockScreen(onExit: () -> Unit, viewModel: PinEntryViewModel = hiltViewM
         .verticalScroll(rememberScrollState()).padding(FinDimens.screenPadding), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(stringResource(R.string.pin_unlock_title), style = FinTheme.typography.title, color = FinTheme.colors.navy)
         PinEntryForm(state, viewModel::digit, viewModel::delete)
+        FinButton(stringResource(R.string.session_sign_in_again), onReauthenticate, style = FinButtonStyle.Secondary)
     }
 }
 

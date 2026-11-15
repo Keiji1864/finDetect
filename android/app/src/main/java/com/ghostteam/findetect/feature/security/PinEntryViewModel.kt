@@ -6,6 +6,7 @@ import com.ghostteam.findetect.core.security.AppLockManager
 import com.ghostteam.findetect.domain.repository.PinRepository
 import com.ghostteam.findetect.domain.repository.PinResult
 import com.ghostteam.findetect.domain.repository.PinStatus
+import com.ghostteam.findetect.domain.model.SessionIdentity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -26,7 +27,8 @@ data class PinUiState(
 
 /** Partial PINs stay in memory, never in SavedStateHandle, Compose saved state, logs or preferences. */
 @HiltViewModel
-class PinEntryViewModel @Inject constructor(private val repository: PinRepository, private val lock: AppLockManager) : ViewModel() {
+class PinEntryViewModel @Inject constructor(private val repository: PinRepository, private val lock: AppLockManager,
+    private val identity: SessionIdentity) : ViewModel() {
     private val mutableState = MutableStateFlow(PinUiState(status = repository.status.value))
     val state = mutableState.asStateFlow()
     private var input = ""
@@ -41,7 +43,7 @@ class PinEntryViewModel @Inject constructor(private val repository: PinRepositor
         if (state.value.working) return
         if (stage == PinStage.CREATE && state.value.status != PinStatus.DISABLED) return
         if (stage != PinStage.CREATE && state.value.status != PinStatus.ENABLED) return
-        if (stage == PinStage.CREATE) lock.allowAccess() // The current session already has access with PIN disabled.
+        if (stage == PinStage.CREATE) lock.allowAccess(identity.sessionId)
         cancel()
         mutableState.update { it.copy(stage = stage) }
     }
@@ -120,7 +122,7 @@ class PinEntryViewModel @Inject constructor(private val repository: PinRepositor
             PinResult.Success -> {
                 firstPin = ""
                 oldPin = ""
-                lock.allowAccess()
+                lock.allowAccess(identity.sessionId)
                 mutableState.update { it.copy(completed = true) }
             }
             PinResult.Incorrect -> mutableState.update { it.copy(error = PinError.INCORRECT) }
