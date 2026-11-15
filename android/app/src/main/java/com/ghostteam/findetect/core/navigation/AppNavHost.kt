@@ -20,9 +20,6 @@ import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
 import com.ghostteam.findetect.feature.expenses.ExpensesRoute
 import com.ghostteam.findetect.feature.home.HomeRoute
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
-import com.ghostteam.findetect.feature.expenses.ExpensesScreen
-import com.ghostteam.findetect.feature.home.HomeScreen
-import com.ghostteam.findetect.feature.incomes.IncomeScreen
 import com.ghostteam.findetect.feature.login.LoginScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
