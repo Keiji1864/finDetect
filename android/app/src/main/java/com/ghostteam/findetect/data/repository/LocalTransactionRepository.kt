@@ -5,27 +5,53 @@ import com.ghostteam.findetect.data.local.AppDatabase
 import com.ghostteam.findetect.data.local.dao.AccountDao
 import com.ghostteam.findetect.data.local.dao.CategoryDao
 import com.ghostteam.findetect.data.local.dao.TransactionDao
+import com.ghostteam.findetect.data.local.dao.TransactionDeletionDao
+import com.ghostteam.findetect.data.local.entity.TransactionDeletionEntity
 import com.ghostteam.findetect.data.mapper.toDomain
 import com.ghostteam.findetect.data.mapper.toEntity
-import com.ghostteam.findetect.data.mapper.toUpsertRequest
 import com.ghostteam.findetect.domain.model.SyncStatus
 import com.ghostteam.findetect.domain.model.Transaction
 import com.ghostteam.findetect.domain.model.TransactionCreationError
 import com.ghostteam.findetect.domain.model.TransactionCreationException
 import com.ghostteam.findetect.domain.model.TransactionFilter
+import com.ghostteam.findetect.domain.model.TransactionDetails
+import com.ghostteam.findetect.domain.model.PendingTransactionDeletion
+import com.ghostteam.findetect.domain.model.TransactionManagementError
+import com.ghostteam.findetect.domain.model.TransactionManagementException
 import com.ghostteam.findetect.domain.model.toMoneyAmount
 import com.ghostteam.findetect.domain.repository.TransactionRepository
 import java.math.BigDecimal
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 
 class LocalTransactionRepository @Inject constructor(
     private val database: AppDatabase,
     private val transactionDao: TransactionDao,
     private val accountDao: AccountDao,
     private val categoryDao: CategoryDao,
+    private val deletionDao: TransactionDeletionDao,
+    private val clock: Clock,
 ) : TransactionRepository {
+    override fun observeDetailsById(id: String): Flow<TransactionDetails?> =
+        transactionDao.observeDetailsById(id).map { it?.toDomain() }
+
+    override fun observeDetails(filter: TransactionFilter, limit: Int?): Flow<List<TransactionDetails>> {
+        require(limit == null || limit > 0) { "Transaction limit must be positive" }
+        return transactionDao.observeDetails(
+            currency = filter.currency,
+            accountId = filter.accountId,
+            categoryId = filter.categoryId,
+            isIncome = filter.isIncome,
+            fromInclusive = filter.fromInclusive,
+            toExclusive = filter.toExclusive,
+            limit = limit ?: -1,
+        ).map { rows -> rows.map { it.toDomain() } }
+    }
+
     override fun observe(filter: TransactionFilter): Flow<List<Transaction>> = transactionDao.observeFiltered(
         currency = filter.currency,
         accountId = filter.accountId,
@@ -88,19 +114,26 @@ class LocalTransactionRepository @Inject constructor(
         entity.toDomain()
     }
 
-    override suspend fun update(transaction: Transaction): Transaction = database.withTransaction {
-        val existing = requireNotNull(transactionDao.getById(transaction.id)) { "Transaction does not exist" }
-        require(existing.deletedAt == null && !transaction.isDeleted) { "A deleted transaction cannot be edited" }
-        check(transaction.modifiedAt == existing.modifiedAt) { "Transaction changed; reload before editing" }
-        val account = requireNotNull(accountDao.getById(transaction.accountId)) { "Account does not exist" }
-        require(account.deletedAt == null || transaction.accountId == existing.accountId) {
-            "Cannot move a transaction to a deleted account"
+    override suspend fun update(transaction: Transaction, expectedCurrency: String): Transaction = database.withTransaction {
+        val existing = transactionDao.getById(transaction.id)
+            ?: throw TransactionManagementException(TransactionManagementError.NOT_FOUND)
+        if (existing.deletedAt != null || transaction.isDeleted) throw TransactionManagementException(TransactionManagementError.NOT_FOUND)
+        if (transaction.modifiedAt != existing.modifiedAt) throw TransactionManagementException(TransactionManagementError.CHANGED)
+        val account = accountDao.getById(transaction.accountId)
+            ?: throw TransactionManagementException(TransactionManagementError.ACCOUNT_UNAVAILABLE)
+        if (account.deletedAt != null && transaction.accountId != existing.accountId) {
+            throw TransactionManagementException(TransactionManagementError.ACCOUNT_UNAVAILABLE)
         }
-        val category = requireNotNull(categoryDao.getById(transaction.categoryId)) { "Category does not exist" }
-        val originalCategory = requireNotNull(categoryDao.getById(existing.categoryId)) { "Original category is missing" }
-        require(category.isIncome == originalCategory.isIncome) { "Transaction type cannot change" }
-        require(!category.isArchived || transaction.categoryId == existing.categoryId) {
-            "Cannot change to an archived category"
+        if (account.currency != expectedCurrency) throw TransactionManagementException(TransactionManagementError.ACCOUNT_CURRENCY_CHANGED)
+        val category = categoryDao.getById(transaction.categoryId)
+            ?: throw TransactionManagementException(TransactionManagementError.CATEGORY_UNAVAILABLE)
+        val originalCategory = categoryDao.getById(existing.categoryId)
+            ?: throw TransactionManagementException(TransactionManagementError.CATEGORY_UNAVAILABLE)
+        if (category.isIncome != originalCategory.isIncome || (category.isArchived && transaction.categoryId != existing.categoryId)) {
+            throw TransactionManagementException(TransactionManagementError.CATEGORY_UNAVAILABLE)
+        }
+        if (transaction.comment != null && transaction.comment.length > 200) {
+            throw TransactionManagementException(TransactionManagementError.COMMENT_TOO_LONG)
         }
         val local = existing.toDomain().copy(
             accountId = transaction.accountId,
@@ -111,8 +144,13 @@ class LocalTransactionRepository @Inject constructor(
             modifiedAt = nextModifiedAt(existing.modifiedAt),
             syncStatus = existing.syncStatus.afterLocalEdit(),
         )
-        local.toUpsertRequest()
-        val entity = local.toEntity()
+        val entity = try {
+            local.toEntity()
+        } catch (error: ArithmeticException) {
+            throw TransactionManagementException(TransactionManagementError.INVALID_AMOUNT)
+        } catch (error: IllegalArgumentException) {
+            throw TransactionManagementException(TransactionManagementError.INVALID_AMOUNT)
+        }
         check(transactionDao.update(entity) == 1) { "Transaction update failed" }
         entity.toDomain()
     }
@@ -129,8 +167,43 @@ class LocalTransactionRepository @Inject constructor(
         true
     }
 
-    override suspend fun getPendingChanges(): List<Transaction> =
+    override suspend fun deleteWithUndo(id: String, expectedModifiedAt: Instant): PendingTransactionDeletion = database.withTransaction {
+        val existing = transactionDao.getById(id)
+            ?: throw TransactionManagementException(TransactionManagementError.NOT_FOUND)
+        if (existing.deletedAt != null) throw TransactionManagementException(TransactionManagementError.NOT_FOUND)
+        if (existing.modifiedAt != expectedModifiedAt) throw TransactionManagementException(TransactionManagementError.CHANGED)
+        val deletedAt = nextModifiedAt(existing.modifiedAt)
+        val deletion = TransactionDeletionEntity(id, deletedAt, clock.now() + 6.seconds, existing.syncStatus)
+        deletionDao.insert(deletion)
+        check(transactionDao.update(existing.copy(
+            deletedAt = deletedAt, modifiedAt = deletedAt, syncStatus = SyncStatus.PENDING_DELETE,
+        )) == 1) { "Transaction deletion failed" }
+        deletion.toDomain()
+    }
+
+    override fun observePendingDeletions(): Flow<List<PendingTransactionDeletion>> =
+        deletionDao.observeAll().map { rows -> rows.map { it.toDomain() } }
+
+    override suspend fun undoDelete(deletion: PendingTransactionDeletion): Boolean = database.withTransaction {
+        val held = deletionDao.getById(deletion.transactionId) ?: return@withTransaction false
+        if (held.deletedAt != deletion.deletedAt || held.undoUntil != deletion.undoUntil || clock.now() >= held.undoUntil) {
+            return@withTransaction false
+        }
+        val existing = transactionDao.getById(held.transactionId) ?: return@withTransaction false
+        if (existing.deletedAt != held.deletedAt || existing.modifiedAt != held.deletedAt || existing.syncStatus != SyncStatus.PENDING_DELETE) {
+            return@withTransaction false
+        }
+        check(transactionDao.update(existing.copy(
+            deletedAt = null, modifiedAt = nextModifiedAt(existing.modifiedAt), syncStatus = held.previousSyncStatus,
+        )) == 1) { "Transaction restoration failed" }
+        deletionDao.remove(held.transactionId)
+        true
+    }
+
+    override suspend fun getPendingChanges(): List<Transaction> = database.withTransaction {
+        deletionDao.releaseExpired(clock.now())
         transactionDao.getPendingChanges().map { it.toDomain() }
+    }
 
     override suspend fun acknowledgeUpsert(sent: Transaction, confirmed: Transaction): Boolean = database.withTransaction {
         require(sent.syncStatus.isPendingUpsert() && !sent.isDeleted) { "Expected a pending transaction upsert" }
@@ -153,4 +226,6 @@ class LocalTransactionRepository @Inject constructor(
         }
         true
     }
+
+    private fun TransactionDeletionEntity.toDomain() = PendingTransactionDeletion(transactionId, deletedAt, undoUntil)
 }

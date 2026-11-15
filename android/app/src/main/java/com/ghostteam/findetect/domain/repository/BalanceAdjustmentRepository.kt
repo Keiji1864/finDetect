@@ -14,6 +14,9 @@ interface BalanceAdjustmentRepository {
 
     suspend fun create(adjustment: BalanceAdjustment): BalanceAdjustment
 
+    /** Reads the latest balance and inserts the difference atomically. A request ID is idempotent. */
+    suspend fun setActualBalance(accountId: String, actual: BigDecimal, currency: String, requestId: String): BalanceAdjustment?
+
     suspend fun getPendingChanges(): List<BalanceAdjustment>
 
     suspend fun acknowledgeCreate(sent: BalanceAdjustment, confirmed: BalanceAdjustment): Boolean

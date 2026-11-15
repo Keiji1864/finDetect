@@ -3,16 +3,23 @@ package com.ghostteam.findetect.core.navigation
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
-import com.ghostteam.findetect.feature.accounts.AccountsScreen
+import com.ghostteam.findetect.feature.accounts.AccountsRoute
 import com.ghostteam.findetect.feature.analytics.AnalyticsScreen
 import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
+import com.ghostteam.findetect.feature.expenses.ExpensesRoute
+import com.ghostteam.findetect.feature.home.HomeRoute
+import com.ghostteam.findetect.feature.incomes.IncomeRoute
 import com.ghostteam.findetect.feature.expenses.ExpensesScreen
 import com.ghostteam.findetect.feature.home.HomeScreen
 import com.ghostteam.findetect.feature.incomes.IncomeScreen
@@ -28,7 +35,12 @@ import com.ghostteam.findetect.feature.settings.RemindersSettingsScreen
 import com.ghostteam.findetect.feature.settings.SecuritySettingsScreen
 import com.ghostteam.findetect.feature.settings.SettingsScreen
 import com.ghostteam.findetect.feature.transaction.AddTransactionMode
-import com.ghostteam.findetect.feature.transaction.AddTransactionSheet
+import com.ghostteam.findetect.feature.transaction.AddTransactionRoute
+import com.ghostteam.findetect.feature.transaction.EditTransactionRoute
+import com.ghostteam.findetect.feature.transaction.EditTransactionViewModel
+import com.ghostteam.findetect.feature.transaction.FinancePeriodViewModel
+import com.ghostteam.findetect.feature.transaction.FinancePeriodSheet
+import java.util.UUID
 
 /** Нижняя навигация показывается только на четырёх главных вкладках */
 private val mainRoutes = setOf(
@@ -40,9 +52,18 @@ private val mainRoutes = setOf(
 
 @Composable
 fun AppNavHost() {
+    val editTransactionViewModel: EditTransactionViewModel = hiltViewModel()
+    val transactionSnackbar = remember { SnackbarHostState() }
+    val financePeriodViewModel: FinancePeriodViewModel = hiltViewModel()
+    val financePeriod by financePeriodViewModel.state.collectAsStateWithLifecycle()
     val controller = rememberNavController()
     val entry by controller.currentBackStackEntryAsState()
     var sheetMode by rememberSaveable { mutableStateOf<String?>(null) }
+    var transactionSessionId by rememberSaveable { mutableStateOf("") }
+    val openTransaction: (AddTransactionMode) -> Unit = { mode ->
+        transactionSessionId = UUID.randomUUID().toString()
+        sheetMode = mode.name
+    }
 
     val currentRoute = entry?.destination?.route
     val showBottomBar = currentRoute in mainRoutes
@@ -58,6 +79,7 @@ fun AppNavHost() {
     Scaffold(
         containerColor = FinTheme.colors.paper,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(transactionSnackbar) },
         bottomBar = {
             if (showBottomBar) {
                 BottomBar(currentRoute ?: Destination.Home.route) { route ->
@@ -109,29 +131,35 @@ fun AppNavHost() {
                 )
             }
             composable(Destination.Home.route) {
-                HomeScreen(
-                    onAddTransaction = { sheetMode = AddTransactionMode.Switchable.name },
+                HomeRoute(
+                    onAddTransaction = { openTransaction(AddTransactionMode.Switchable) },
                     onOpenProfile = { open(Destination.Profile) },
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(false) },
                 )
             }
             composable(Destination.Expenses.route) {
-                ExpensesScreen(
-                    onAddTransaction = { sheetMode = AddTransactionMode.Expense.name },
+                ExpensesRoute(
+                    period = financePeriod.selected,
+                    onOpenPeriod = financePeriodViewModel::open,
+                    onAddTransaction = { openTransaction(AddTransactionMode.Expense) },
+                    onEditTransaction = editTransactionViewModel::open,
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(false) },
                 )
             }
             composable(Destination.Incomes.route) {
-                IncomeScreen(
-                    onAddTransaction = { sheetMode = AddTransactionMode.Income.name },
+                IncomeRoute(
+                    period = financePeriod.selected,
+                    onOpenPeriod = financePeriodViewModel::open,
+                    onAddTransaction = { openTransaction(AddTransactionMode.Income) },
+                    onEditTransaction = editTransactionViewModel::open,
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(true) },
                 )
             }
             composable(Destination.Accounts.route) {
-                AccountsScreen(onOpenSettings = openSettings, onOpenAnalytics = { openAnalytics(false) })
+                AccountsRoute(onOpenSettings = openSettings, onOpenAnalytics = { openAnalytics(false) })
             }
 
             composable(
@@ -195,6 +223,8 @@ fun AppNavHost() {
         }
     }
     sheetMode?.let { mode ->
-        AddTransactionSheet(AddTransactionMode.valueOf(mode), onDismiss = { sheetMode = null })
+        AddTransactionRoute(transactionSessionId.ifEmpty { mode }, AddTransactionMode.valueOf(mode), onDismiss = { sheetMode = null })
     }
+    if (financePeriod.open) FinancePeriodSheet(financePeriodViewModel)
+    EditTransactionRoute(editTransactionViewModel, transactionSnackbar)
 }

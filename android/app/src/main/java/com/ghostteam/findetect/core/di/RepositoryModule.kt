@@ -5,11 +5,13 @@ import com.ghostteam.findetect.data.repository.LocalBalanceAdjustmentRepository
 import com.ghostteam.findetect.data.repository.LocalBalanceRepository
 import com.ghostteam.findetect.data.repository.LocalCategoryRepository
 import com.ghostteam.findetect.data.repository.LocalTransactionRepository
+import com.ghostteam.findetect.data.repository.LocalSettingsRepository
 import com.ghostteam.findetect.domain.repository.AccountRepository
 import com.ghostteam.findetect.domain.repository.BalanceAdjustmentRepository
 import com.ghostteam.findetect.domain.repository.BalanceRepository
 import com.ghostteam.findetect.domain.repository.CategoryRepository
 import com.ghostteam.findetect.domain.repository.TransactionRepository
+import com.ghostteam.findetect.domain.repository.SettingsRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -19,6 +21,10 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds
+    @Singleton
+    abstract fun settings(implementation: LocalSettingsRepository): SettingsRepository
+
     @Binds
     @Singleton
     abstract fun accounts(implementation: LocalAccountRepository): AccountRepository

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="transactions_read_error">Не удалось загрузить операции. Попробуйте ещё раз.</string>
+    <string name="transactions_no_expenses">Пока нет расходов</string>
+    <string name="transactions_no_income">Пока нет доходов</string>
+    <string name="transactions_empty_hint">В выбранной валюте за этот период записей нет. Добавьте первую операцию.</string>
+    <string name="transactions_largest_expense">Больше всего расходов: %1$s</string>
+    <string name="transactions_largest_income">Главный источник дохода: %1$s</string>
+    <string name="transactions_category_share">%1$d%% суммы за выбранный период</string>
+    <string name="transactions_period_range">%1$s — %2$s</string>
+    <string name="transactions_custom_period">Свой период</string>
+    <string name="transactions_calendar">Календарь</string>
+    <string name="transactions_previous_month">Предыдущий месяц</string>
+    <string name="transactions_next_month">Следующий месяц</string>
+    <string name="transactions_select_month">Выбрать месяц целиком: %1$s</string>
+    <string name="transactions_period_start">Начало периода</string>
+    <string name="transactions_period_end">Конец периода</string>
+    <string name="transactions_select_end">Выберите конец периода.</string>
+    <string name="transactions_period_error">Начало периода не должно быть позже конца.</string>
+    <string name="transactions_apply">Применить</string>
+</resources>

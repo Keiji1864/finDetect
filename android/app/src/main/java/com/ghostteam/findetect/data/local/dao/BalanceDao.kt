@@ -33,6 +33,9 @@ interface BalanceDao {
     @Query(BALANCE_SELECT + " WHERE a.id = :accountId")
     fun observeAccount(accountId: String): Flow<AccountBalanceRow?>
 
+    @Query(BALANCE_SELECT + " WHERE a.id = :accountId")
+    suspend fun getAccount(accountId: String): AccountBalanceRow?
+
     @Query(BALANCE_SELECT + " WHERE a.deletedAt IS NULL AND a.currency = :currency ORDER BY a.name, a.id")
     fun observeAccounts(currency: String): Flow<List<AccountBalanceRow>>
 }

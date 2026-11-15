@@ -32,6 +32,15 @@ interface AccountDao {
     )
     suspend fun hasMovements(id: String): Boolean
 
-    @Query("SELECT * FROM accounts WHERE syncStatus != 'SYNCED' ORDER BY modifiedAt, id")
+    @Query(
+        """SELECT EXISTS(SELECT 1 FROM transactions WHERE accountId = :id)
+            OR EXISTS(SELECT 1 FROM balance_adjustments WHERE accountId = :id)""",
+    )
+    fun observeHasMovements(id: String): Flow<Boolean>
+
+    @Query("""SELECT a.* FROM accounts a WHERE a.syncStatus != 'SYNCED'
+        AND NOT EXISTS(SELECT 1 FROM account_deletions d WHERE d.accountId = a.id)
+        AND (a.deletedAt IS NULL OR a.createdAt IS NOT NULL)
+        ORDER BY a.modifiedAt, a.id""")
     suspend fun getPendingChanges(): List<AccountEntity>
 }
