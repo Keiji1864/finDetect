@@ -59,7 +59,7 @@
 
     <!-- Игровые элементы -->
     <string name="ui_gamification_about">Что входит</string>
-    <string name="ui_gamification_about_hint">Серия дней, очки, уровни, достижения и напоминания. Если выключить, эти блоки скроются.</string>
+    <string name="ui_gamification_about_hint">Серия дней, очки, уровни и достижения. Если выключить, эти блоки скроются, а прогресс сохранится. Напоминания и отметка дня без трат работают независимо.</string>
 
     <!-- Безопасность / PIN -->
     <string name="ui_pin_create">Придумайте PIN-код</string>

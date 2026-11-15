@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 class LocalTransactionRepository @Inject constructor(
     private val database: AppDatabase,
@@ -111,6 +113,10 @@ class LocalTransactionRepository @Inject constructor(
             throw TransactionCreationException(TransactionCreationError.INVALID_AMOUNT, error)
         }
         transactionDao.insert(entity)
+        database.activityDayDao().recordTransaction(
+            entity.enteredAt.toLocalDateTime(TimeZone.currentSystemDefault()).date.toString(),
+            entity.enteredAt,
+        )
         entity.toDomain()
     }
 

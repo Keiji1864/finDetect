@@ -6,6 +6,7 @@ import com.ghostteam.findetect.data.local.AppDatabase
 import com.ghostteam.findetect.data.local.migration.MIGRATION_1_2
 import com.ghostteam.findetect.data.local.migration.MIGRATION_2_3
 import com.ghostteam.findetect.data.local.migration.MIGRATION_3_4
+import com.ghostteam.findetect.data.local.migration.MIGRATION_4_5
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -20,7 +21,7 @@ object DatabaseModule {
     @Provides @Singleton
     fun db(@ApplicationContext ctx: Context): AppDatabase =
         Room.databaseBuilder(ctx, AppDatabase::class.java, "findetective.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
             .build()
 
     @Provides
@@ -32,4 +33,5 @@ object DatabaseModule {
     @Provides fun balanceDao(db: AppDatabase) = db.balanceDao()
     @Provides fun accountDeletionDao(db: AppDatabase) = db.accountDeletionDao()
     @Provides fun balanceConfirmationDao(db: AppDatabase) = db.balanceConfirmationDao()
+    @Provides fun activityDayDao(db: AppDatabase) = db.activityDayDao()
 }

@@ -12,6 +12,10 @@ import com.ghostteam.findetect.domain.repository.BalanceRepository
 import com.ghostteam.findetect.domain.repository.CategoryRepository
 import com.ghostteam.findetect.domain.repository.TransactionRepository
 import com.ghostteam.findetect.domain.repository.SettingsRepository
+import com.ghostteam.findetect.domain.repository.ActivityRepository
+import com.ghostteam.findetect.domain.repository.PinRepository
+import com.ghostteam.findetect.data.repository.LocalActivityRepository
+import com.ghostteam.findetect.data.pin.PinStorage
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -21,6 +25,12 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class RepositoryModule {
+    @Binds @Singleton
+    abstract fun activity(implementation: LocalActivityRepository): ActivityRepository
+
+    @Binds @Singleton
+    abstract fun pin(implementation: PinStorage): PinRepository
+
     @Binds
     @Singleton
     abstract fun settings(implementation: LocalSettingsRepository): SettingsRepository

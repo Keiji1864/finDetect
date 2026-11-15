@@ -32,6 +32,7 @@ import com.ghostteam.findetect.feature.settings.GamificationSettingsScreen
 import com.ghostteam.findetect.feature.settings.RemindersSettingsScreen
 import com.ghostteam.findetect.feature.settings.SecuritySettingsScreen
 import com.ghostteam.findetect.feature.settings.SettingsScreen
+import com.ghostteam.findetect.feature.settings.SettingsViewModel
 import com.ghostteam.findetect.feature.transaction.AddTransactionMode
 import com.ghostteam.findetect.feature.transaction.AddTransactionRoute
 import com.ghostteam.findetect.feature.transaction.EditTransactionRoute
@@ -49,7 +50,7 @@ private val mainRoutes = setOf(
 )
 
 @Composable
-fun AppNavHost() {
+fun AppNavHost(homeRequest: Int = 0) {
     val editTransactionViewModel: EditTransactionViewModel = hiltViewModel()
     val transactionSnackbar = remember { SnackbarHostState() }
     val financePeriodViewModel: FinancePeriodViewModel = hiltViewModel()
@@ -58,6 +59,7 @@ fun AppNavHost() {
     val entry by controller.currentBackStackEntryAsState()
     var sheetMode by rememberSaveable { mutableStateOf<String?>(null) }
     var transactionSessionId by rememberSaveable { mutableStateOf("") }
+    var handledHomeRequest by rememberSaveable { mutableIntStateOf(0) }
     val openTransaction: (AddTransactionMode) -> Unit = { mode ->
         transactionSessionId = UUID.randomUUID().toString()
         sheetMode = mode.name
@@ -78,6 +80,19 @@ fun AppNavHost() {
     }
     val openIncomeMonth: (Period) -> Unit = { period ->
         controller.navigate(Destination.IncomeMonth.createRoute(period)) { launchSingleTop = true }
+    }
+
+    LaunchedEffect(homeRequest) {
+        if (homeRequest > 0 && homeRequest != handledHomeRequest) {
+            sheetMode = null
+            financePeriodViewModel.dismiss()
+            editTransactionViewModel.dismiss()
+            controller.navigate(Destination.Home.route) {
+                popUpTo(controller.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+            handledHomeRequest = homeRequest
+        }
     }
 
     Scaffold(
@@ -213,7 +228,10 @@ fun AppNavHost() {
             }
 
             composable(Destination.Profile.route) {
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                val settings by settingsViewModel.state.collectAsStateWithLifecycle()
                 ProfileScreen(
+                    gameElementsEnabled = settings.settings?.gameElementsEnabled == true,
                     onBack = back,
                     onLogout = {
                         controller.navigate(Destination.Login.route) {

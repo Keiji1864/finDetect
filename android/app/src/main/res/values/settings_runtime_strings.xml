@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_read_error">Не удалось загрузить настройки</string>
+    <string name="settings_write_error">Не удалось сохранить. Повторите действие.</string>
+    <string name="settings_enabled">Включены</string>
+    <string name="settings_disabled">Выключены</string>
+    <string name="settings_pin_enabled">PIN-код включён</string>
+    <string name="settings_pin_disabled">PIN-код выключен</string>
+    <string name="settings_pin_error">Хранилище PIN-кода недоступно</string>
+    <string name="reminder_time">%1$02d:00</string>
+    <string name="reminder_daily">Ежедневно</string>
+    <string name="reminder_summary">Каждый день в %1$s</string>
+    <string name="reminder_system_blocked">Выключены в настройках устройства</string>
+    <string name="reminder_timing_title">Время напоминания</string>
+    <string name="reminder_timing_hint">Напомним, если за день вы ещё не вели учёт. Android может задержать уведомление; спустя час после выбранного времени оно уже не придёт.</string>
+    <string name="reminder_channel">Напоминания об учёте</string>
+    <string name="reminder_channel_description">Ежедневное напоминание внести операции за день</string>
+    <string name="reminder_title">Как прошёл ваш день?</string>
+    <string name="reminder_message">Добавьте доходы и расходы или отметьте «Сегодня трат не было».</string>
+    <string name="home_no_spending">Сегодня трат не было</string>
+    <string name="home_day_confirmed">День отмечен</string>
+    <string name="home_has_expense">За сегодня есть расход. Отметка без трат учитывает все валюты.</string>
+    <string name="home_activity_error">Не удалось загрузить или сохранить отметку дня.</string>
+    <string name="home_day_changed">Начался новый день. Проверьте отметку ещё раз.</string>
+    <string name="pin_enable">Включить PIN-код</string>
+    <string name="pin_change">Изменить PIN-код</string>
+    <string name="pin_disable">Отключить PIN-код</string>
+    <string name="pin_enter_current">Введите действующий PIN-код</string>
+    <string name="pin_enter_to_unlock">Введите PIN-код</string>
+    <string name="pin_unlock_title">FinDetect</string>
+    <string name="pin_incorrect">Неверный PIN-код. Попробуйте ещё раз.</string>
+    <string name="pin_mismatch">PIN-коды не совпали. Придумайте PIN заново.</string>
+    <string name="pin_throttled">Слишком много попыток. Повторите через %1$d сек.</string>
+    <string name="pin_storage_error">Не удалось открыть защищённое хранилище. Повторите попытку. Если ошибка сохраняется, восстановление доступа пока недоступно.</string>
+    <string name="pin_save_error">Не удалось сохранить PIN-код. Повторите попытку.</string>
+    <string name="pin_dots_description">Введено цифр: %1$d из 4</string>
+    <string name="pin_security_about">PIN запрашивается при запуске и после 30 секунд в фоне. Для смены или отключения нужен действующий PIN.</string>
+    <string name="pin_already_enabled">PIN-код уже настроен на этом устройстве</string>
+</resources>

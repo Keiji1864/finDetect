@@ -48,6 +48,7 @@ fun ProfileScreen(
     onChangePassword: () -> Unit = {},
     onLogout: () -> Unit = {},
     onDeleteAccount: () -> Unit = {},
+    gameElementsEnabled: Boolean = true,
 ) {
     val defaultName = stringResource(R.string.ui_profile_name_value)
     val defaultEmail = stringResource(R.string.ui_profile_email_value)
@@ -100,7 +101,7 @@ fun ProfileScreen(
             leading = { UiIconTile(R.drawable.ic_lock) },
             onClick = onChangePassword,
         )
-        FinRow(
+        if (gameElementsEnabled) FinRow(
             title = stringResource(R.string.ui_level),
             subtitle = stringResource(R.string.ui_level_hint),
             leading = { UiIconTile(R.drawable.ic_trophy) },

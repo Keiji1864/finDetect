@@ -4,6 +4,9 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.ghostteam.findetect.data.local.dao.AccountDao
+import com.ghostteam.findetect.data.local.dao.ActivityDayDao
+import com.ghostteam.findetect.data.local.entity.ActivityDayEntity
+import com.ghostteam.findetect.data.local.entity.NotificationDayEntity
 import com.ghostteam.findetect.data.local.dao.AccountDeletionDao
 import com.ghostteam.findetect.data.local.dao.AdjustmentDao
 import com.ghostteam.findetect.data.local.dao.BalanceDao
@@ -21,12 +24,14 @@ import com.ghostteam.findetect.data.local.entity.TransactionDeletionEntity
 
 @Database(
     entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, AdjustmentEntity::class,
-        AccountDeletionEntity::class, BalanceConfirmationEntity::class, TransactionDeletionEntity::class],
-    version = 4,
+        AccountDeletionEntity::class, BalanceConfirmationEntity::class, TransactionDeletionEntity::class,
+        ActivityDayEntity::class, NotificationDayEntity::class],
+    version = 5,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun activityDayDao(): ActivityDayDao
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao
     abstract fun transactionDao(): TransactionDao
