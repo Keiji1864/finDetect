@@ -49,6 +49,7 @@ fun TransactionsRoute(
     onAddTransaction: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAnalytics: () -> Unit,
+    onEditTransaction: (String) -> Unit = {},
     viewModel: TransactionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -63,7 +64,8 @@ fun TransactionsRoute(
     }
     val visibleState = if (state.request?.let { it.period == period && it.isIncome == isIncome } == true) state
         else state.copy(summary = null, loading = true)
-    TransactionsScreen(visibleState, isIncome, period, onOpenPeriod, onAddTransaction, onOpenSettings, onOpenAnalytics, viewModel::retry)
+    TransactionsScreen(visibleState, isIncome, period, onOpenPeriod, onAddTransaction, onOpenSettings, onOpenAnalytics,
+        viewModel::retry, onEditTransaction)
 }
 
 /** One data-driven layout serves both tabs; the period, list, chart and total share the same filter. */
@@ -77,6 +79,7 @@ fun TransactionsScreen(
     onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
     onRetry: () -> Unit = {},
+    onEditTransaction: (String) -> Unit = {},
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val periodLabel = if (period == Period.currentMonth(period.start)) period.start.formatMonth(locale)
@@ -126,20 +129,23 @@ fun TransactionsScreen(
             item(key = "day-${day.date}") {
                 Text(day.date.formatDate(locale), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
             }
-            items(day.transactions, key = { "transaction-${it.transaction.id}" }) { details -> TransactionRow(details) }
+            items(day.transactions, key = { "transaction-${it.transaction.id}" }) { details ->
+                TransactionRow(details, onClick = { onEditTransaction(details.transaction.id) })
+            }
         }
     }
 }
 
-/** Historical row with an exact signed value; home uses a compact row and a dated subtitle. */
+/** Historical row with an optional edit action; home keeps the compact overview without a click. */
 @Composable
 fun TransactionRow(
     details: TransactionDetails,
     compact: Boolean = false,
     subtitle: String? = details.transaction.comment?.takeUnless { it.isBlank() },
+    onClick: (() -> Unit)? = null,
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    FinRow(title = details.category.localizedName(), subtitle = subtitle, compact = compact,
+    FinRow(title = details.category.localizedName(), subtitle = subtitle, compact = compact, onClick = onClick,
         leading = {
             FinIconTile { Icon(painterResource(financeIcon(details.category.iconId).drawableResource), null,
                 tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp)) }
@@ -179,7 +185,7 @@ private fun TransactionsScreenPreview() {
 @Preview(showBackground = true, widthDp = 364, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun TransactionRowPreview() {
-    FinDetectTheme { TransactionRow(transactionsPreviewSummary().days.first().transactions.first()) }
+    FinDetectTheme { TransactionRow(transactionsPreviewSummary().days.first().transactions.first(), onClick = {}) }
 }
 
 @Preview(showBackground = true, widthDp = 364)

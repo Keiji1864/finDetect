@@ -31,6 +31,8 @@ import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.core.util.currencySymbol
 import com.ghostteam.findetect.core.util.formatMoney
 import com.ghostteam.findetect.domain.model.Category
+import com.ghostteam.findetect.domain.model.Account
+import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.domain.model.TransactionCreationError
 import com.ghostteam.findetect.feature.accounts.AccountCreationRoute
 import java.text.DateFormat
@@ -56,19 +58,7 @@ fun AddTransactionRoute(
     when {
         createRequest != null -> AccountCreationRoute(createRequest, viewModel::accountCreated, viewModel::cancelAccountCreation)
         state.saved && state.promptCurrency != null -> {
-            val currency = requireNotNull(state.promptCurrency)
-            AlertDialog(
-                onDismissRequest = viewModel::dismissCurrencyPrompt,
-                title = { Text(stringResource(R.string.transaction_saved)) },
-                text = { Text(stringResource(if (state.switchError) R.string.transaction_switch_error else R.string.transaction_other_currency,
-                    currency.name)) },
-                confirmButton = { TextButton(onClick = viewModel::switchCurrency, enabled = !state.switchingCurrency) {
-                    Text(stringResource(R.string.transaction_switch_currency, currency.name))
-                } },
-                dismissButton = { TextButton(onClick = viewModel::dismissCurrencyPrompt, enabled = !state.switchingCurrency) {
-                    Text(stringResource(R.string.transaction_understood))
-                } },
-            )
+            TransactionCurrencyPrompt(state, viewModel::switchCurrency, viewModel::dismissCurrencyPrompt)
         }
         !state.saved -> AddTransactionSheet(state, viewModel::changeAmount, viewModel::changeComment, viewModel::changeType,
             viewModel::openPicker, viewModel::closePicker, viewModel::chooseCategory, viewModel::chooseAccount,
@@ -77,7 +67,7 @@ fun AddTransactionRoute(
     }
 }
 
-/** Stateless transaction form and selectors; all editable data belongs to the ViewModel. */
+/** Stateless form and selectors. An edit title, validation slot and delete action also serve existing operations. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionSheet(
@@ -95,6 +85,11 @@ fun AddTransactionSheet(
     onRetry: () -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
+    @StringRes titleResource: Int? = null,
+    saveEnabled: Boolean = state.canSave,
+    onDelete: (() -> Unit)? = null,
+    deleteEnabled: Boolean = true,
+    errorContent: (@Composable () -> Unit)? = null,
 ) {
     val saving by rememberUpdatedState(state.saving)
     // A fresh modal when returning from a dismissed selector makes the form visible again.
@@ -130,7 +125,7 @@ fun AddTransactionSheet(
                             FinNotice(stringResource(R.string.transaction_no_accounts))
                         }
                         state.accounts.forEach { balance ->
-                            FinRow(title = balance.account.name,
+                            FinRow(title = balance.account.displayName(),
                                 subtitle = stringResource(R.string.transaction_account_balance,
                                     balance.account.currency, formatMoney(balance.balance, balance.account.currency)),
                                 leading = { ResourceIcon(balance.account.iconId) }, inSheet = true,
@@ -147,7 +142,7 @@ fun AddTransactionSheet(
                             FinSegmentedSwitch(
                                 options = listOf(false to stringResource(R.string.ui_expenses), true to stringResource(R.string.ui_income)),
                                 selected = state.isIncome, onSelect = { if (!saving) onType(it) })
-                        } else SheetTitle(if (state.isIncome) R.string.ui_add_income_title else R.string.ui_add_expense_title)
+                        } else SheetTitle(titleResource ?: if (state.isIncome) R.string.ui_add_income_title else R.string.ui_add_expense_title)
                         Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(stringResource(R.string.ui_amount), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -168,7 +163,7 @@ fun AddTransactionSheet(
                         }
                         FinSelectField(stringResource(R.string.ui_category), state.selectedCategory?.displayName().orEmpty(),
                             onClick = { if (!saving) onPicker(TransactionPicker.CATEGORY) }, placeholder = stringResource(R.string.ui_choose_category))
-                        FinSelectField(stringResource(R.string.ui_account), state.selectedAccount?.account?.name.orEmpty(),
+                        FinSelectField(stringResource(R.string.ui_account), state.selectedAccount?.account?.displayName().orEmpty(),
                             onClick = { if (!saving) onPicker(TransactionPicker.ACCOUNT) }, placeholder = stringResource(R.string.ui_choose_account))
                         if (!state.accountsLoading && !state.accountsError && state.accounts.isEmpty()) {
                             FinNotice(stringResource(R.string.transaction_no_accounts))
@@ -186,7 +181,10 @@ fun AddTransactionSheet(
                         if (state.accountsLoading || state.categoriesLoading) LoadingText()
                         if (state.accountsError || state.categoriesError || state.settingsError) RetryNotice(onRetry)
                         state.saveError?.let { ErrorText(it.messageResource()) }
-                        FinButton(stringResource(R.string.ui_save), onSave, enabled = state.canSave, loading = state.saving)
+                        errorContent?.invoke()
+                        FinButton(stringResource(R.string.ui_save), onSave, enabled = saveEnabled, loading = state.saving)
+                        if (onDelete != null) FinButton(stringResource(R.string.transaction_delete), onDelete,
+                            style = FinButtonStyle.Danger, enabled = deleteEnabled && !state.saving)
                         FinButton(stringResource(R.string.ui_close), onDismiss, style = FinButtonStyle.Secondary, enabled = !state.saving)
                     }
                 }
@@ -231,7 +229,30 @@ private fun RetryNotice(onRetry: () -> Unit) {
 }
 
 @Composable
-private fun Category.displayName(): String = if (LocalConfiguration.current.locales[0].language == "en") names.en else names.ru
+private fun Category.displayName(): String {
+    val name = if (LocalConfiguration.current.locales[0].language == "en") names.en else names.ru
+    return if (isArchived) stringResource(R.string.transaction_archived_category, name) else name
+}
+
+@Composable
+private fun Account.displayName(): String = if (isDeleted) stringResource(R.string.transaction_deleted_account, name) else name
+
+/** Shown only after a local write; switching display currency never repeats that write. */
+@Composable
+internal fun TransactionCurrencyPrompt(state: AddTransactionUiState, onSwitch: () -> Unit, onDismiss: () -> Unit) {
+    val currency = state.promptCurrency ?: return
+    AlertDialog(
+        onDismissRequest = { if (!state.switchingCurrency) onDismiss() },
+        title = { Text(stringResource(R.string.transaction_saved)) },
+        text = { Text(stringResource(if (state.switchError) R.string.transaction_switch_error else R.string.transaction_other_currency, currency.name)) },
+        confirmButton = { TextButton(onClick = onSwitch, enabled = !state.switchingCurrency) {
+            Text(stringResource(R.string.transaction_switch_currency, currency.name))
+        } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !state.switchingCurrency) {
+            Text(stringResource(R.string.transaction_understood))
+        } },
+    )
+}
 
 private fun LocalDate.displayDate(): String {
     val date = this
@@ -258,4 +279,11 @@ private fun AddTransactionPreview() {
     FinDetectTheme {
         AddTransactionSheet(AddTransactionUiState(date = LocalDate(2026, 11, 14)), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
     }
+}
+
+@Preview(showBackground = true, widthDp = 412)
+@Preview(showBackground = true, widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun TransactionCurrencyPromptPreview() {
+    FinDetectTheme { TransactionCurrencyPrompt(AddTransactionUiState(saved = true, promptCurrency = AppCurrency.USD), {}, {}) }
 }

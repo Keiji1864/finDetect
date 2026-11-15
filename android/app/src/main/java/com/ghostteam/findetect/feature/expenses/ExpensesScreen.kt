@@ -20,8 +20,9 @@ fun ExpensesRoute(
     onAddTransaction: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
+    onEditTransaction: (String) -> Unit = {},
 ) {
-    TransactionsRoute(false, period, onOpenPeriod, onAddTransaction, onOpenSettings, onOpenAnalytics)
+    TransactionsRoute(false, period, onOpenPeriod, onAddTransaction, onOpenSettings, onOpenAnalytics, onEditTransaction)
 }
 
 @Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)

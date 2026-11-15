@@ -19,6 +19,17 @@ interface TransactionDao {
             FROM transactions AS t
             INNER JOIN accounts AS a ON a.id = t.accountId
             INNER JOIN categories AS c ON c.id = t.categoryId
+            WHERE t.id = :id""",
+    )
+    fun observeDetailsById(id: String): Flow<TransactionDetailsRow?>
+
+    @Query(
+        """SELECT t.*, a.currency AS currency, c.`key` AS categoryKey,
+            c.nameRu AS categoryNameRu, c.nameEn AS categoryNameEn, c.iconId AS categoryIconId,
+            c.isIncome AS categoryIsIncome, c.isArchived AS categoryIsArchived
+            FROM transactions AS t
+            INNER JOIN accounts AS a ON a.id = t.accountId
+            INNER JOIN categories AS c ON c.id = t.categoryId
             WHERE t.deletedAt IS NULL
                 AND (:currency IS NULL OR a.currency = :currency)
                 AND (:accountId IS NULL OR t.accountId = :accountId)
@@ -91,6 +102,9 @@ interface TransactionDao {
         toExclusive: Instant?,
     ): Flow<Long>
 
-    @Query("SELECT * FROM transactions WHERE syncStatus != 'SYNCED' ORDER BY modifiedAt, id")
+    @Query("""SELECT * FROM transactions WHERE syncStatus != 'SYNCED'
+        AND id NOT IN (SELECT transactionId FROM transaction_deletions)
+        AND NOT (deletedAt IS NOT NULL AND createdAt IS NULL)
+        ORDER BY modifiedAt, id""")
     suspend fun getPendingChanges(): List<TransactionEntity>
 }

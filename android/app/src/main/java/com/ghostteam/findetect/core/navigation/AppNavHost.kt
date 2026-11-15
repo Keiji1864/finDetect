@@ -3,6 +3,8 @@ package com.ghostteam.findetect.core.navigation
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -28,6 +30,8 @@ import com.ghostteam.findetect.feature.settings.SecuritySettingsScreen
 import com.ghostteam.findetect.feature.settings.SettingsScreen
 import com.ghostteam.findetect.feature.transaction.AddTransactionMode
 import com.ghostteam.findetect.feature.transaction.AddTransactionRoute
+import com.ghostteam.findetect.feature.transaction.EditTransactionRoute
+import com.ghostteam.findetect.feature.transaction.EditTransactionViewModel
 import com.ghostteam.findetect.feature.transaction.FinancePeriodViewModel
 import com.ghostteam.findetect.feature.transaction.FinancePeriodSheet
 import java.util.UUID
@@ -42,6 +46,8 @@ private val mainRoutes = setOf(
 
 @Composable
 fun AppNavHost() {
+    val editTransactionViewModel: EditTransactionViewModel = hiltViewModel()
+    val transactionSnackbar = remember { SnackbarHostState() }
     val financePeriodViewModel: FinancePeriodViewModel = hiltViewModel()
     val financePeriod by financePeriodViewModel.state.collectAsStateWithLifecycle()
     val controller = rememberNavController()
@@ -67,6 +73,7 @@ fun AppNavHost() {
     Scaffold(
         containerColor = FinTheme.colors.paper,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        snackbarHost = { SnackbarHost(transactionSnackbar) },
         bottomBar = {
             if (showBottomBar) {
                 BottomBar(currentRoute ?: Destination.Home.route) { route ->
@@ -93,6 +100,7 @@ fun AppNavHost() {
                     period = financePeriod.selected,
                     onOpenPeriod = financePeriodViewModel::open,
                     onAddTransaction = { openTransaction(AddTransactionMode.Expense) },
+                    onEditTransaction = editTransactionViewModel::open,
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(false) },
                 )
@@ -102,6 +110,7 @@ fun AppNavHost() {
                     period = financePeriod.selected,
                     onOpenPeriod = financePeriodViewModel::open,
                     onAddTransaction = { openTransaction(AddTransactionMode.Income) },
+                    onEditTransaction = editTransactionViewModel::open,
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(true) },
                 )
@@ -167,4 +176,5 @@ fun AppNavHost() {
         AddTransactionRoute(transactionSessionId.ifEmpty { mode }, AddTransactionMode.valueOf(mode), onDismiss = { sheetMode = null })
     }
     if (financePeriod.open) FinancePeriodSheet(financePeriodViewModel)
+    EditTransactionRoute(editTransactionViewModel, transactionSnackbar)
 }
