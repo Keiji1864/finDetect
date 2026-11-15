@@ -76,7 +76,7 @@ fun CategoryChart(categories: List<CategoryTotal>, total: BigDecimal, currency: 
 }
 
 @Composable
-private fun categoryColor(key: String): Color {
+internal fun categoryColor(key: String): Color {
     val palette = listOf(FinTheme.colors.yellow, FinTheme.colors.navy, FinTheme.colors.slate, FinTheme.colors.cream)
     return when (key) {
         "groceries", "products" -> palette[0]

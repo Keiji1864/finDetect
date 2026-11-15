@@ -14,9 +14,10 @@ import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
+import com.ghostteam.findetect.core.util.Period
 import com.ghostteam.findetect.feature.accounts.AccountsRoute
-import com.ghostteam.findetect.feature.analytics.AnalyticsScreen
-import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
+import com.ghostteam.findetect.feature.analytics.AnalyticsRoute
+import com.ghostteam.findetect.feature.analytics.CategoryDetailRoute
 import com.ghostteam.findetect.feature.expenses.ExpensesRoute
 import com.ghostteam.findetect.feature.home.HomeRoute
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
@@ -70,7 +71,13 @@ fun AppNavHost() {
     val openSettings = { open(Destination.Settings) }
     /** Иконка графика в шапке: тип по умолчанию зависит от вкладки-источника. */
     val openAnalytics: (Boolean) -> Unit = { income ->
-        controller.navigate(Destination.Analytics.createRoute(income)) { launchSingleTop = true }
+        controller.navigate(Destination.Analytics.createRoute(income, financePeriod.selected)) { launchSingleTop = true }
+    }
+    val openAnalyticsCategory: (Boolean, String, Period) -> Unit = { income, categoryId, period ->
+        controller.navigate(Destination.CategoryDetail.createRoute(income, categoryId, period)) { launchSingleTop = true }
+    }
+    val openIncomeMonth: (Period) -> Unit = { period ->
+        controller.navigate(Destination.IncomeMonth.createRoute(period)) { launchSingleTop = true }
     }
 
     Scaffold(
@@ -161,33 +168,47 @@ fun AppNavHost() {
 
             composable(
                 Destination.Analytics.route,
-                arguments = listOf(navArgument(Destination.Analytics.ARG_TYPE) { type = NavType.StringType }),
-            ) { backStackEntry ->
-                val income = backStackEntry.arguments?.getString(Destination.Analytics.ARG_TYPE) == "income"
-                AnalyticsScreen(
-                    initialIncome = income,
+                arguments = listOf(
+                    navArgument(Destination.Analytics.ARG_TYPE) { type = NavType.StringType },
+                    navArgument(Destination.Analytics.ARG_START) { type = NavType.StringType },
+                    navArgument(Destination.Analytics.ARG_END) { type = NavType.StringType },
+                ),
+            ) {
+                AnalyticsRoute(
                     onBack = back,
-                    onOpenCategory = { isIncome, index, period ->
-                        controller.navigate(Destination.CategoryDetail.createRoute(isIncome, index, period)) {
-                            launchSingleTop = true
-                        }
-                    },
+                    onOpenCategory = openAnalyticsCategory,
+                    onOpenMonth = openIncomeMonth,
+                    onEditTransaction = editTransactionViewModel::open,
                 )
             }
             composable(
                 Destination.CategoryDetail.route,
                 arguments = listOf(
                     navArgument(Destination.CategoryDetail.ARG_TYPE) { type = NavType.StringType },
-                    navArgument(Destination.CategoryDetail.ARG_INDEX) { type = NavType.IntType },
-                    navArgument(Destination.CategoryDetail.ARG_PERIOD) { type = NavType.IntType },
+                    navArgument(Destination.CategoryDetail.ARG_CATEGORY_ID) { type = NavType.StringType },
+                    navArgument(Destination.CategoryDetail.ARG_START) { type = NavType.StringType },
+                    navArgument(Destination.CategoryDetail.ARG_END) { type = NavType.StringType },
                 ),
-            ) { backStackEntry ->
-                val args = backStackEntry.arguments
-                CategoryDetailScreen(
-                    isIncome = args?.getString(Destination.CategoryDetail.ARG_TYPE) == "income",
-                    categoryIndex = args?.getInt(Destination.CategoryDetail.ARG_INDEX) ?: 0,
-                    initialPeriod = args?.getInt(Destination.CategoryDetail.ARG_PERIOD) ?: 0,
+            ) {
+                CategoryDetailRoute(
                     onBack = back,
+                    onEditTransaction = editTransactionViewModel::open,
+                )
+            }
+            composable(
+                Destination.IncomeMonth.route,
+                arguments = listOf(
+                    navArgument(Destination.IncomeMonth.ARG_START) { type = NavType.StringType },
+                    navArgument(Destination.IncomeMonth.ARG_END) { type = NavType.StringType },
+                    navArgument("type") { type = NavType.StringType; defaultValue = "income" },
+                    navArgument("monthDetail") { type = NavType.BoolType; defaultValue = true },
+                ),
+            ) {
+                AnalyticsRoute(
+                    onBack = back,
+                    onOpenCategory = openAnalyticsCategory,
+                    onOpenMonth = openIncomeMonth,
+                    onEditTransaction = editTransactionViewModel::open,
                 )
             }
 

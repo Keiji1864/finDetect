@@ -2,46 +2,86 @@ package com.ghostteam.findetect.feature.analytics
 
 import android.content.res.Configuration
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.R
-import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
+import com.ghostteam.findetect.core.designsystem.component.FinLazySubScreen
+import com.ghostteam.findetect.core.designsystem.component.FinNotice
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
-import com.ghostteam.findetect.feature.prototype.PeriodSheet
+import com.ghostteam.findetect.domain.model.TransactionsDay
+import com.ghostteam.findetect.feature.transaction.FinancePeriodSheet
+import com.ghostteam.findetect.feature.transaction.localizedName
+import java.math.BigDecimal
 
 @Composable
-fun CategoryDetailScreen(
-    isIncome: Boolean,
-    categoryIndex: Int,
-    initialPeriod: Int,
+fun CategoryDetailRoute(
     onBack: () -> Unit,
+    onEditTransaction: (String) -> Unit,
+    viewModel: CategoryDetailViewModel = hiltViewModel(),
 ) {
-    var period by rememberSaveable { mutableIntStateOf(initialPeriod.coerceIn(0, PeriodLabels.lastIndex)) }
-    var showPeriod by rememberSaveable { mutableStateOf(false) }
-    val stats = buildStats(isIncome, period, stringArrayResource(R.array.ui_analytics_months).toList())
-    val index = categoryIndex.coerceIn(0, stats.categories.lastIndex)
-    val category = stats.categories[index]
-    val color = categoryColors()[index]
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val calendar by viewModel.period.state.collectAsStateWithLifecycle()
+    AnalyticsOnResume(viewModel::onResume)
+    val request = viewModel.request()
+    val visibleState = state.takeIf { it.data.request == request } ?: CategoryDetailUiState(AnalyticsUiState(request))
+    CategoryDetailScreen(visibleState, onBack, viewModel.period::open, viewModel::retry, onEditTransaction)
+    if (calendar.open) FinancePeriodSheet(viewModel.period, viewModel::applyPeriod)
+}
 
-    FinSubScreen(title = stringResource(category.name), onBack = onBack) {
-        PeriodSummary(category.amount, period, onChipClick = { showPeriod = true })
-        Text(
-            stringResource(if (isIncome) R.string.ui_share_of_income else R.string.ui_share_of_expense, stats.share(category.amount)),
-            style = FinTheme.typography.caption, color = FinTheme.colors.muted,
-        )
-        StackedBarChart(
-            title = stringResource(chartTitleRes(isIncome, stats.byMonths)),
-            bars = stats.bars.map { listOf(it[index]) },
-            colors = listOf(color),
-            xLabels = stats.xLabels,
-        )
+@Composable
+internal fun CategoryDetailScreen(
+    state: CategoryDetailUiState,
+    onBack: () -> Unit,
+    onOpenPeriod: () -> Unit,
+    onRetry: () -> Unit,
+    onEditTransaction: (String) -> Unit,
+) {
+    val data = state.data
+    val category = state.category
+    val summary = data.summary
+    val currency = data.currency?.name
+    val categoryTotal = summary?.transactions?.categories?.firstOrNull { it.category.id == category?.id }
+    val history = remember(summary, category?.id) {
+        summary?.transactions?.days.orEmpty().mapNotNull { day ->
+            day.transactions.filter { it.category.id == category?.id }.takeIf { it.isNotEmpty() }
+                ?.let { TransactionsDay(day.date, it) }
+        }
     }
-    if (showPeriod) {
-        PeriodSheet(period, onSelect = { period = it; showPeriod = false }, onDismiss = { showPeriod = false })
+    FinLazySubScreen(category?.localizedName() ?: stringResource(R.string.ui_category), onBack) {
+        item(key = "summary") {
+            PeriodSummary(if (summary != null && category != null) categoryTotal?.amount ?: BigDecimal.ZERO.setScale(2) else null,
+                currency, data.request.period, onOpenPeriod)
+        }
+        if (data.loading || data.error) {
+            item(key = "status") { AnalyticsStatus(data, onRetry) }
+        }
+        if (category != null && summary != null && currency != null) {
+            item(key = "share") {
+                Text(stringResource(if (data.request.isIncome) R.string.ui_share_of_income else R.string.ui_share_of_expense,
+                    categoryTotal?.percentage ?: 0), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+            }
+            if (data.request.isIncome && data.request.today >= data.request.period.start && data.request.today <= data.request.period.end) {
+                item(key = "month-note") { IncomePeriodNote(data.request) }
+            }
+            if (history.isEmpty()) {
+                item(key = "empty") {
+                    FinNotice(stringResource(R.string.analytics_category_empty), text = stringResource(R.string.analytics_empty_hint))
+                }
+            } else {
+                if (!data.request.isIncome || summary.buckets.size > 1) {
+                    item(key = "chart") { AnalyticsChart(summary, data.request, currency, category = category) }
+                }
+                analyticsHistory(history, onEditTransaction)
+            }
+        } else if (summary != null && !data.loading && !data.error) {
+            item(key = "missing-category") { FinNotice(stringResource(R.string.analytics_category_missing)) }
+        }
     }
 }
 
@@ -49,5 +89,8 @@ fun CategoryDetailScreen(
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun CategoryDetailPreview() {
-    FinDetectTheme { CategoryDetailScreen(isIncome = false, categoryIndex = 1, initialPeriod = 0, onBack = {}) }
+    val data = analyticsPreviewState()
+    FinDetectTheme {
+        CategoryDetailScreen(CategoryDetailUiState(data, data.summary?.transactions?.categories?.first()?.category), {}, {}, {}, {})
+    }
 }
