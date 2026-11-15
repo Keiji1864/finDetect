@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Вход -->
+    <string name="ui_login_tagline">Ваши финансы под контролем</string>
+    <string name="ui_login_email_label">Электронная почта</string>
+    <string name="ui_login_email_placeholder">name@example.com</string>
+    <string name="ui_login_email_error">Введите корректную почту</string>
+    <string name="ui_login_password_label">Пароль</string>
+    <string name="ui_login_password_placeholder">••••••••</string>
+    <string name="ui_login_password_error">Введите пароль</string>
+    <string name="ui_login_sign_in">Войти</string>
+    <string name="ui_login_forgot">Забыли пароль?</string>
+    <string name="ui_login_no_account">Ещё нет аккаунта?</string>
+    <string name="ui_login_register">Зарегистрироваться</string>
+</resources>

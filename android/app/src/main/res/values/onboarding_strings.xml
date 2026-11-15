@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Онбоардинг: следующий доход -->
+    <string name="ui_onboarding_income_title">Когда следующий доход?</string>
+    <string name="ui_onboarding_income_hint">Укажи дату поступления, чтобы видеть ориентир расходов на день.</string>
+    <string name="ui_onboarding_income_date">Следующее поступление</string>
+    <string name="ui_onboarding_income_repeat">Повторять</string>
+    <string-array name="ui_onboarding_repeat_options">
+        <item>Каждый месяц</item>
+        <item>Каждые две недели</item>
+        <item>Каждую неделю</item>
+        <item>Один раз</item>
+    </string-array>
+    <string name="ui_onboarding_income_notice">Можно изменить позже</string>
+    <string name="ui_onboarding_income_notice_hint">Дата используется для финансового прогноза</string>
+    <string name="ui_onboarding_continue">Продолжить</string>
+    <string name="ui_onboarding_skip">Пропустить</string>
+    <string name="ui_onboarding_date_ok">Готово</string>
+    <string name="ui_onboarding_date_cancel">Отмена</string>
+
+    <!-- Онбоардинг: PIN-код -->
+    <string name="ui_onboarding_pin_title">Создайте PIN-код</string>
+    <string name="ui_onboarding_pin_hint">4 цифры для быстрого входа</string>
+    <string name="ui_onboarding_pin_repeat_hint">Введите тот же PIN-код ещё раз</string>
+    <string name="ui_onboarding_pin_mismatch">PIN-коды не совпадают. Попробуйте ещё раз</string>
+    <string name="ui_onboarding_pin_notice">Безопасность</string>
+    <string name="ui_onboarding_pin_notice_hint">Не используйте простые комбинации</string>
+</resources>

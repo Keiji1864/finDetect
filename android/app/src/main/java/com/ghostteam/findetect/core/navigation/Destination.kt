@@ -27,6 +27,8 @@ sealed class Destination(val route: String) {
     data object SettingsReminders : Destination("settings/reminders")
     data object SettingsGamification : Destination("settings/gamification")
     data object Login : Destination("login")
+    data object Register : Destination("register")
     data object Onboarding : Destination("onboarding")
+    data object OnboardingPin : Destination("onboarding/pin")
     data object Lock : Destination("lock")
 }
