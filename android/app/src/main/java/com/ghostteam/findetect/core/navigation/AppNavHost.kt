@@ -20,6 +20,8 @@ import com.ghostteam.findetect.feature.login.LoginScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
 import com.ghostteam.findetect.feature.profile.ProfileScreen
+import com.ghostteam.findetect.feature.recovery.NewPasswordScreen
+import com.ghostteam.findetect.feature.recovery.RecoveryCodeScreen
 import com.ghostteam.findetect.feature.register.RegisterScreen
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
 import com.ghostteam.findetect.feature.settings.CurrencySettingsScreen
@@ -79,8 +81,7 @@ fun AppNavHost() {
                             launchSingleTop = true
                         }
                     },
-                    // TODO: экран восстановления пароля (в макете его пока нет)
-                    onForgotPassword = {},
+                    onForgotPassword = { open(Destination.RecoveryCode) },
                     onRegister = { open(Destination.Register) },
                 )
             }
@@ -90,6 +91,25 @@ fun AppNavHost() {
                     onRegister = { open(Destination.Onboarding) },
                 )
             }
+            composable(Destination.RecoveryCode.route) {
+                RecoveryCodeScreen(
+                    onBack = back,
+                    onContinue = { open(Destination.RecoveryPassword) },
+                    )
+                }
+            composable(Destination.RecoveryPassword.route) {
+                NewPasswordScreen(
+                    // Стрелка "назад" ведёт сразу на вход, минуя экран ввода кода
+                    onBack = { controller.popBackStack(Destination.Login.route, inclusive = false) },
+                    // Пароль обновлён: входим автоматически
+                    onDone = {
+                        controller.navigate(Destination.Home.route) {
+                            popUpTo(Destination.Login.route) { inclusive = true }
+                            launchSingleTop = true
+                            }
+                        },
+                    )
+                }
             composable(Destination.Onboarding.route) {
                 OnboardingIncomeScreen(
                     onBack = back,
