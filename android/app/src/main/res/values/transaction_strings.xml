@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="transaction_done">Готово</string>
+    <string name="transaction_understood">Понятно</string>
+    <string name="transaction_saved">Операция сохранена</string>
+    <string name="transaction_other_currency">Операция записана на счёт в %1$s. Переключить валюту отображения, чтобы увидеть её в списке?</string>
+    <string name="transaction_switch_currency">Переключить на %1$s</string>
+    <string name="transaction_switch_error">Операция уже сохранена. Не удалось переключить валюту отображения на %1$s. Попробуйте ещё раз.</string>
+    <string name="transaction_account_balance">%1$s · Остаток %2$s</string>
+    <string name="transaction_no_accounts">Сначала создайте счёт для записи расходов и доходов.</string>
+    <string name="transaction_no_categories">Пока нет доступных категорий этого типа.</string>
+    <string name="transaction_amount_error">Введите сумму больше нуля: до 9 цифр до разделителя и до 2 после.</string>
+    <string name="transaction_comment_error">Комментарий должен содержать не более 200 символов.</string>
+    <string name="transaction_account_error">Счёт недоступен. Выберите действующий счёт.</string>
+    <string name="transaction_category_error">Категория недоступна для этой операции. Выберите другую.</string>
+    <string name="transaction_date_error">Не удалось сохранить выбранную дату. Выберите её заново.</string>
+    <string name="transaction_save_error">Не удалось сохранить операцию. Проверьте данные и попробуйте ещё раз.</string>
+    <string name="transaction_read_error">Не удалось загрузить данные формы. Попробуйте ещё раз.</string>
+</resources>
