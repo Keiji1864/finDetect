@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="streak_title">Серия дней</string>
+    <string name="streak_record_title">Рекорд</string>
+    <string name="streak_read_error">Не удалось загрузить серию дней.</string>
+    <string name="streak_start_hint">Добавьте операцию или отметьте день без трат, чтобы начать серию.</string>
+    <string name="streak_every_day_title">Каждый день имеет значение</string>
+    <string name="streak_every_day_hint">Вносите доходы и расходы или отмечайте дни без трат. Несколько операций за день дают один активный день.</string>
+    <string name="streak_grace_used">Серия сохранена. Ещё один пропуск до восстановления запаса начнёт её заново.</string>
+    <string name="streak_grace_restored">Запас восстановлен: семь активных дней подряд снова позволяют сохранить серию при одном пропуске.</string>
+    <string name="streak_reset">Можно начать новую серию. Ваш рекорд сохранён.</string>
+    <string name="streak_game_disabled">Игровые элементы выключены</string>
+    <string name="streak_game_disabled_hint">Прогресс сохранён. Отмечать дни без трат можно по-прежнему.</string>
+    <string name="streak_day_active">День отмечен</string>
+    <string name="streak_day_inactive">День не отмечен</string>
+    <string name="streak_day_today_inactive">Сегодня день ещё не отмечен</string>
+    <string name="streak_day_future">День ещё не наступил</string>
+    <string name="streak_day_description">%1$s. %2$s</string>
+    <string name="streak_today_date">%1$s, сегодня</string>
+    <plurals name="streak_tracking_days">
+        <item quantity="one">%1$d день учёта</item>
+        <item quantity="few">%1$d дня учёта</item>
+        <item quantity="many">%1$d дней учёта</item>
+        <item quantity="other">%1$d дней учёта</item>
+    </plurals>
+    <plurals name="streak_record_days">
+        <item quantity="one">Рекорд: %1$d день</item>
+        <item quantity="few">Рекорд: %1$d дня</item>
+        <item quantity="many">Рекорд: %1$d дней</item>
+        <item quantity="other">Рекорд: %1$d дней</item>
+    </plurals>
+    <plurals name="streak_days">
+        <item quantity="one">%1$d день</item>
+        <item quantity="few">%1$d дня</item>
+        <item quantity="many">%1$d дней</item>
+        <item quantity="other">%1$d дней</item>
+    </plurals>
+</resources>

@@ -36,9 +36,10 @@ fun FinSubScreen(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    titleMaxLines: Int = 1,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    FinSubScreenFrame(title, onBack, modifier) {
+    FinSubScreenFrame(title, onBack, modifier, titleMaxLines) {
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -80,6 +81,7 @@ private fun FinSubScreenFrame(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier,
+    titleMaxLines: Int = 1,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -90,7 +92,7 @@ private fun FinSubScreenFrame(
             .navigationBarsPadding()
             .imePadding(),
     ) {
-        FinTopBar(title = title, onBack = onBack, titleStyle = FinTheme.typography.title)
+        FinTopBar(title = title, onBack = onBack, titleStyle = FinTheme.typography.title, titleMaxLines = titleMaxLines)
         content()
     }
 }

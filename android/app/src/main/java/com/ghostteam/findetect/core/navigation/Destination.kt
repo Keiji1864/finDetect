@@ -9,6 +9,7 @@ sealed class Destination(val route: String) {
     data object Incomes : Destination("incomes")
     data object Accounts : Destination("accounts")
     data object Profile : Destination("profile")
+    data object Streak : Destination("streak")
 
     data object Analytics : Destination("analytics/{type}/{start}/{end}") {
         const val ARG_TYPE = "type"
