@@ -32,6 +32,13 @@ import com.ghostteam.findetect.feature.incomes.IncomeRoute
 import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
 import com.ghostteam.findetect.feature.profile.ProfileRoute
+import com.ghostteam.findetect.feature.login.LoginScreen
+import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
+import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
+import com.ghostteam.findetect.feature.profile.ProfileScreen
+import com.ghostteam.findetect.feature.recovery.NewPasswordScreen
+import com.ghostteam.findetect.feature.recovery.RecoveryCodeScreen
+import com.ghostteam.findetect.feature.register.RegisterScreen
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
 import com.ghostteam.findetect.feature.settings.CurrencySettingsScreen
 import com.ghostteam.findetect.feature.settings.GamificationSettingsScreen
@@ -125,7 +132,44 @@ fun AppNavHost(session: SessionState.Active, sessionModel: UserSessionViewModel,
             }
         },
     ) { padding ->
-        NavHost(controller, start, Modifier.padding(padding)) {
+        NavHost(controller, Destination.Login.route, Modifier.padding(padding)) {
+            composable(Destination.Login.route) {
+                LoginScreen(
+                    onLogin = {
+                        controller.navigate(Destination.Home.route) {
+                            popUpTo(Destination.Login.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    onForgotPassword = { open(Destination.RecoveryCode) },
+                    onRegister = { open(Destination.Register) },
+                )
+            }
+            composable(Destination.Register.route) {
+                RegisterScreen(
+                    onBack = back,
+                    onRegister = { open(Destination.Onboarding) },
+                )
+            }
+            composable(Destination.RecoveryCode.route) {
+                RecoveryCodeScreen(
+                    onBack = back,
+                    onContinue = { open(Destination.RecoveryPassword) },
+                    )
+                }
+            composable(Destination.RecoveryPassword.route) {
+                NewPasswordScreen(
+                    // Стрелка "назад" ведёт сразу на вход, минуя экран ввода кода
+                    onBack = { controller.popBackStack(Destination.Login.route, inclusive = false) },
+                    // Пароль обновлён: входим автоматически
+                    onDone = {
+                        controller.navigate(Destination.Home.route) {
+                            popUpTo(Destination.Login.route) { inclusive = true }
+                            launchSingleTop = true
+                            }
+                        },
+                    )
+                }
             composable(Destination.Onboarding.route) {
                 OnboardingIncomeScreen(
                     onBack = onExit,

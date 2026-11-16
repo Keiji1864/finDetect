@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
+import androidx.compose.ui.Alignment
 
 @Composable
 private fun FieldContainer(
@@ -116,30 +117,36 @@ fun FinTextField(
     val borderWidth = if (focused || errorText != null) FinDimens.borderFocused else FinDimens.borderWidth
 
     Column(modifier = modifier.fillMaxWidth()) {
-        FieldContainer(label = label, borderColor = borderColor, borderWidth = borderWidth) {
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                enabled = enabled,
-                singleLine = singleLine,
-                textStyle = FinTheme.typography.body.copy(color = c.navy),
-                cursorBrush = SolidColor(c.navy),
-                keyboardOptions = keyboardOptions,
-                keyboardActions = keyboardActions,
-                visualTransformation = visualTransformation,
-                interactionSource = remember { MutableInteractionSource() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { focused = it.isFocused },
-                decorationBox = { inner ->
-                    Box {
-                        if (value.isEmpty()) {
-                            Text(placeholder, style = FinTheme.typography.body, color = c.muted)
+        Box {
+            FieldContainer(label = label, borderColor = borderColor, borderWidth = borderWidth) {
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    enabled = enabled,
+                    singleLine = singleLine,
+                    textStyle = FinTheme.typography.body.copy(color = c.navy),
+                    cursorBrush = SolidColor(c.navy),
+                    keyboardOptions = keyboardOptions,
+                    visualTransformation = visualTransformation,
+                    interactionSource = remember { MutableInteractionSource() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // место под иконку справа (например, глаз у пароля), чтобы текст не заходил под неё
+                        .padding(end = if (trailing != null) 32.dp else 0.dp)
+                        .onFocusChanged { focused = it.isFocused },
+                    decorationBox = { inner ->
+                        Box {
+                            if (value.isEmpty()) {
+                                Text(placeholder, style = FinTheme.typography.body, color = c.muted)
+                            }
+                            inner()
                         }
-                        inner()
-                    }
-                },
-            )
+                    },
+                )
+            }
+            if (trailing != null) {
+                Box(modifier = Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)) { trailing() }
+            }
         }
         if (errorText != null) {
             Text(
