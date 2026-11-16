@@ -64,35 +64,54 @@ fun SessionNavHost(lock: AppLockManager, homeRequest: Int, notificationOwner: Se
 private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
     val nav = rememberNavController()
     NavHost(nav, Destination.Login.route) {
-        composable(Destination.Login.route) {
+        composable(Destination.Login.route) { entry ->
             val model: AuthViewModel = hiltViewModel()
             val state by model.state.collectAsStateWithLifecycle()
             val cached = (session as? SessionState.ReauthenticationRequired)?.user
-            val message = state.error?.let { stringResource(authError(it)) } ?: when (session) {
-                is SessionState.ReauthenticationRequired -> stringResource(R.string.session_expired)
-                SessionState.StorageError -> stringResource(R.string.session_storage_error)
+            val recovery = session as? SessionState.StorageError
+            val suggestedEmail by entry.savedStateHandle.getStateFlow<String?>(LOGIN_EMAIL, null).collectAsStateWithLifecycle()
+            val accountCreated by entry.savedStateHandle.getStateFlow(LOGIN_ACCOUNT_CREATED, false).collectAsStateWithLifecycle()
+            val prefillRevision by entry.savedStateHandle.getStateFlow(LOGIN_PREFILL_REVISION, 0L).collectAsStateWithLifecycle()
+            var handledPrefill by androidx.compose.runtime.saveable.rememberSaveable { mutableLongStateOf(0L) }
+            LaunchedEffect(prefillRevision) {
+                if (prefillRevision != handledPrefill) {
+                    model.resetFeedback()
+                    handledPrefill = prefillRevision
+                }
+            }
+            val message = authFormMessage(state) ?: when {
+                accountCreated || recovery?.accountCreated == true -> stringResource(R.string.auth_account_created)
+                session is SessionState.ReauthenticationRequired -> stringResource(R.string.session_expired)
+                recovery != null -> stringResource(R.string.session_storage_error)
                 else -> null
             }
             LoginScreen(onLogin = model::login, onRegister = { nav.navigate(Destination.Register.route) },
-                initialEmail = cached?.email.orEmpty(), working = state.working, message = message,
-                onRetry = if (session == SessionState.StorageError) onRetry else null)
+                initialEmail = suggestedEmail ?: recovery?.email ?: cached?.email.orEmpty(), emailRevision = prefillRevision,
+                state = state, message = message,
+                onFieldChange = {
+                    model.fieldChanged(it)
+                    if (it == AuthField.EMAIL) entry.savedStateHandle[LOGIN_ACCOUNT_CREATED] = false
+                }, onRetry = if (recovery != null) onRetry else null)
         }
         composable(Destination.Register.route) {
             val model: AuthViewModel = hiltViewModel()
             val state by model.state.collectAsStateWithLifecycle()
-            RegisterScreen(onBack = { nav.popBackStack() }, onRegister = model::register, working = state.working,
-                message = state.error?.let { stringResource(authError(it)) })
+            RegisterScreen(onBack = { nav.popBackStack() }, onRegister = model::register, state = state,
+                onFieldChange = model::fieldChanged, onOpenLogin = { email ->
+                    nav.getBackStackEntry(Destination.Login.route).savedStateHandle.apply {
+                        this[LOGIN_EMAIL] = email
+                        this[LOGIN_ACCOUNT_CREATED] = state.accountCreated
+                        this[LOGIN_PREFILL_REVISION] = (get<Long>(LOGIN_PREFILL_REVISION) ?: 0L) + 1L
+                    }
+                    nav.popBackStack(Destination.Login.route, false)
+                })
         }
     }
 }
 
-private fun authError(reason: AuthFailure): Int = when (reason) {
-    AuthFailure.INVALID_CREDENTIALS -> R.string.session_invalid_credentials
-    AuthFailure.EMAIL_TAKEN -> R.string.session_email_taken
-    AuthFailure.NETWORK -> R.string.session_network_error
-    AuthFailure.UNAVAILABLE -> R.string.session_server_error
-    AuthFailure.STORAGE -> R.string.session_storage_error
-}
+private const val LOGIN_EMAIL = "auth_login_email"
+private const val LOGIN_ACCOUNT_CREATED = "auth_login_account_created"
+private const val LOGIN_PREFILL_REVISION = "auth_login_prefill_revision"
 
 @Composable
 private fun SessionLoading() {

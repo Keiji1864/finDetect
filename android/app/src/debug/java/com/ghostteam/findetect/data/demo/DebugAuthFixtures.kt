@@ -12,17 +12,19 @@ import java.util.UUID
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.delay
 
 /** Stateless debug examples, not an authentication server or a credential database. */
 object DebugAuthFixtures {
     val demoUserIds = setOf(id("demo-a@example.com"), id("demo-b@example.com"))
-    data class Response(val status: Int, val body: String)
+    data class Response(val status: Int, val body: String, val retryAfterSeconds: Int? = null, val contentType: String = "application/json")
 
     @Serializable
     private data class DebugToken(val user: SessionUser, val scenario: String, val rotated: Boolean = false)
 
-    fun response(path: String, request: HttpRequestData, json: Json): Response? {
-        fun error(status: Int, code: String) = Response(status, json.encodeToString(ApiErrorDto(code, "Debug response")))
+    suspend fun response(path: String, request: HttpRequestData, json: Json): Response? {
+        fun error(status: Int, code: String, details: List<ApiFieldErrorDto> = emptyList()) =
+            Response(status, json.encodeToString(ApiErrorDto(code, "Debug response", details)))
         fun body(): String = (request.body as? OutgoingContent.ByteArrayContent)?.bytes()?.toString(Charsets.UTF_8).orEmpty()
         fun decode(token: String): DebugToken? = runCatching {
             val encoded = token.substringAfter('.', "")
@@ -43,6 +45,21 @@ object DebugAuthFixtures {
                     Triple(value.email, value.password, if (value.email.startsWith("demo-b")) "Ирина" else "Алексей")
                 }
                 val email = credentials.first.trim().lowercase()
+                // Fixed scenarios deliberately do not remember accounts or retry counts.
+                when (email) {
+                    "auth-validation@example.com" -> return error(400, "VALIDATION_ERROR", listOf(
+                        ApiFieldErrorDto("email", "Debug validation message"), ApiFieldErrorDto("password", "Debug validation message")))
+                    "auth-validation-unknown@example.com" -> return error(400, "VALIDATION_ERROR", listOf(ApiFieldErrorDto("unknown", "Debug message")))
+                    "auth-rate-limit@example.com" -> return error(429, "RATE_LIMITED").copy(retryAfterSeconds = 5)
+                    "auth-rate-limit-no-header@example.com" -> return error(429, "RATE_LIMITED")
+                    "auth-server@example.com" -> return error(503, "SERVICE_UNAVAILABLE")
+                    "auth-non-json@example.com" -> return Response(500, "<html>Debug server error</html>", contentType = "text/html")
+                    "auth-malformed@example.com" -> return Response(if (registration) 201 else 200, "{invalid-json")
+                    "auth-timeout@example.com" -> delay(16_000) // The common client timeout is 15 seconds.
+                    "auth-slow@example.com" -> delay(2_000)
+                }
+                if (registration && email == "register-created@example.com") return Response(201, "{invalid-json")
+                if (registration && email == "register-uncertain@example.com") throw IOException("Debug response lost")
                 if (credentials.second == "wrong-password") return error(401, "INVALID_CREDENTIALS")
                 if (registration && email == "taken@example.com") return error(409, "EMAIL_TAKEN")
                 if (email == "login-offline@example.com") throw IOException("Debug offline")

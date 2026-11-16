@@ -54,7 +54,8 @@ class SessionManager @Inject constructor(
     private var refreshAttempt: RefreshAttempt? = null
 
     override suspend fun restore() = onSession {
-        if (restoreFinished && state.value != SessionState.StorageError) return@onSession
+        if (restoreFinished && state.value !is SessionState.StorageError) return@onSession
+        val recovery = state.value as? SessionState.StorageError
         mutableState.value = SessionState.Restoring
         try {
             device.discardLegacyData()
@@ -83,7 +84,7 @@ class SessionManager @Inject constructor(
                 else -> mutableState.value = SessionState.SignedOut
             }
         } catch (error: CancellationException) { throw error }
-        catch (_: Exception) { mutableState.value = SessionState.StorageError; users.close() }
+        catch (_: Exception) { mutableState.value = recovery ?: SessionState.StorageError(); users.close() }
         finally { restoreFinished = true }
     }
 
@@ -96,7 +97,11 @@ class SessionManager @Inject constructor(
     override suspend fun register(name: String, email: String, password: String) {
         val attempt = onSession { check(restoreFinished); ++generation }
         val response = api.register(name.trim(), email.trim(), password)
-        establish(response, true, attempt)
+        try { establish(response, true, attempt) }
+        catch (error: CancellationException) { throw error }
+        catch (error: AuthException) {
+            throw AuthException(error.reason, error.fieldErrors, error.retryAfterSeconds, accountCreated = true)
+        } catch (_: Exception) { throw AuthException(AuthFailure.BAD_RESPONSE, accountCreated = true) }
     }
 
     private suspend fun establish(response: AuthResponseDto, registration: Boolean, attempt: Long) = onSession {
@@ -126,7 +131,7 @@ class SessionManager @Inject constructor(
                 activate(next, registration)
             }
         } catch (_: Exception) {
-            mutableState.value = SessionState.StorageError
+            mutableState.value = SessionState.StorageError(email = response.user.email, accountCreated = registration)
             users.close()
             throw AuthException(AuthFailure.STORAGE)
         }
@@ -224,7 +229,7 @@ class SessionManager @Inject constructor(
                     // A rotated server token must never leave an old pair silently usable in memory.
                     preventCachedRestore(owner.sessionId)
                     refreshAttempt = null
-                    mutableState.value = SessionState.StorageError
+                    mutableState.value = SessionState.StorageError()
                     users.close()
                     throw AuthException(AuthFailure.STORAGE)
                 }
@@ -255,7 +260,7 @@ class SessionManager @Inject constructor(
             record = next
             refreshAttempt = null
             mutableState.value = SessionState.ReauthenticationRequired(next.user)
-        } catch (_: Exception) { mutableState.value = SessionState.StorageError }
+        } catch (_: Exception) { mutableState.value = SessionState.StorageError() }
         users.close()
     }
 
@@ -279,7 +284,7 @@ class SessionManager @Inject constructor(
                 record = done
                 mutableState.value = SessionState.SignedOut
             } catch (_: Exception) {
-                mutableState.value = SessionState.StorageError
+                mutableState.value = SessionState.StorageError()
                 users.close()
                 throw AuthException(AuthFailure.STORAGE)
             }

@@ -15,11 +15,19 @@ sealed interface SessionState {
     data object SignedOut : SessionState
     data class Active(val identity: SessionIdentity, val user: SessionUser, val onboarding: OnboardingStep) : SessionState
     data class ReauthenticationRequired(val user: SessionUser?) : SessionState
-    data object StorageError : SessionState
+    data class StorageError(val email: String? = null, val accountCreated: Boolean = false) : SessionState
 }
 
-enum class AuthFailure { INVALID_CREDENTIALS, EMAIL_TAKEN, NETWORK, UNAVAILABLE, STORAGE }
+enum class AuthField { NAME, EMAIL, PASSWORD, CONFIRMATION }
+enum class AuthFieldError { REQUIRED, INVALID_EMAIL, NAME_LENGTH, PASSWORD_LENGTH, PASSWORD_MISMATCH, EMAIL_TAKEN, INVALID_VALUE }
+enum class AuthFailure { INVALID_CREDENTIALS, EMAIL_TAKEN, VALIDATION, RATE_LIMITED, NETWORK, TIMEOUT, BAD_RESPONSE, UNAVAILABLE, STORAGE }
 
-class AuthException(val reason: AuthFailure) : Exception(reason.name)
+/** Only safe machine-readable details cross into the UI; server messages never become user text. */
+class AuthException(
+    val reason: AuthFailure,
+    val fieldErrors: Map<AuthField, AuthFieldError> = emptyMap(),
+    val retryAfterSeconds: Long? = null,
+    val accountCreated: Boolean = false,
+) : Exception(reason.name)
 
 enum class LogoutResult { DONE, NEEDS_CONFIRMATION }
