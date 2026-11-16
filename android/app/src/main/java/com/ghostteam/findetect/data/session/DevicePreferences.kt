@@ -49,9 +49,16 @@ class DevicePreferences @Inject constructor(@ApplicationContext private val cont
     suspend fun blockSession(sessionId: String) { store.edit { it[blockedSession] = sessionId } }
     suspend fun isSessionBlocked(sessionId: String): Boolean = store.data.first()[blockedSession] == sessionId
 
+    suspend fun pendingCleanups(): Set<String> = store.data.first()[cleanupUsers].orEmpty()
+    suspend fun rememberCleanup(userId: String) { store.edit { it[cleanupUsers] = it[cleanupUsers].orEmpty() + userId } }
+    suspend fun finishCleanups(userIds: Set<String>) {
+        if (userIds.isNotEmpty()) store.edit { it[cleanupUsers] = it[cleanupUsers].orEmpty() - userIds }
+    }
+
     private companion object {
         val legacyDiscarded = booleanPreferencesKey("session_legacy_discarded_v1")
         val reminderDates = stringSetPreferencesKey("daily_reminder_dates")
         val blockedSession = stringPreferencesKey("blocked_session_id")
+        val cleanupUsers = stringSetPreferencesKey("pending_user_cleanup")
     }
 }

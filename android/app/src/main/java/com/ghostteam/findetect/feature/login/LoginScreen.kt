@@ -69,10 +69,10 @@ fun LoginScreen(
     message: String? = null,
     onRetry: (() -> Unit)? = null,
 ) {
-    var email by rememberSaveable(initialEmail, emailRevision) { mutableStateOf(initialEmail) }
-    var password by remember(initialEmail, emailRevision) { mutableStateOf("") }
+    var email by rememberSaveable(emailRevision) { mutableStateOf(initialEmail) }
+    var password by remember(emailRevision) { mutableStateOf("") }
     // Ошибки показываем только после первого нажатия на "Войти"
-    var submitted by rememberSaveable(initialEmail, emailRevision) { mutableStateOf(false) }
+    var submitted by rememberSaveable(emailRevision) { mutableStateOf(false) }
 
     val localErrors = if (submitted) AuthFormValidation.login(email, password) else emptyMap()
     val working = state.working

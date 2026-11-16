@@ -31,7 +31,7 @@ import com.ghostteam.findetect.feature.home.HomeRoute
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
 import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
-import com.ghostteam.findetect.feature.profile.ProfileScreen
+import com.ghostteam.findetect.feature.profile.ProfileRoute
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
 import com.ghostteam.findetect.feature.settings.CurrencySettingsScreen
 import com.ghostteam.findetect.feature.settings.GamificationSettingsScreen
@@ -229,13 +229,11 @@ fun AppNavHost(session: SessionState.Active, sessionModel: UserSessionViewModel,
             composable(Destination.Profile.route) {
                 val settingsViewModel: SettingsViewModel = hiltViewModel()
                 val settings by settingsViewModel.state.collectAsStateWithLifecycle()
-                ProfileScreen(
-                    userName = session.user.name,
-                    userEmail = session.user.email,
+                ProfileRoute(
                     gameElementsEnabled = settings.settings?.gameElementsEnabled == true,
                     onBack = back,
                     onLogout = { sessionModel.logout() },
-                    working = sessionUi.working,
+                    logoutWorking = sessionUi.working,
                 )
             }
             composable(Destination.Settings.route) {

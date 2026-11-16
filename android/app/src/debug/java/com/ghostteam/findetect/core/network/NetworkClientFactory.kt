@@ -3,6 +3,7 @@ package com.ghostteam.findetect.core.network
 import com.ghostteam.findetect.BuildConfig
 import com.ghostteam.findetect.data.demo.DemoData
 import com.ghostteam.findetect.data.demo.DebugAuthFixtures
+import com.ghostteam.findetect.data.demo.DebugProfileStore
 import com.ghostteam.findetect.data.remote.dto.AccountPageDto
 import com.ghostteam.findetect.data.remote.dto.ApiErrorDto
 import com.ghostteam.findetect.data.remote.dto.BalanceAdjustmentPageDto
@@ -26,6 +27,7 @@ import kotlinx.serialization.json.Json
 class NetworkClientFactory @Inject constructor(
     private val json: Json,
     private val data: DemoData,
+    private val profiles: DebugProfileStore,
 ) {
     fun create(): HttpClient {
         if (!BuildConfig.USE_MOCK_API) return createRemoteNetworkClient(json)
@@ -34,7 +36,7 @@ class NetworkClientFactory @Inject constructor(
             engine = MockEngine.config {
                 addHandler { request ->
                     val path = request.url.encodedPath.trimEnd('/').removePrefix(basePath)
-                    val auth = DebugAuthFixtures.response(path, request, json)
+                    val auth = DebugAuthFixtures.response(path, request, json, profiles)
                     if (auth != null) return@addHandler respond(
                         content = auth.body, status = HttpStatusCode.fromValue(auth.status),
                         headers = HeadersBuilder().apply {

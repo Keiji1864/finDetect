@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="profile_name_saved">Имя сохранено</string>
+    <string name="profile_name_rejected">Имя не принято. Проверьте значение и попробуйте ещё раз.</string>
+    <string name="profile_storage_error">Не удалось сохранить данные профиля. Повторите попытку.</string>
+    <string name="profile_deleting">Удаляем аккаунт…</string>
+    <string name="profile_delete_warning">Аккаунт, счета, операции и прогресс будут удалены безвозвратно. Неотправленные изменения тоже будут удалены. Отменить это действие нельзя.</string>
+    <string name="profile_delete_unconfirmed">Не удалось подтвердить удаление аккаунта. Проверьте подключение и повторите попытку.</string>
+</resources>

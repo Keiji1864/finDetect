@@ -5,13 +5,11 @@ import com.ghostteam.findetect.data.remote.dto.TokenPairDto
 import com.ghostteam.findetect.data.session.DevicePreferences
 import com.ghostteam.findetect.data.session.UserDataScopes
 import com.ghostteam.findetect.data.session.canonicalUserId
-import com.ghostteam.findetect.core.network.SessionOwner
+import com.ghostteam.findetect.data.remote.ProfileApi
 import com.ghostteam.findetect.domain.model.*
 import com.ghostteam.findetect.domain.repository.AuthRepository
+import com.ghostteam.findetect.domain.repository.ProfileRepository
 import dagger.Lazy
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.get
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,9 +38,10 @@ class SessionManager @Inject constructor(
     private val users: UserDataScopes,
     private val device: DevicePreferences,
     private val clock: Clock,
-    private val protectedClient: Lazy<HttpClient>,
-) : AuthRepository {
+    private val profileApi: Lazy<ProfileApi>,
+) : AuthRepository, ProfileRepository {
     private val transitions = Mutex()
+    private val profileWrites = Mutex()
     private val jobs = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutableState = MutableStateFlow<SessionState>(SessionState.Restoring)
     override val state = mutableState.asStateFlow()
@@ -52,40 +51,52 @@ class SessionManager @Inject constructor(
     // Read and changed only under onSession, together with the session record.
     private var refreshRevision = 0L
     private var refreshAttempt: RefreshAttempt? = null
+    private var profileRevision = 0L
 
-    override suspend fun restore() = onSession {
-        if (restoreFinished && state.value !is SessionState.StorageError) return@onSession
-        val recovery = state.value as? SessionState.StorageError
-        mutableState.value = SessionState.Restoring
-        try {
-            device.discardLegacyData()
-            var saved = storage.read()
-            record = saved
-            val restored = saved
-            if (restored?.mode == "active" && device.isSessionBlocked(checkNotNull(restored.sessionId))) {
-                saved = StoredSession(mode = "reauth", user = restored.user)
+    override suspend fun restore() = withContext(NonCancellable) {
+        onSession {
+            if (restoreFinished && state.value !is SessionState.StorageError) return@onSession
+            val recovery = state.value as? SessionState.StorageError
+            mutableState.value = SessionState.Restoring
+            try {
+                device.discardLegacyData()
+                val cleanupReceipts = device.pendingCleanups()
+                cleanupReceipts.forEach { users.deleteUserData(it) }
+                var saved = storage.read()
                 record = saved
-            }
-            saved?.cleanupUserId?.let { id ->
-                users.deleteUserData(id)
-                saved = StoredSession(mode = "signed_out")
-                storage.write(checkNotNull(saved))
+                if (saved?.user?.id?.let { it in cleanupReceipts } == true) {
+                    saved = StoredSession(mode = "signed_out")
+                    storage.write(checkNotNull(saved))
+                    record = saved
+                }
+                val restored = saved
+                if (restored?.mode == "active" && device.isSessionBlocked(checkNotNull(restored.sessionId))) {
+                    saved = StoredSession(mode = "reauth", user = restored.user, cleanupUserId = restored.cleanupUserId)
+                    record = saved
+                }
+                saved?.cleanupUserId?.let { id ->
+                    users.deleteUserData(id)
+                    val previous = checkNotNull(saved)
+                    saved = if (previous.user?.id == id) StoredSession(mode = "signed_out") else previous.copy(cleanupUserId = null)
+                    storage.write(checkNotNull(saved))
+                    record = saved
+                }
+                saved?.takeIf { it.mode == "active" }?.resetPinUserId?.let { id ->
+                    users.resetPin(id)
+                    saved = checkNotNull(saved).copy(resetPinUserId = null)
+                    storage.write(checkNotNull(saved))
+                }
                 record = saved
-            }
-            saved?.takeIf { it.mode == "active" }?.resetPinUserId?.let { id ->
-                users.resetPin(id)
-                saved = checkNotNull(saved).copy(resetPinUserId = null)
-                storage.write(checkNotNull(saved))
-            }
-            record = saved
-            when (saved?.mode) {
-                "active" -> activate(checkNotNull(saved), false)
-                "reauth" -> mutableState.value = SessionState.ReauthenticationRequired(saved?.user)
-                else -> mutableState.value = SessionState.SignedOut
-            }
-        } catch (error: CancellationException) { throw error }
-        catch (_: Exception) { mutableState.value = recovery ?: SessionState.StorageError(); users.close() }
-        finally { restoreFinished = true }
+                device.finishCleanups(cleanupReceipts)
+                when (saved?.mode) {
+                    "active" -> activate(checkNotNull(saved), false)
+                    "reauth" -> mutableState.value = SessionState.ReauthenticationRequired(saved?.user)
+                    else -> mutableState.value = SessionState.SignedOut
+                }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { mutableState.value = recovery ?: SessionState.StorageError(); users.close() }
+            finally { restoreFinished = true }
+        }
     }
 
     override suspend fun login(email: String, password: String) {
@@ -115,11 +126,14 @@ class SessionManager @Inject constructor(
             expiresAt = expiry(response.tokens), resetPinUserId = resetPin)
         try {
             withContext(NonCancellable) {
+                val cleanupReceipts = device.pendingCleanups()
+                cleanupReceipts.forEach { users.deleteUserData(it) }
                 record?.cleanupUserId?.let { users.deleteUserData(it) }
                 // Persist registration progress before credentials, including a crash between these writes.
                 users.saveOnboarding(id, users.onboarding(id, registration))
                 storage.write(next, recoverAfterAuthentication = true)
                 record = next
+                device.finishCleanups(cleanupReceipts)
                 mutableState.value = SessionState.Restoring
                 users.close()
                 if (resetPin != null) {
@@ -147,6 +161,7 @@ class SessionManager @Inject constructor(
         val scope = users.open(identity)
         users.publish(scope)
         refreshRevision += 1
+        profileRevision += 1
         refreshAttempt = null
         mutableState.value = SessionState.Active(identity, user, step)
     }
@@ -253,7 +268,7 @@ class SessionManager @Inject constructor(
         val previous = record ?: return@withContext
         ++generation
         val next = StoredSession(mode = "reauth", user = previous.user,
-            resetPinUserId = if (resetPin) previous.user?.id else null)
+            resetPinUserId = if (resetPin) previous.user?.id else null, cleanupUserId = previous.cleanupUserId)
         try {
             previous.sessionId?.let { preventCachedRestore(it) }
             storage.write(next)
@@ -268,50 +283,155 @@ class SessionManager @Inject constructor(
         val current = state.value as? SessionState.Active ?: return@onSession LogoutResult.DONE
         if (!discardPendingChanges && users.requireCurrent().hasPendingChanges()) return@onSession LogoutResult.NEEDS_CONFIRMATION
         val refresh = record?.refreshToken
-        withContext(NonCancellable) {
-            val journal = StoredSession(mode = "signed_out", cleanupUserId = current.user.id)
-            try {
-                preventCachedRestore(current.identity.sessionId)
-                storage.write(journal)
-                record = journal
-                refreshAttempt = null
-                ++generation
-                mutableState.value = SessionState.Restoring
-                users.close()
-                users.deleteUserData(current.user.id)
-                val done = StoredSession(mode = "signed_out")
-                storage.write(done)
-                record = done
-                mutableState.value = SessionState.SignedOut
-            } catch (_: Exception) {
-                mutableState.value = SessionState.StorageError()
-                users.close()
-                throw AuthException(AuthFailure.STORAGE)
-            }
-        }
+        clearLocalSessionLocked(current.user.id)
         if (refresh != null) jobs.launch {
             try { withTimeout(5_000) { api.logout(refresh) } }
             catch (error: CancellationException) { throw error }
-            catch (_: Exception) { /* Local logout has already completed; never persist a revocation token in plaintext. */ }
+            catch (_: Exception) { /* Local logout has already completed. */ }
         }
         LogoutResult.DONE
     }
 
+    /** Used by logout and by a confirmed DELETE, never by an unconfirmed network failure. */
+    private suspend fun clearLocalSessionLocked(userId: String, keepAuthScreen: Boolean = false) {
+        withContext(NonCancellable) {
+            val journal = StoredSession(mode = "signed_out", cleanupUserId = userId)
+            try {
+                drainOtherCleanupLocked(userId)
+                record?.sessionId?.let { preventCachedRestore(it) }
+                rememberCleanupSafely(userId)
+                storage.write(journal)
+                record = journal
+                refreshAttempt = null
+                profileRevision += 1
+                if (!keepAuthScreen) {
+                    ++generation
+                    mutableState.value = SessionState.Restoring
+                }
+                if (users.current.value?.identity?.userId == userId) users.close()
+                users.deleteUserData(userId)
+                val done = StoredSession(mode = "signed_out")
+                storage.write(done)
+                record = done
+                device.finishCleanups(setOf(userId))
+                mutableState.value = SessionState.SignedOut
+            } catch (_: Exception) {
+                mutableState.value = SessionState.StorageError()
+                if (users.current.value?.identity?.userId == userId) users.close()
+                throw AuthException(AuthFailure.STORAGE)
+            }
+        }
+    }
+
     override suspend fun refreshUser() {
         val owner = credentials()?.identity ?: return
-        try {
-            val user = protectedClient.get().get("me") { attributes.put(SessionOwner, owner) }.body<SessionUser>()
-            onSession {
-                if (!isCurrent(owner)) return@onSession
-                check(canonicalUserId(user.id) == owner.userId)
-                val next = checkNotNull(record).copy(user = user)
-                storage.write(next)
-                record = next
-                val active = state.value as SessionState.Active
-                mutableState.value = active.copy(user = user)
-            }
-        } catch (error: CancellationException) { throw error }
+        try { refresh(owner) }
+        catch (error: CancellationException) { throw error }
         catch (_: Exception) { /* Cached user and offline access remain available. */ }
+    }
+
+    override suspend fun refresh(owner: SessionIdentity) {
+        val revision = onSession { requireOwnerLocked(owner); profileRevision }
+        val user = try { profileApi.get().read(owner) }
+        catch (error: CancellationException) { throw error }
+        catch (error: Exception) {
+            val relevant = onSession { requireOwnerLocked(owner); profileRevision == revision }
+            if (relevant) throw error else return
+        }
+        withContext(NonCancellable) {
+            onSession {
+                requireOwnerLocked(owner)
+                if (profileRevision == revision) persistUserLocked(owner, user)
+            }
+        }
+    }
+
+    override suspend fun saveName(owner: SessionIdentity, name: String) {
+        val normalized = name.trim()
+        if (UserNameValidation.error(normalized) != null) throw ProfileException(ProfileFailure.INVALID_NAME)
+        jobs.async {
+            profileWrites.withLock {
+                onSession { requireOwnerLocked(owner); profileRevision += 1 }
+                val user = profileApi.get().updateName(owner, normalized)
+                withContext(NonCancellable) {
+                    onSession {
+                        requireOwnerLocked(owner)
+                        if (user.name.trim() != normalized) throw ProfileException(ProfileFailure.BAD_RESPONSE)
+                        persistUserLocked(owner, user)
+                        // Even an idempotent save invalidates GETs which began during the PATCH.
+                        profileRevision += 1
+                    }
+                }
+            }
+        }.await()
+    }
+
+    override suspend fun deleteAccount(owner: SessionIdentity) {
+        jobs.async {
+            profileWrites.withLock {
+                onSession { requireOwnerLocked(owner); profileRevision += 1 }
+                profileApi.get().deleteAccount(owner) // Only 204 reaches the cleanup below.
+                withContext(NonCancellable) {
+                    onSession {
+                        val current = state.value as? SessionState.Active
+                        if (record?.user?.id == owner.userId || current?.user?.id == owner.userId) {
+                            // A newer login to the same server account is also invalid after its deletion.
+                            clearLocalSessionLocked(owner.userId, keepAuthScreen = current == null)
+                        } else {
+                            // A late receipt for A may clean A's files but must preserve B's session.
+                            drainOtherCleanupLocked(owner.userId)
+                            val base = record ?: StoredSession(mode = "signed_out")
+                            val journal = base.copy(cleanupUserId = owner.userId)
+                            rememberCleanupSafely(owner.userId)
+                            storage.write(journal)
+                            record = journal
+                            users.deleteUserData(owner.userId)
+                            val done = journal.copy(cleanupUserId = null)
+                            storage.write(done)
+                            record = done
+                            device.finishCleanups(setOf(owner.userId))
+                        }
+                    }
+                }
+            }
+        }.await()
+    }
+
+    private suspend fun drainOtherCleanupLocked(target: String) {
+        val receipts = device.pendingCleanups() - target
+        receipts.forEach { users.deleteUserData(it) }
+        val pending = record?.cleanupUserId?.takeIf { it != target }
+        if (pending != null) {
+            users.deleteUserData(pending)
+            val done = checkNotNull(record).copy(cleanupUserId = null)
+            storage.write(done)
+            record = done
+        }
+        device.finishCleanups(receipts + listOfNotNull(pending))
+    }
+
+    private suspend fun rememberCleanupSafely(userId: String) {
+        // Independent receipt lets startup finish a confirmed cleanup if writing the encrypted journal fails.
+        try { device.rememberCleanup(userId) } catch (_: Exception) { /* The encrypted journal is still attempted. */ }
+    }
+
+    private fun requireOwnerLocked(owner: SessionIdentity) {
+        if (!isCurrent(owner) || record?.sessionId != owner.sessionId) throw CancellationException("Profile session changed")
+    }
+
+    private suspend fun persistUserLocked(owner: SessionIdentity, user: SessionUser) {
+        val current = state.value as SessionState.Active
+        val id = runCatching { canonicalUserId(user.id) }.getOrNull()
+        if (id != owner.userId || !user.email.equals(current.user.email, ignoreCase = true) ||
+            UserNameValidation.error(user.name) != null) throw ProfileException(ProfileFailure.BAD_RESPONSE)
+        val normalized = user.copy(id = owner.userId, name = user.name.trim(), email = current.user.email)
+        if (normalized == current.user) return
+        val next = checkNotNull(record).copy(user = normalized)
+        try { storage.write(next) }
+        catch (_: Exception) { throw ProfileException(ProfileFailure.STORAGE) }
+        record = next
+        profileRevision += 1
+        mutableState.value = current.copy(user = normalized)
     }
 
     /** UI ownership changes are serialized on Main, including when a worker receives a 401. */

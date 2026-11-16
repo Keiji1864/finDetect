@@ -10,6 +10,7 @@ import io.ktor.client.plugins.plugin
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.Url
 import io.ktor.util.AttributeKey
 import kotlinx.coroutines.CancellationException
@@ -18,6 +19,8 @@ import kotlinx.coroutines.CancellationException
 class ApiStatusException(val status: Int) : Exception("API request failed: $status")
 
 val SessionOwner = AttributeKey<SessionIdentity>("findetect.session.owner")
+// A confirmed deletion must reach its captured owner's cleanup even after another user signs in.
+internal val AcceptDeletionReceipt = AttributeKey<Boolean>("findetect.session.deletion.receipt")
 
 internal fun HttpClient.attachSession(session: Lazy<SessionManager>): HttpClient = apply {
     val api = Url(BuildConfig.BASE_URL.trimEnd('/') + "/")
@@ -43,7 +46,9 @@ internal fun HttpClient.attachSession(session: Lazy<SessionManager>): HttpClient
             request.header(HttpHeaders.Authorization, "Bearer ${refreshed.token}")
             response = execute(request)
         }
-        if (!manager.isCurrent(used.identity)) throw CancellationException("Session changed")
+        val deletionReceipt = request.attributes.getOrNull(AcceptDeletionReceipt) == true &&
+            request.method == HttpMethod.Delete && url.encodedPath == api.encodedPath + "me" && response.response.status.value == 204
+        if (!manager.isCurrent(used.identity) && !deletionReceipt) throw CancellationException("Session changed")
         if (response.response.status.value == 401) {
             response.response.bodyAsText()
             manager.invalidate(used.identity)
