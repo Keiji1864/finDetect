@@ -22,7 +22,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
 
-data class AccessCredentials(val identity: SessionIdentity, val token: String)
+data class AccessCredentials(val identity: SessionIdentity, val token: String, val refreshRevision: Long)
+
+/** Retains the latest attempt, including its failure, for requests sent before it completed. */
+private class RefreshAttempt(
+    val identity: SessionIdentity,
+    val accessToken: String,
+    val revision: Long,
+    val result: Deferred<Unit>,
+)
 
 /** Serializes durable transitions. Network replies are accepted only for their original login instance. */
 @Singleton
@@ -35,13 +43,15 @@ class SessionManager @Inject constructor(
     private val protectedClient: Lazy<HttpClient>,
 ) : AuthRepository {
     private val transitions = Mutex()
-    private val refreshMutex = Mutex()
     private val jobs = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutableState = MutableStateFlow<SessionState>(SessionState.Restoring)
     override val state = mutableState.asStateFlow()
     @Volatile private var record: StoredSession? = null
     private var generation = 0L
     private var restoreFinished = false
+    // Read and changed only under onSession, together with the session record.
+    private var refreshRevision = 0L
+    private var refreshAttempt: RefreshAttempt? = null
 
     override suspend fun restore() = onSession {
         if (restoreFinished && state.value != SessionState.StorageError) return@onSession
@@ -131,14 +141,22 @@ class SessionManager @Inject constructor(
         users.saveOnboarding(user.id, step)
         val scope = users.open(identity)
         users.publish(scope)
+        refreshRevision += 1
+        refreshAttempt = null
         mutableState.value = SessionState.Active(identity, user, step)
     }
 
-    fun credentials(): AccessCredentials? {
+    suspend fun credentials(): AccessCredentials? = onSession { credentialsLocked() }
+
+    private fun credentialsLocked(): AccessCredentials? {
         val current = state.value as? SessionState.Active ?: return null
         val saved = record ?: return null
         if (saved.sessionId != current.identity.sessionId) return null
-        return AccessCredentials(current.identity, saved.accessToken ?: return null)
+        val token = saved.accessToken ?: return null
+        val pending = refreshAttempt?.takeIf {
+            it.identity == current.identity && it.accessToken == token && !it.result.isCompleted
+        }
+        return AccessCredentials(current.identity, token, pending?.revision ?: refreshRevision)
     }
 
     fun isCurrent(identity: SessionIdentity): Boolean = (state.value as? SessionState.Active)?.identity == identity
@@ -147,34 +165,70 @@ class SessionManager @Inject constructor(
         if (isCurrent(identity)) expireLocked(resetPin = false)
     }
 
-    suspend fun refreshAfterUnauthorized(used: AccessCredentials): AccessCredentials? = refreshMutex.withLock {
-        val before = credentials()?.takeIf { it.identity == used.identity } ?: return@withLock null
-        // Requests which used the old token reuse the already persisted rotation.
-        if (before.token != used.token) return@withLock before
-        val refreshToken = record?.refreshToken ?: return@withLock null
+    suspend fun refreshAfterUnauthorized(used: AccessCredentials): AccessCredentials? {
+        val attempt = onSession {
+            val current = credentialsLocked()?.takeIf { it.identity == used.identity } ?: return@onSession null
+            if (current.token != used.token) return@onSession null
+            val previous = refreshAttempt
+            if (previous != null && previous.identity == used.identity && previous.accessToken == used.token &&
+                (previous.revision >= used.refreshRevision || !previous.result.isCompleted)) {
+                return@onSession previous.result
+            }
+
+            // Owner, access token and refresh token are captured in one serialized transition.
+            val refreshToken = checkNotNull(record?.refreshToken)
+            val revision = refreshRevision
+            val result = jobs.async(start = CoroutineStart.LAZY) {
+                try {
+                    rotateTokens(used.identity, refreshToken, revision)
+                } finally {
+                    withContext(NonCancellable) {
+                        onSession {
+                            if (isCurrent(used.identity) && refreshRevision == revision) refreshRevision += 1
+                        }
+                    }
+                }
+            }
+            refreshAttempt = RefreshAttempt(used.identity, current.token, revision, result)
+            result.start()
+            result
+        }
+        // Awaiting a job owned by SessionManager never makes it a child of this HTTP request.
+        attempt?.await()
+        return onSession { credentialsLocked()?.takeIf { it.identity == used.identity } }
+    }
+
+    private suspend fun rotateTokens(owner: SessionIdentity, refreshToken: String, revision: Long) {
         val rotated = try { api.refresh(refreshToken) }
         catch (error: AuthException) {
             if (error.reason == AuthFailure.INVALID_CREDENTIALS) {
-                onSession { if (isCurrent(used.identity)) expireLocked(resetPin = false) }
-                return@withLock null
+                withContext(NonCancellable) {
+                    onSession { if (isCurrent(owner)) expireLocked(resetPin = false) }
+                }
+                return
             }
             throw error // Offline/429/5xx preserve credentials and local access.
         }
-        onSession commit@{
-            if (!isCurrent(used.identity)) return@commit null
-            validateTokens(rotated)
-            val next = checkNotNull(record).copy(accessToken = rotated.accessToken, refreshToken = rotated.refreshToken,
-                expiresAt = expiry(rotated))
-            try {
-                withContext(NonCancellable) { storage.write(next); record = next }
-            } catch (_: Exception) {
-                // A rotated server token must never leave an old pair silently usable in memory.
-                withContext(NonCancellable) { preventCachedRestore(used.identity.sessionId) }
-                mutableState.value = SessionState.StorageError
-                users.close()
-                throw AuthException(AuthFailure.STORAGE)
+        // Protect the handoff to Main and the lock acquisition as well as the actual file write.
+        withContext(NonCancellable) {
+            onSession commit@{
+                if (!isCurrent(owner)) return@commit
+                validateTokens(rotated)
+                val next = checkNotNull(record).copy(accessToken = rotated.accessToken, refreshToken = rotated.refreshToken,
+                    expiresAt = expiry(rotated))
+                try {
+                    storage.write(next)
+                    record = next
+                    if (refreshRevision == revision) refreshRevision += 1
+                } catch (_: Exception) {
+                    // A rotated server token must never leave an old pair silently usable in memory.
+                    preventCachedRestore(owner.sessionId)
+                    refreshAttempt = null
+                    mutableState.value = SessionState.StorageError
+                    users.close()
+                    throw AuthException(AuthFailure.STORAGE)
+                }
             }
-            credentials()
         }
     }
 
@@ -199,6 +253,7 @@ class SessionManager @Inject constructor(
             previous.sessionId?.let { preventCachedRestore(it) }
             storage.write(next)
             record = next
+            refreshAttempt = null
             mutableState.value = SessionState.ReauthenticationRequired(next.user)
         } catch (_: Exception) { mutableState.value = SessionState.StorageError }
         users.close()
@@ -214,6 +269,7 @@ class SessionManager @Inject constructor(
                 preventCachedRestore(current.identity.sessionId)
                 storage.write(journal)
                 record = journal
+                refreshAttempt = null
                 ++generation
                 mutableState.value = SessionState.Restoring
                 users.close()

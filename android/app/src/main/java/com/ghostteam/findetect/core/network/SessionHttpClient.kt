@@ -38,6 +38,7 @@ internal fun HttpClient.attachSession(session: Lazy<SessionManager>): HttpClient
             response.response.bodyAsText() // Release the first connection before retrying once.
             val refreshed = manager.refreshAfterUnauthorized(used)
                 ?: throw CancellationException("Reauthentication required")
+            if (!manager.isCurrent(used.identity)) throw CancellationException("Session changed")
             request.headers.remove(HttpHeaders.Authorization)
             request.header(HttpHeaders.Authorization, "Bearer ${refreshed.token}")
             response = execute(request)
