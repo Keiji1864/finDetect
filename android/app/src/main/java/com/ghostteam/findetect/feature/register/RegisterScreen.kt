@@ -1,10 +1,9 @@
 package com.ghostteam.findetect.feature.register
 
 import android.content.res.Configuration
-import android.util.Patterns
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,10 +13,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.material3.Text
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -30,37 +33,50 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.FinButton
+import com.ghostteam.findetect.core.designsystem.component.FinButtonStyle
 import com.ghostteam.findetect.core.designsystem.component.FinTextField
 import com.ghostteam.findetect.core.designsystem.component.FinTopBar
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
-
-private const val MinPasswordLength = 6
+import com.ghostteam.findetect.domain.model.AuthField
+import com.ghostteam.findetect.feature.session.*
 
 /**
  * Регистрация (Figma 06): стрелка "назад" и заголовок "Создать аккаунт", четыре поля
  * (имя, почта, пароль, повтор пароля), кнопка "Создать аккаунт" прижата к низу экрана.
  *
- * Проверка только на форму: имя не пустое, почта похожа на адрес, пароль от 6 символов, пароли совпадают.
- * Настоящей регистрации пока нет, [onRegister] вызывается, когда все проверки пройдены.
+ * Form limits follow the API contract. Passwords remain in memory only.
  */
 @Composable
 fun RegisterScreen(
     onBack: () -> Unit = {},
-    onRegister: () -> Unit = {},
+    onRegister: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    state: AuthUiState = AuthUiState(),
+    onFieldChange: (AuthField) -> Unit = {},
+    onOpenLogin: (String) -> Unit = {},
+    message: String? = null,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var repeat by rememberSaveable { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("") }
     // Ошибки показываем только после первого нажатия на "Создать аккаунт"
     var submitted by rememberSaveable { mutableStateOf(false) }
 
-    val nameValid = name.isNotBlank()
-    val emailValid = Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
-    val passwordValid = password.length >= MinPasswordLength
-    val repeatValid = repeat == password
+    val localErrors = if (submitted && !state.accountCreated) AuthFormValidation.registration(name, email, password, repeat) else emptyMap()
+    val working = state.working
+    val editable = !working && !state.accountCreated
+    val feedback = message ?: authFormMessage(state)
+    val focus = LocalFocusManager.current
+    val submit: () -> Unit = {
+        if (!state.submissionBlocked) {
+            submitted = true
+            focus.clearFocus()
+            onRegister(name.trim(), email.trim(), password, repeat)
+        }
+    }
+    BackHandler(enabled = working) {}
 
     Column(
         modifier = Modifier
@@ -72,7 +88,7 @@ fun RegisterScreen(
     ) {
         FinTopBar(
             title = stringResource(R.string.ui_register_title),
-            onBack = onBack,
+            onBack = { if (!working) onBack() },
             titleStyle = FinTheme.typography.title,
         )
         Column(
@@ -91,46 +107,54 @@ fun RegisterScreen(
             FinTextField(
                 label = stringResource(R.string.ui_register_name_label),
                 value = name,
-                onValueChange = { name = it.take(40) },
+                onValueChange = { name = it; onFieldChange(AuthField.NAME) },
+                enabled = editable,
                 placeholder = stringResource(R.string.ui_register_name_placeholder),
-                errorText = if (submitted && !nameValid) stringResource(R.string.ui_register_name_error) else null,
+                errorText = authFieldText(AuthField.NAME, localErrors[AuthField.NAME] ?: state.fieldErrors[AuthField.NAME]),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words, imeAction = ImeAction.Next),
             )
             FinTextField(
                 label = stringResource(R.string.ui_login_email_label),
                 value = email,
-                onValueChange = { email = it.take(60) },
+                onValueChange = { email = it; onFieldChange(AuthField.EMAIL) },
+                enabled = editable,
                 placeholder = stringResource(R.string.ui_login_email_placeholder),
-                errorText = if (submitted && !emailValid) stringResource(R.string.ui_login_email_error) else null,
+                errorText = authFieldText(AuthField.EMAIL, localErrors[AuthField.EMAIL] ?: state.fieldErrors[AuthField.EMAIL]),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             )
             FinTextField(
                 label = stringResource(R.string.ui_login_password_label),
                 value = password,
-                onValueChange = { password = it.take(64) },
+                onValueChange = { password = it; onFieldChange(AuthField.PASSWORD) },
+                enabled = editable,
                 placeholder = stringResource(R.string.ui_login_password_placeholder),
-                errorText = if (submitted && !passwordValid) stringResource(R.string.ui_register_password_error) else null,
+                errorText = authFieldText(AuthField.PASSWORD, localErrors[AuthField.PASSWORD] ?: state.fieldErrors[AuthField.PASSWORD]),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
                 visualTransformation = PasswordVisualTransformation(),
             )
             FinTextField(
                 label = stringResource(R.string.ui_register_repeat_label),
                 value = repeat,
-                onValueChange = { repeat = it.take(64) },
+                onValueChange = { repeat = it; onFieldChange(AuthField.CONFIRMATION) },
+                enabled = editable,
                 placeholder = stringResource(R.string.ui_login_password_placeholder),
-                errorText = if (submitted && !repeatValid) stringResource(R.string.ui_register_repeat_error) else null,
+                errorText = authFieldText(AuthField.CONFIRMATION, localErrors[AuthField.CONFIRMATION] ?: state.fieldErrors[AuthField.CONFIRMATION]),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                 visualTransformation = PasswordVisualTransformation(),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
             )
+            if (feedback != null) Text(feedback, style = FinTheme.typography.caption, color = FinTheme.colors.red)
         }
-        Box(Modifier.fillMaxWidth().padding(horizontal = FinDimens.screenPadding).padding(bottom = 16.dp)) {
-            FinButton(
+        Column(Modifier.fillMaxWidth().padding(horizontal = FinDimens.screenPadding).padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap)) {
+            if (!state.accountCreated) FinButton(
                 text = stringResource(R.string.ui_register_submit),
-                onClick = {
-                    submitted = true
-                    if (nameValid && emailValid && passwordValid && repeatValid) onRegister()
-                },
+                onClick = submit,
+                loading = working,
+                enabled = !state.submissionBlocked,
             )
+            if (state.offerLogin) FinButton(stringResource(R.string.auth_go_to_login), { onOpenLogin(email.trim()) },
+                enabled = !working, style = FinButtonStyle.Secondary)
         }
     }
 }
@@ -139,3 +163,10 @@ fun RegisterScreen(
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun RegisterScreenPreview() { FinDetectTheme { RegisterScreen() } }
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 640)
+@Preview(showBackground = true, widthDp = 360, heightDp = 640, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun RegisterRecoveryPreview() {
+    FinDetectTheme { RegisterScreen(state = AuthUiState(accountCreated = true)) }
+}

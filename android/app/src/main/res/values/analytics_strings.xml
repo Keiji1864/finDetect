@@ -2,18 +2,31 @@
 <resources>
     <string name="ui_categories">Категории</string>
     <string name="ui_chart_expense_days">Траты по дням</string>
-    <string name="ui_chart_income_days">Доходы по дням</string>
     <string name="ui_chart_expense_months">Траты по месяцам</string>
     <string name="ui_chart_income_months">Доходы по месяцам</string>
-    <string name="ui_analytics_chart_description">Демонстрационный столбчатый график.</string>
     <string name="ui_share_of_expense">Доля в расходах: %1$d%%</string>
     <string name="ui_share_of_income">Доля в доходах: %1$d%%</string>
-    <string-array name="ui_analytics_months">
-        <item>Май</item>
-        <item>Июн</item>
-        <item>Июл</item>
-        <item>Авг</item>
-        <item>Сен</item>
-        <item>Окт</item>
-    </string-array>
+    <string name="analytics_all_accounts">Все счета выбранной валюты</string>
+    <string name="analytics_empty_hint">За выбранный период в этой валюте нет записанных операций.</string>
+    <string name="analytics_read_error">Не удалось загрузить аналитику. Попробуйте ещё раз.</string>
+    <string name="analytics_history">Операции</string>
+    <string name="analytics_category_empty">В этой категории пока нет операций</string>
+    <string name="analytics_category_missing">Категория недоступна</string>
+    <string name="analytics_months">По месяцам</string>
+    <string name="analytics_month_unfinished">Месяц ещё не завершён</string>
+    <string name="analytics_month_future">Месяц ещё не наступил</string>
+    <string name="analytics_month_partial">Выбрана часть месяца</string>
+    <string name="analytics_current_month_hint">Текущий месяц ещё не завершён. Данные на %1$s.</string>
+    <string name="analytics_zero_months_hint">Нулевая сумма означает отсутствие записанных доходов за месяц.</string>
+    <string name="analytics_chart_expense_weeks">Траты по неделям</string>
+    <string name="analytics_chart_currency">Суммы в %1$s</string>
+    <string name="analytics_chart_bucket">%1$s: %2$s</string>
+    <string name="analytics_axis_thousands">%1$s тыс.</string>
+    <string name="analytics_axis_millions">%1$s млн</string>
+    <string name="analytics_axis_billions">%1$s млрд</string>
+    <string name="analytics_month_axis">%1$s\n%2$d</string>
+    <string name="analytics_day_axis">%1$d\n%2$s</string>
+    <string name="analytics_partial_label">%1$s*</string>
+    <string name="analytics_partial_month_hint">* Месяц ещё не завершён или выбран частично.</string>
+    <string name="analytics_open_month_hint">Нажмите на месяц, чтобы посмотреть его поступления.</string>
 </resources>

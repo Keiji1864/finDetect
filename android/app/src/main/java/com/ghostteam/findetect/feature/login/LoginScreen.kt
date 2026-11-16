@@ -1,10 +1,14 @@
 package com.ghostteam.findetect.feature.login
 
 import android.content.res.Configuration
-import android.util.Patterns
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,13 +18,15 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -40,115 +46,140 @@ import com.ghostteam.findetect.core.designsystem.component.FinTextField
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
+import com.ghostteam.findetect.domain.model.AuthField
+import com.ghostteam.findetect.domain.model.AuthFailure
+import com.ghostteam.findetect.feature.session.*
 
 /**
  * Вход (Figma 06): логотип и слоган, поля "Электронная почта" и "Пароль",
  * ниже "Зарегистрироваться", "Войти" и "Забыли пароль?". Нижней навигации и стрелки "назад" нет.
- * Всё содержимое сдвинуто вниз: сверху свободное место, кнопки идут сразу под полями.
+ * Содержимое прокручивается при открытой клавиатуре, кнопки идут сразу под полями.
  *
- * Поля необязательные: можно сразу нажать «Войти». Если почта введена, проверяется её формат. Настоящей
- * авторизации пока нет, [onLogin] вызывается, когда проверка пройдена. Экранов регистрации и восстановления пароля
- * в макете нет, поэтому [onForgotPassword] и [onRegister] по умолчанию ничего не делают.
+ * Credentials are submitted to the session layer; passwords are never put in saved instance state.
  */
 @Composable
 fun LoginScreen(
-    onLogin: () -> Unit = {},
+    onLogin: (String, String) -> Unit = { _, _ -> },
     onForgotPassword: () -> Unit = {},
     onRegister: () -> Unit = {},
+    initialEmail: String = "",
+    emailRevision: Long = 0L,
+    state: AuthUiState = AuthUiState(),
+    onFieldChange: (AuthField) -> Unit = {},
+    message: String? = null,
+    onRetry: (() -> Unit)? = null,
 ) {
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable(emailRevision) { mutableStateOf(initialEmail) }
+    var password by remember(emailRevision) { mutableStateOf("") }
     // Ошибки показываем только после первого нажатия на "Войти"
-    var submitted by rememberSaveable { mutableStateOf(false) }
+    var submitted by rememberSaveable(emailRevision) { mutableStateOf(false) }
 
-    // Пустая почта допустима; если что-то введено, оно должно быть похоже на адрес
-    val emailValid = email.isBlank() || Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+    val localErrors = if (submitted) AuthFormValidation.login(email, password) else emptyMap()
+    val working = state.working
+    val feedback = message ?: authFormMessage(state)
+    val focus = LocalFocusManager.current
+    val submit: () -> Unit = {
+        if (!state.submissionBlocked) {
+            submitted = true
+            focus.clearFocus()
+            onLogin(email.trim(), password)
+        }
+    }
+    BackHandler(enabled = working) {}
     val c = FinTheme.colors
 
-    Column(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(c.paper)
             .statusBarsPadding()
             .navigationBarsPadding()
-            .imePadding()
-            .padding(horizontal = FinDimens.screenPadding),
+            .imePadding(),
     ) {
-        // Свободное место сверху (доли подобраны по макету; с клавиатурой сжимается)
-        Spacer(Modifier.weight(0.3f))
-
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(FinDimens.headerGap),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight)
+                .padding(horizontal = FinDimens.screenPadding, vertical = 24.dp),
+            verticalArrangement = Arrangement.Center,
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_findetective),
-                contentDescription = stringResource(R.string.app_name),
-                tint = c.navy,
-                modifier = Modifier.size(width = 180.dp, height = 38.dp),
-            )
-            Text(
-                text = stringResource(R.string.ui_login_tagline),
-                style = FinTheme.typography.label,
-                color = c.muted,
-                textAlign = TextAlign.Center,
-            )
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(FinDimens.headerGap),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_findetective),
+                    contentDescription = stringResource(R.string.app_name),
+                    tint = c.navy,
+                    modifier = Modifier.size(width = 180.dp, height = 38.dp),
+                )
+                Text(
+                    text = stringResource(R.string.ui_login_tagline),
+                    style = FinTheme.typography.label,
+                    color = c.muted,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap)) {
+                FinTextField(
+                    label = stringResource(R.string.ui_login_email_label),
+                    value = email,
+                    onValueChange = { email = it; onFieldChange(AuthField.EMAIL) },
+                    enabled = !working,
+                    placeholder = stringResource(R.string.ui_login_email_placeholder),
+                    errorText = authFieldText(AuthField.EMAIL, localErrors[AuthField.EMAIL] ?: state.fieldErrors[AuthField.EMAIL]),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
+                )
+                FinTextField(
+                    label = stringResource(R.string.ui_login_password_label),
+                    value = password,
+                    onValueChange = { password = it; onFieldChange(AuthField.PASSWORD) },
+                    enabled = !working,
+                    errorText = authFieldText(AuthField.PASSWORD, localErrors[AuthField.PASSWORD] ?: state.fieldErrors[AuthField.PASSWORD]),
+                    placeholder = stringResource(R.string.ui_login_password_placeholder),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardActions = KeyboardActions(onDone = { submit() }),
+                )
+            }
+
+            // Кнопки сразу под полями; оставшееся место уходит вниз
+            Spacer(Modifier.height(32.dp))
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap),
+            ) {
+                if (feedback != null) Text(feedback, style = FinTheme.typography.caption, color = c.red)
+                if (onRetry != null) FinButton(stringResource(R.string.finance_retry), onRetry, enabled = !working, style = FinButtonStyle.Secondary)
+                FinButton(
+                    text = stringResource(R.string.ui_login_sign_in),
+                    onClick = submit,
+                    loading = working,
+                    enabled = !state.submissionBlocked,
+                )
+                FinButton(
+                    text = stringResource(R.string.ui_login_forgot),
+                    onClick = onForgotPassword,
+                    enabled = !working,
+                    style = FinButtonStyle.Secondary,
+                )
+                Text(
+                    text = stringResource(R.string.ui_login_no_account),
+                    modifier = Modifier.padding(top = 4.dp),
+                    style = FinTheme.typography.caption,
+                    color = c.muted,
+                )
+                FinButton(
+                    text = stringResource(R.string.ui_login_register),
+                    onClick = onRegister,
+                    enabled = !working,
+                    style = FinButtonStyle.Secondary,
+                )
+            }
         }
-
-        Spacer(Modifier.height(24.dp))
-
-        Column(verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap)) {
-            FinTextField(
-                label = stringResource(R.string.ui_login_email_label),
-                value = email,
-                onValueChange = { email = it.take(60) },
-                placeholder = stringResource(R.string.ui_login_email_placeholder),
-                errorText = if (submitted && !emailValid) stringResource(R.string.ui_login_email_error) else null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
-            )
-            FinTextField(
-                label = stringResource(R.string.ui_login_password_label),
-                value = password,
-                onValueChange = { password = it.take(64) },
-                placeholder = stringResource(R.string.ui_login_password_placeholder),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                visualTransformation = PasswordVisualTransformation(),
-            )
-        }
-
-        // Кнопки сразу под полями; оставшееся место уходит вниз
-        Spacer(Modifier.height(32.dp))
-
-        Column(
-            verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap),
-        ) {
-            FinButton(
-                text = stringResource(R.string.ui_login_sign_in),
-                onClick = {
-                    submitted = true
-                    if (emailValid) onLogin()
-                },
-            )
-            FinButton(
-                text = stringResource(R.string.ui_login_forgot),
-                onClick = onForgotPassword,
-                style = FinButtonStyle.Secondary,
-            )
-            Text(
-                text = stringResource(R.string.ui_login_no_account),
-                modifier = Modifier.padding(top = 4.dp),
-                style = FinTheme.typography.caption,
-                color = c.muted,
-            )
-            FinButton(
-                text = stringResource(R.string.ui_login_register),
-                onClick = onRegister,
-                style = FinButtonStyle.Secondary,
-            )
-        }
-
-        Spacer(Modifier.weight(0.7f))
     }
 }
 
@@ -156,3 +187,11 @@ fun LoginScreen(
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun LoginScreenPreview() { FinDetectTheme { LoginScreen() } }
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 640)
+@Preview(showBackground = true, widthDp = 360, heightDp = 640, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun LoginRateLimitPreview() {
+    FinDetectTheme { LoginScreen(initialEmail = "auth-rate-limit@example.com",
+        state = AuthUiState(error = AuthFailure.RATE_LIMITED, retrySeconds = 5)) }
+}

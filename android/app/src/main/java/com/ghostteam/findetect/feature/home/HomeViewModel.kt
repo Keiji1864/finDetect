@@ -5,6 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.domain.model.HomeFinanceSummary
 import com.ghostteam.findetect.domain.repository.SettingsRepository
+import com.ghostteam.findetect.domain.repository.ActivityRepository
+import com.ghostteam.findetect.domain.model.ConfirmNoSpendingResult
+import com.ghostteam.findetect.domain.model.DayActivity
 import com.ghostteam.findetect.domain.usecase.ObserveHomeFinanceUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -34,6 +37,12 @@ data class HomeUiState(
     val finance: HomeFinanceSummary? = null,
     val loading: Boolean = true,
     val error: Boolean = false,
+    val gameElementsEnabled: Boolean = false,
+    val dayActivity: DayActivity? = null,
+    val activityLoading: Boolean = true,
+    val activitySaving: Boolean = false,
+    val activityError: Boolean = false,
+    val dayChanged: Boolean = false,
 )
 
 private data class LoadedHomeFinance(
@@ -48,6 +57,7 @@ class HomeViewModel @Inject constructor(
     private val clock: Clock,
     private val settings: SettingsRepository,
     private val observeFinance: ObserveHomeFinanceUseCase,
+    private val activity: ActivityRepository,
 ) : ViewModel() {
     private val day = MutableStateFlow(currentDay())
     private val reload = MutableStateFlow(0)
@@ -55,6 +65,29 @@ class HomeViewModel @Inject constructor(
     val state = mutableState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            reload.flatMapLatest {
+                settings.settings.map { it.gameElementsEnabled }.catch { error ->
+                    if (error is CancellationException) throw error
+                    mutableState.update { it.copy(gameElementsEnabled = false) }
+                }
+            }.collect { enabled -> mutableState.update { it.copy(gameElementsEnabled = enabled) } }
+        }
+        viewModelScope.launch {
+            day.flatMapLatest { selectedDay ->
+                reload.flatMapLatest {
+                    activity.observeDay(selectedDay.date, selectedDay.zone)
+                        .map { selectedDay to it }
+                        .onStart { mutableState.update { it.copy(activityLoading = true, activityError = false) } }
+                        .catch { error ->
+                            if (error is CancellationException) throw error
+                            mutableState.update { it.copy(dayActivity = null, activityLoading = false, activityError = true) }
+                        }
+                }
+            }.collect { (loadedDay, value) ->
+                mutableState.update { if (it.day == loadedDay) it.copy(dayActivity = value, activityLoading = false, activityError = false) else it }
+            }
+        }
         viewModelScope.launch {
             day.flatMapLatest { selectedDay ->
                 reload.flatMapLatest {
@@ -99,13 +132,39 @@ class HomeViewModel @Inject constructor(
     fun refreshDay() {
         val current = currentDay()
         if (day.value == current) return
-        mutableState.update { it.copy(day = current, finance = null, loading = true, error = false) }
+        mutableState.update { it.copy(day = current, finance = null, loading = true, error = false,
+            dayActivity = null, activityLoading = true, activityError = false, dayChanged = false) }
         day.value = current
     }
 
     fun retry() {
         refreshDay()
         reload.value += 1
+    }
+
+    fun confirmNoSpending() {
+        val current = state.value
+        if (current.activitySaving || current.activityLoading || current.dayActivity == null ||
+            current.dayActivity.hasExpense || current.dayActivity.noSpendingConfirmed) return
+        mutableState.update { it.copy(activitySaving = true, activityError = false, dayChanged = false) }
+        viewModelScope.launch {
+            try {
+                when (activity.confirmNoSpending(current.day.date)) {
+                    ConfirmNoSpendingResult.CONFIRMED, ConfirmNoSpendingResult.ALREADY_CONFIRMED -> mutableState.update {
+                        if (it.day == current.day) it.copy(dayActivity = (it.dayActivity ?: DayActivity()).copy(noSpendingConfirmed = true)) else it
+                    }
+                    ConfirmNoSpendingResult.HAS_EXPENSE -> mutableState.update {
+                        if (it.day == current.day) it.copy(dayActivity = (it.dayActivity ?: DayActivity()).copy(hasExpense = true)) else it
+                    }
+                    ConfirmNoSpendingResult.DAY_CHANGED -> {
+                        refreshDay()
+                        mutableState.update { it.copy(dayChanged = true) }
+                    }
+                }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { mutableState.update { it.copy(activityError = true) } }
+            finally { mutableState.update { it.copy(activitySaving = false) } }
+        }
     }
 
     private fun currentDay(): HomeFinanceDay {

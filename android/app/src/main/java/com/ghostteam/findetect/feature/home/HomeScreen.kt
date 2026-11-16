@@ -42,15 +42,36 @@ fun HomeScreen(
     onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
     onRetry: () -> Unit = {},
+    onConfirmNoSpending: () -> Unit = {},
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val finance = state.finance
     PrototypeScreen(R.string.ui_home, floatingAction = true, showLogo = true, onSettings = onOpenSettings, onAnalytics = onOpenAnalytics, action = {
         FinButton(stringResource(R.string.ui_add_transaction), onAddTransaction)
     }) {
-        item(key = "profile") { ProfileCard(onOpenProfile) }
-        item(key = "streak") { StreakCard() }
+        item(key = "profile") { ProfileCard(onOpenProfile, state.gameElementsEnabled) }
+        if (state.gameElementsEnabled) item(key = "streak") { StreakCard() }
         item(key = "today") { TodayCard(state) }
+        item(key = "no_spending") {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val activity = state.dayActivity
+                FinButton(
+                    text = stringResource(if (activity?.noSpendingConfirmed == true) R.string.home_day_confirmed else R.string.home_no_spending),
+                    onClick = onConfirmNoSpending,
+                    style = FinButtonStyle.Secondary,
+                    enabled = activity != null && !activity.hasExpense && !activity.noSpendingConfirmed &&
+                        !state.activityLoading && !state.activitySaving && !state.activityError,
+                    loading = state.activitySaving,
+                )
+                if (activity?.hasExpense == true && !activity.noSpendingConfirmed) Text(
+                    stringResource(R.string.home_has_expense), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+                if (state.dayChanged) Text(stringResource(R.string.home_day_changed), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+                if (state.activityError) {
+                    Text(stringResource(R.string.home_activity_error), style = FinTheme.typography.caption, color = FinTheme.colors.red)
+                    FinButton(stringResource(R.string.finance_retry), onRetry, style = FinButtonStyle.Secondary)
+                }
+            }
+        }
         if (state.error) {
             item(key = "finance_error") {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -68,7 +89,7 @@ fun HomeScreen(
                 pager = stringResource(R.string.ui_advice_page),
             )
         }
-        item(key = "achievements") { AchievementsCard() }
+        if (state.gameElementsEnabled) item(key = "achievements") { AchievementsCard() }
         item(key = "recent_title") {
             Text(stringResource(R.string.ui_recent), style = FinTheme.typography.sectionTitle, color = FinTheme.colors.navy)
         }
@@ -87,16 +108,18 @@ fun HomeScreen(
 }
 
 @Composable
-private fun ProfileCard(onClick: () -> Unit) {
+private fun ProfileCard(onClick: () -> Unit, gameElementsEnabled: Boolean) {
     FinCard(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             UiIconTile(R.drawable.ic_user)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(stringResource(R.string.ui_profile), style = FinTheme.typography.label, color = FinTheme.colors.navy)
-                Text(stringResource(R.string.ui_profile_hint), style = FinTheme.typography.caption, color = FinTheme.colors.muted,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Box(Modifier.fillMaxWidth().height(6.dp).clip(FinTheme.shapes.tiny).background(FinTheme.colors.line)) {
-                    Box(Modifier.fillMaxWidth(0.56f).fillMaxHeight().background(FinTheme.colors.yellow))
+                if (gameElementsEnabled) {
+                    Text(stringResource(R.string.ui_profile_hint), style = FinTheme.typography.caption, color = FinTheme.colors.muted,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Box(Modifier.fillMaxWidth().height(6.dp).clip(FinTheme.shapes.tiny).background(FinTheme.colors.line)) {
+                        Box(Modifier.fillMaxWidth(0.56f).fillMaxHeight().background(FinTheme.colors.yellow))
+                    }
                 }
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = FinTheme.colors.muted, modifier = Modifier.size(20.dp))
@@ -197,6 +220,9 @@ private fun HomePreview() {
             currency = AppCurrency.RUB,
             finance = HomeFinanceSummary(BigDecimal("125.00"), BigDecimal("100.00"), transactions),
             loading = false,
+            gameElementsEnabled = true,
+            dayActivity = com.ghostteam.findetect.domain.model.DayActivity(),
+            activityLoading = false,
         ))
     }
 }

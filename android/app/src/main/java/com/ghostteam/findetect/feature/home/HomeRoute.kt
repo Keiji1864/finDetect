@@ -54,5 +54,6 @@ fun HomeRoute(
         onOpenSettings = onOpenSettings,
         onOpenAnalytics = onOpenAnalytics,
         onRetry = viewModel::retry,
+        onConfirmNoSpending = viewModel::confirmNoSpending,
     )
 }

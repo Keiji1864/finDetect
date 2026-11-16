@@ -45,9 +45,15 @@ import kotlinx.datetime.plus
 
 @Composable
 fun FinancePeriodSheet(viewModel: FinancePeriodViewModel) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    PeriodSheet(state, viewModel::dismiss, viewModel::moveMonth, viewModel::selectMonth, viewModel::selectDay,
-        viewModel::showCustom, viewModel::editField, viewModel::closeField, viewModel::setFieldDate, viewModel::apply)
+    FinancePeriodSheet(viewModel.selection)
+}
+
+/** Reuses the same calendar for an independent period, with optional persistence on apply. */
+@Composable
+fun FinancePeriodSheet(selection: FinancePeriodSelection, onApply: () -> Unit = selection::apply) {
+    val state by selection.state.collectAsStateWithLifecycle()
+    PeriodSheet(state, selection::dismiss, selection::moveMonth, selection::selectMonth, selection::selectDay,
+        selection::showCustom, selection::editField, selection::closeField, selection::setFieldDate, onApply)
 }
 
 /** Calendar draft is applied explicitly; dismissal never changes the shared period. */

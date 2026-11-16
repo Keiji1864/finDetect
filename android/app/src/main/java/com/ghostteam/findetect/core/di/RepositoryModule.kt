@@ -1,48 +1,27 @@
 package com.ghostteam.findetect.core.di
 
-import com.ghostteam.findetect.data.repository.LocalAccountRepository
-import com.ghostteam.findetect.data.repository.LocalBalanceAdjustmentRepository
-import com.ghostteam.findetect.data.repository.LocalBalanceRepository
-import com.ghostteam.findetect.data.repository.LocalCategoryRepository
-import com.ghostteam.findetect.data.repository.LocalTransactionRepository
-import com.ghostteam.findetect.data.repository.LocalSettingsRepository
-import com.ghostteam.findetect.domain.repository.AccountRepository
-import com.ghostteam.findetect.domain.repository.BalanceAdjustmentRepository
-import com.ghostteam.findetect.domain.repository.BalanceRepository
-import com.ghostteam.findetect.domain.repository.CategoryRepository
-import com.ghostteam.findetect.domain.repository.TransactionRepository
-import com.ghostteam.findetect.domain.repository.SettingsRepository
-import dagger.Binds
+import com.ghostteam.findetect.data.session.UserDataScopes
+import com.ghostteam.findetect.data.session.UserDataScope
+import com.ghostteam.findetect.domain.model.SessionIdentity
+import com.ghostteam.findetect.domain.repository.*
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-import javax.inject.Singleton
+import dagger.hilt.android.components.ViewModelComponent
+import dagger.hilt.android.scopes.ViewModelScoped
 
+/** Each ViewModel captures one immutable user scope; account changes destroy its navigation owner. */
 @Module
-@InstallIn(SingletonComponent::class)
-abstract class RepositoryModule {
-    @Binds
-    @Singleton
-    abstract fun settings(implementation: LocalSettingsRepository): SettingsRepository
-
-    @Binds
-    @Singleton
-    abstract fun accounts(implementation: LocalAccountRepository): AccountRepository
-
-    @Binds
-    @Singleton
-    abstract fun categories(implementation: LocalCategoryRepository): CategoryRepository
-
-    @Binds
-    @Singleton
-    abstract fun transactions(implementation: LocalTransactionRepository): TransactionRepository
-
-    @Binds
-    @Singleton
-    abstract fun adjustments(implementation: LocalBalanceAdjustmentRepository): BalanceAdjustmentRepository
-
-    @Binds
-    @Singleton
-    abstract fun balances(implementation: LocalBalanceRepository): BalanceRepository
+@InstallIn(ViewModelComponent::class)
+object RepositoryModule {
+    @Provides @ViewModelScoped fun userScope(scopes: UserDataScopes): UserDataScope = scopes.requireCurrent()
+    @Provides fun identity(user: UserDataScope): SessionIdentity = user.identity
+    @Provides fun accounts(user: UserDataScope): AccountRepository = user.accounts
+    @Provides fun categories(user: UserDataScope): CategoryRepository = user.categories
+    @Provides fun transactions(user: UserDataScope): TransactionRepository = user.transactions
+    @Provides fun adjustments(user: UserDataScope): BalanceAdjustmentRepository = user.adjustments
+    @Provides fun balances(user: UserDataScope): BalanceRepository = user.balances
+    @Provides fun activity(user: UserDataScope): ActivityRepository = user.activity
+    @Provides fun settings(user: UserDataScope): SettingsRepository = user.settings
+    @Provides fun pin(user: UserDataScope): PinRepository = user.pin
 }
-

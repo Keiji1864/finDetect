@@ -12,6 +12,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import android.content.res.Configuration
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.tooling.preview.Preview
+import com.ghostteam.findetect.R
+import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -84,6 +91,7 @@ fun FinSelectField(
  * Поле ввода текста: Название, Комментарий, Почта, Пароль, Сумма.
  * Открывает системную клавиатуру. Состояния: пустое (placeholder), в фокусе (1.5 dp navy), ошибка (red + текст).
  * Для пароля передай visualTransformation = PasswordVisualTransformation().
+ * [keyboardActions] lets forms handle IME confirmation with the same guard as their submit button.
  */
 @Composable
 fun FinTextField(
@@ -97,7 +105,7 @@ fun FinTextField(
     singleLine: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
-    trailing: (@Composable () -> Unit)? = null,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
     val c = FinTheme.colors
     var focused by remember { mutableStateOf(false) }
@@ -147,6 +155,19 @@ fun FinTextField(
                 color = c.red,
                 modifier = Modifier.padding(start = 4.dp, top = 4.dp),
             )
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360)
+@Preview(showBackground = true, widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FinTextFieldImePreview() {
+    FinDetectTheme {
+        Column(Modifier.background(FinTheme.colors.paper).padding(FinDimens.screenPadding)) {
+            FinTextField(label = stringResource(R.string.ui_login_email_label), value = "", onValueChange = {},
+                placeholder = stringResource(R.string.ui_login_email_placeholder),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = {}))
         }
     }
 }

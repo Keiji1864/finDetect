@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -12,6 +13,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -35,15 +38,7 @@ fun FinSubScreen(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(FinTheme.colors.paper)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding(),
-    ) {
-        FinTopBar(title = title, onBack = onBack, titleStyle = FinTheme.typography.title)
+    FinSubScreenFrame(title, onBack, modifier) {
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -61,6 +56,45 @@ fun FinSubScreen(
     }
 }
 
+/** Secondary screen with lazily composed history and the standard app bar and insets. */
+@Composable
+fun FinLazySubScreen(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: LazyListScope.() -> Unit,
+) {
+    FinSubScreenFrame(title, onBack, modifier) {
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(start = FinDimens.screenPadding, end = FinDimens.screenPadding,
+                top = FinDimens.blockGap, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun FinSubScreenFrame(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(FinTheme.colors.paper)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding(),
+    ) {
+        FinTopBar(title = title, onBack = onBack, titleStyle = FinTheme.typography.title)
+        content()
+    }
+}
+
 @Preview(showBackground = true, widthDp = 412, heightDp = 600)
 @Preview(showBackground = true, widthDp = 412, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
@@ -68,6 +102,17 @@ private fun FinSubScreenPreview() {
     FinDetectTheme {
         FinSubScreen(title = stringResource(R.string.ui_settings), onBack = {}) {
             FinRow(title = stringResource(R.string.ui_settings_currency), subtitle = stringResource(R.string.ui_settings_currency_hint))
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 600)
+@Preview(showBackground = true, widthDp = 360, heightDp = 600, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FinLazySubScreenPreview() {
+    FinDetectTheme {
+        FinLazySubScreen(title = stringResource(R.string.ui_analytics), onBack = {}) {
+            item { FinRow(title = stringResource(R.string.ui_categories)) }
         }
     }
 }

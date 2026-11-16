@@ -33,6 +33,23 @@ data class FinancePeriodState(
 @HiltViewModel
 class FinancePeriodViewModel @Inject constructor(clock: Clock) : ViewModel() {
     private val initial = Period.currentMonth(clock.now().toLocalDateTime(TimeZone.currentSystemDefault()).date)
+    val selection = FinancePeriodSelection(initial)
+    val state = selection.state
+
+    fun open() = selection.open()
+    fun dismiss() = selection.dismiss()
+    fun moveMonth(offset: Int) = selection.moveMonth(offset)
+    fun selectMonth() = selection.selectMonth()
+    fun selectDay(date: LocalDate) = selection.selectDay(date)
+    fun showCustom(custom: Boolean) = selection.showCustom(custom)
+    fun editField(field: PeriodField) = selection.editField(field)
+    fun closeField() = selection.closeField()
+    fun setFieldDate(date: LocalDate) = selection.setFieldDate(date)
+    fun apply() = selection.apply()
+}
+
+/** Independent calendar draft for a screen; opening it never changes another screen's period. */
+class FinancePeriodSelection(initial: Period) {
     private val mutableState = MutableStateFlow(FinancePeriodState(initial, initial.start, initial.start, initial.end))
     val state = mutableState.asStateFlow()
 

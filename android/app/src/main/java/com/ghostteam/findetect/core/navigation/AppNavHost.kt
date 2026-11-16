@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -14,12 +18,20 @@ import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
+import com.ghostteam.findetect.R
+import com.ghostteam.findetect.domain.model.SessionState
+import com.ghostteam.findetect.domain.model.OnboardingStep
+import com.ghostteam.findetect.feature.session.UserSessionViewModel
+import com.ghostteam.findetect.core.util.Period
 import com.ghostteam.findetect.feature.accounts.AccountsRoute
-import com.ghostteam.findetect.feature.analytics.AnalyticsScreen
-import com.ghostteam.findetect.feature.analytics.CategoryDetailScreen
+import com.ghostteam.findetect.feature.analytics.AnalyticsRoute
+import com.ghostteam.findetect.feature.analytics.CategoryDetailRoute
 import com.ghostteam.findetect.feature.expenses.ExpensesRoute
 import com.ghostteam.findetect.feature.home.HomeRoute
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
+import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
+import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
+import com.ghostteam.findetect.feature.profile.ProfileRoute
 import com.ghostteam.findetect.feature.login.LoginScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
@@ -33,6 +45,7 @@ import com.ghostteam.findetect.feature.settings.GamificationSettingsScreen
 import com.ghostteam.findetect.feature.settings.RemindersSettingsScreen
 import com.ghostteam.findetect.feature.settings.SecuritySettingsScreen
 import com.ghostteam.findetect.feature.settings.SettingsScreen
+import com.ghostteam.findetect.feature.settings.SettingsViewModel
 import com.ghostteam.findetect.feature.transaction.AddTransactionMode
 import com.ghostteam.findetect.feature.transaction.AddTransactionRoute
 import com.ghostteam.findetect.feature.transaction.EditTransactionRoute
@@ -50,7 +63,15 @@ private val mainRoutes = setOf(
 )
 
 @Composable
-fun AppNavHost() {
+fun AppNavHost(session: SessionState.Active, sessionModel: UserSessionViewModel, homeRequest: Int = 0, onExit: () -> Unit = {}) {
+    val sessionUi by sessionModel.state.collectAsStateWithLifecycle()
+    val start = remember(session.identity) {
+        when (session.onboarding) {
+            OnboardingStep.INCOME -> Destination.Onboarding.route
+            OnboardingStep.PIN -> Destination.OnboardingPin.route
+            OnboardingStep.DONE -> Destination.Home.route
+        }
+    }
     val editTransactionViewModel: EditTransactionViewModel = hiltViewModel()
     val transactionSnackbar = remember { SnackbarHostState() }
     val financePeriodViewModel: FinancePeriodViewModel = hiltViewModel()
@@ -59,6 +80,7 @@ fun AppNavHost() {
     val entry by controller.currentBackStackEntryAsState()
     var sheetMode by rememberSaveable { mutableStateOf<String?>(null) }
     var transactionSessionId by rememberSaveable { mutableStateOf("") }
+    var handledHomeRequest by rememberSaveable { mutableIntStateOf(0) }
     val openTransaction: (AddTransactionMode) -> Unit = { mode ->
         transactionSessionId = UUID.randomUUID().toString()
         sheetMode = mode.name
@@ -72,7 +94,26 @@ fun AppNavHost() {
     val openSettings = { open(Destination.Settings) }
     /** Иконка графика в шапке: тип по умолчанию зависит от вкладки-источника. */
     val openAnalytics: (Boolean) -> Unit = { income ->
-        controller.navigate(Destination.Analytics.createRoute(income)) { launchSingleTop = true }
+        controller.navigate(Destination.Analytics.createRoute(income, financePeriod.selected)) { launchSingleTop = true }
+    }
+    val openAnalyticsCategory: (Boolean, String, Period) -> Unit = { income, categoryId, period ->
+        controller.navigate(Destination.CategoryDetail.createRoute(income, categoryId, period)) { launchSingleTop = true }
+    }
+    val openIncomeMonth: (Period) -> Unit = { period ->
+        controller.navigate(Destination.IncomeMonth.createRoute(period)) { launchSingleTop = true }
+    }
+
+    LaunchedEffect(homeRequest, session.onboarding) {
+        if (session.onboarding == OnboardingStep.DONE && homeRequest > 0 && homeRequest != handledHomeRequest) {
+            sheetMode = null
+            financePeriodViewModel.dismiss()
+            editTransactionViewModel.dismiss()
+            controller.navigate(Destination.Home.route) {
+                popUpTo(controller.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+            handledHomeRequest = homeRequest
+        }
     }
 
     Scaffold(
@@ -131,18 +172,22 @@ fun AppNavHost() {
                 }
             composable(Destination.Onboarding.route) {
                 OnboardingIncomeScreen(
-                    onBack = back,
-                    onContinue = { open(Destination.OnboardingPin) },
-                    onSkip = { open(Destination.OnboardingPin) },
+                    onBack = onExit,
+                    onContinue = { sessionModel.advance(OnboardingStep.PIN) { open(Destination.OnboardingPin) } },
+                    onSkip = { sessionModel.advance(OnboardingStep.PIN) { open(Destination.OnboardingPin) } },
                 )
             }
             composable(Destination.OnboardingPin.route) {
                 OnboardingPinScreen(
-                    onBack = back,
+                    onBack = { sessionModel.advance(OnboardingStep.INCOME) {
+                        controller.navigate(Destination.Onboarding.route) { popUpTo(controller.graph.id) { inclusive = true } }
+                    } },
                     onDone = {
-                        controller.navigate(Destination.Home.route) {
-                            popUpTo(Destination.Login.route) { inclusive = true }
-                            launchSingleTop = true
+                        sessionModel.advance(OnboardingStep.DONE) {
+                            controller.navigate(Destination.Home.route) {
+                                popUpTo(controller.graph.id) { inclusive = true }
+                                launchSingleTop = true
+                            }
                         }
                     },
                 )
@@ -181,45 +226,58 @@ fun AppNavHost() {
 
             composable(
                 Destination.Analytics.route,
-                arguments = listOf(navArgument(Destination.Analytics.ARG_TYPE) { type = NavType.StringType }),
-            ) { backStackEntry ->
-                val income = backStackEntry.arguments?.getString(Destination.Analytics.ARG_TYPE) == "income"
-                AnalyticsScreen(
-                    initialIncome = income,
+                arguments = listOf(
+                    navArgument(Destination.Analytics.ARG_TYPE) { type = NavType.StringType },
+                    navArgument(Destination.Analytics.ARG_START) { type = NavType.StringType },
+                    navArgument(Destination.Analytics.ARG_END) { type = NavType.StringType },
+                ),
+            ) {
+                AnalyticsRoute(
                     onBack = back,
-                    onOpenCategory = { isIncome, index, period ->
-                        controller.navigate(Destination.CategoryDetail.createRoute(isIncome, index, period)) {
-                            launchSingleTop = true
-                        }
-                    },
+                    onOpenCategory = openAnalyticsCategory,
+                    onOpenMonth = openIncomeMonth,
+                    onEditTransaction = editTransactionViewModel::open,
                 )
             }
             composable(
                 Destination.CategoryDetail.route,
                 arguments = listOf(
                     navArgument(Destination.CategoryDetail.ARG_TYPE) { type = NavType.StringType },
-                    navArgument(Destination.CategoryDetail.ARG_INDEX) { type = NavType.IntType },
-                    navArgument(Destination.CategoryDetail.ARG_PERIOD) { type = NavType.IntType },
+                    navArgument(Destination.CategoryDetail.ARG_CATEGORY_ID) { type = NavType.StringType },
+                    navArgument(Destination.CategoryDetail.ARG_START) { type = NavType.StringType },
+                    navArgument(Destination.CategoryDetail.ARG_END) { type = NavType.StringType },
                 ),
-            ) { backStackEntry ->
-                val args = backStackEntry.arguments
-                CategoryDetailScreen(
-                    isIncome = args?.getString(Destination.CategoryDetail.ARG_TYPE) == "income",
-                    categoryIndex = args?.getInt(Destination.CategoryDetail.ARG_INDEX) ?: 0,
-                    initialPeriod = args?.getInt(Destination.CategoryDetail.ARG_PERIOD) ?: 0,
+            ) {
+                CategoryDetailRoute(
                     onBack = back,
+                    onEditTransaction = editTransactionViewModel::open,
+                )
+            }
+            composable(
+                Destination.IncomeMonth.route,
+                arguments = listOf(
+                    navArgument(Destination.IncomeMonth.ARG_START) { type = NavType.StringType },
+                    navArgument(Destination.IncomeMonth.ARG_END) { type = NavType.StringType },
+                    navArgument("type") { type = NavType.StringType; defaultValue = "income" },
+                    navArgument("monthDetail") { type = NavType.BoolType; defaultValue = true },
+                ),
+            ) {
+                AnalyticsRoute(
+                    onBack = back,
+                    onOpenCategory = openAnalyticsCategory,
+                    onOpenMonth = openIncomeMonth,
+                    onEditTransaction = editTransactionViewModel::open,
                 )
             }
 
             composable(Destination.Profile.route) {
-                ProfileScreen(
+                val settingsViewModel: SettingsViewModel = hiltViewModel()
+                val settings by settingsViewModel.state.collectAsStateWithLifecycle()
+                ProfileRoute(
+                    gameElementsEnabled = settings.settings?.gameElementsEnabled == true,
                     onBack = back,
-                    onLogout = {
-                        controller.navigate(Destination.Login.route) {
-                            popUpTo(controller.graph.id) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    },
+                    onLogout = { sessionModel.logout() },
+                    logoutWorking = sessionUi.working,
                 )
             }
             composable(Destination.Settings.route) {
@@ -244,4 +302,18 @@ fun AppNavHost() {
     }
     if (financePeriod.open) FinancePeriodSheet(financePeriodViewModel)
     EditTransactionRoute(editTransactionViewModel, transactionSnackbar)
+    val sessionError = stringResource(R.string.session_action_error)
+    LaunchedEffect(sessionUi.error) { if (sessionUi.error) transactionSnackbar.showSnackbar(sessionError) }
+    if (sessionUi.confirmLogout) AlertDialog(
+        onDismissRequest = sessionModel::dismissLogout,
+        containerColor = FinTheme.colors.paper,
+        title = { Text(stringResource(R.string.session_logout_title), style = FinTheme.typography.heading, color = FinTheme.colors.navy) },
+        text = { Text(stringResource(R.string.session_logout_pending), style = FinTheme.typography.body, color = FinTheme.colors.navy) },
+        confirmButton = { TextButton(onClick = { sessionModel.logout(confirmed = true) }) {
+            Text(stringResource(R.string.ui_sign_out), color = FinTheme.colors.red, style = FinTheme.typography.label)
+        } },
+        dismissButton = { TextButton(onClick = sessionModel::dismissLogout) {
+            Text(stringResource(R.string.session_stay), color = FinTheme.colors.navy, style = FinTheme.typography.label)
+        } },
+    )
 }
