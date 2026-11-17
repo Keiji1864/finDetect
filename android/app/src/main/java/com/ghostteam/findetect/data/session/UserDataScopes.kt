@@ -1,6 +1,7 @@
 package com.ghostteam.findetect.data.session
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.room.Room
@@ -11,19 +12,32 @@ import com.ghostteam.findetect.data.local.migration.MIGRATION_2_3
 import com.ghostteam.findetect.data.local.migration.MIGRATION_3_4
 import com.ghostteam.findetect.data.local.migration.MIGRATION_4_5
 import com.ghostteam.findetect.data.local.migration.MIGRATION_5_6
+import com.ghostteam.findetect.data.local.migration.MIGRATION_6_7
 import com.ghostteam.findetect.data.pin.PinStorage
 import com.ghostteam.findetect.data.reminder.ReminderNotifications
 import com.ghostteam.findetect.data.repository.*
 import com.ghostteam.findetect.domain.model.OnboardingStep
 import com.ghostteam.findetect.domain.model.SessionIdentity
 import com.ghostteam.findetect.domain.usecase.CalculateStreakUseCase
+import com.ghostteam.findetect.domain.usecase.CalculateAchievementsUseCase
+import com.ghostteam.findetect.core.time.LocalDayObserver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 
@@ -36,16 +50,36 @@ class UserDataScope internal constructor(
     val settings: LocalSettingsRepository,
     clock: Clock,
     calculateStreak: CalculateStreakUseCase,
+    calculateAchievements: CalculateAchievementsUseCase,
 ) {
     val xp = LocalXpRepository(database, database.xpDao(), clock, calculateStreak)
+    val achievements = LocalAchievementRepository(database, database.achievementDao(), clock, calculateAchievements, xp)
     val accounts = LocalAccountRepository(database, database.accountDao(), database.accountDeletionDao(), clock)
     val categories = LocalCategoryRepository(database, database.categoryDao())
     val transactions = LocalTransactionRepository(database, database.transactionDao(), database.accountDao(),
-        database.categoryDao(), database.transactionDeletionDao(), clock, xp)
+        database.categoryDao(), database.transactionDeletionDao(), clock, xp, achievements)
     val adjustments = LocalBalanceAdjustmentRepository(database, database.adjustmentDao(), database.accountDao(),
         database.balanceDao(), database.balanceConfirmationDao(), clock)
     val balances = LocalBalanceRepository(database.balanceDao())
-    val activity = LocalActivityRepository(database, database.activityDayDao(), clock, xp)
+    val activity = LocalActivityRepository(database, database.activityDayDao(), clock, xp, achievements)
+
+    private val lifetime = SupervisorJob()
+    private val background = CoroutineScope(Dispatchers.IO + lifetime)
+
+    /** Keeps completed-day recognition alive without a Home/Profile/Streak navigation owner. */
+    internal fun startAchievementChecks(days: LocalDayObserver) {
+        background.launch {
+            days.observe().onEach { achievements.reconcile() }
+                .retryWhen { error, _ ->
+                    if (error is CancellationException) throw error
+                    Log.w("AchievementChecks", "Cannot reconcile achievements; retrying", error)
+                    delay(5_000)
+                    true
+                }.collect()
+        }
+    }
+
+    internal suspend fun stopAchievementChecks() { lifetime.cancelAndJoin() }
 
     suspend fun hasPendingChanges(): Boolean = withContext(Dispatchers.IO) {
         database.openHelper.readableDatabase.query("""
@@ -53,6 +87,7 @@ class UserDataScope internal constructor(
                 OR EXISTS(SELECT 1 FROM transactions WHERE syncStatus != 'SYNCED')
                 OR EXISTS(SELECT 1 FROM balance_adjustments WHERE syncStatus != 'SYNCED')
                 OR EXISTS(SELECT 1 FROM xp_events WHERE syncStatus != 'SYNCED')
+                OR EXISTS(SELECT 1 FROM achievements WHERE syncStatus != 'SYNCED')
         """.trimIndent()).use { it.moveToFirst() && it.getInt(0) != 0 }
     }
 }
@@ -65,6 +100,8 @@ class UserDataScopes @Inject constructor(
     private val initializer: LocalDataInitializer,
     private val clock: Clock,
     private val calculateStreak: CalculateStreakUseCase,
+    private val calculateAchievements: CalculateAchievementsUseCase,
+    private val days: LocalDayObserver,
     private val notifications: ReminderNotifications,
 ) {
     private val mutableCurrent = MutableStateFlow<UserDataScope?>(null)
@@ -75,27 +112,37 @@ class UserDataScopes @Inject constructor(
         val id = canonicalUserId(identity.userId)
         val gate = UserAccessGate()
         val database = Room.databaseBuilder(context, AppDatabase::class.java, databaseName(id))
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
         try {
             initializer.initialize(database, id)
             val pin = PinStorage(context, id, gate)
             pin.refresh()
             UserDataScope(identity, database, gate, pin, LocalSettingsRepository(device, preferences.forUser(id), gate),
-                clock, calculateStreak).also { it.xp.initialize() }
+                clock, calculateStreak, calculateAchievements).also {
+                it.xp.initialize()
+                it.achievements.initialize()
+            }
         } catch (error: Exception) {
             database.close()
             throw error
         }
     }
 
-    internal fun publish(scope: UserDataScope) { check(current.value == null); mutableCurrent.value = scope }
+    internal fun publish(scope: UserDataScope) {
+        check(current.value == null)
+        mutableCurrent.value = scope
+        scope.startAchievementChecks(days)
+    }
 
     internal suspend fun close() {
         val previous = current.value ?: return
         mutableCurrent.value = null
         previous.gate.revoke()
         notifications.cancel()
-        withContext(Dispatchers.IO) { previous.database.close() }
+        withContext(NonCancellable + Dispatchers.IO) {
+            previous.stopAchievementChecks()
+            previous.database.close()
+        }
     }
 
     internal suspend fun onboarding(userId: String, isRegistration: Boolean): OnboardingStep {

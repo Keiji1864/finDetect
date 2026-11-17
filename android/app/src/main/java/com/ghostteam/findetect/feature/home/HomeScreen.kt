@@ -26,6 +26,9 @@ import com.ghostteam.findetect.domain.model.HomeFinanceSummary
 import com.ghostteam.findetect.domain.model.DayActivity
 import com.ghostteam.findetect.feature.activity.DayActivityUiState
 import com.ghostteam.findetect.feature.activity.NoSpendingSection
+import com.ghostteam.findetect.feature.achievements.AchievementsPreviewCard
+import com.ghostteam.findetect.feature.achievements.AchievementsUiState
+import com.ghostteam.findetect.feature.achievements.achievementsPreviewProgress
 import com.ghostteam.findetect.feature.gamification.XpProgressContent
 import com.ghostteam.findetect.feature.gamification.XpProgressUiState
 import com.ghostteam.findetect.domain.usecase.CalculateXpProgressUseCase
@@ -49,6 +52,7 @@ fun HomeScreen(
     onOpenAnalytics: () -> Unit = {},
     onRetry: () -> Unit = {},
     onConfirmNoSpending: () -> Unit = {},
+    onOpenAchievements: () -> Unit = {},
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val finance = state.finance
@@ -80,7 +84,9 @@ fun HomeScreen(
                 pager = stringResource(R.string.ui_advice_page),
             )
         }
-        if (state.gameElementsEnabled) item(key = "achievements") { AchievementsCard() }
+        if (state.gameElementsEnabled) item(key = "achievements") {
+            AchievementsPreviewCard(state.achievements, onOpenAchievements, onRetry)
+        }
         item(key = "recent_title") {
             Text(stringResource(R.string.ui_recent), style = FinTheme.typography.sectionTitle, color = FinTheme.colors.navy)
         }
@@ -152,21 +158,6 @@ private fun TodayCard(state: HomeUiState) {
     }
 }
 
-@Composable
-private fun AchievementsCard() {
-    FinCard {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.ui_achievements), Modifier.weight(1f),
-                    style = FinTheme.typography.label, color = FinTheme.colors.navy)
-                Icon(Icons.Outlined.ChevronRight, null, tint = FinTheme.colors.muted, modifier = Modifier.size(20.dp))
-            }
-            FinRow(stringResource(R.string.ui_achievements_title), subtitle = stringResource(R.string.ui_achievements_hint),
-                compact = true, inSheet = true, leading = { UiIconTile(R.drawable.ic_trophy) })
-        }
-    }
-}
-
 @Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
@@ -187,6 +178,7 @@ private fun HomePreview() {
             streak = progress,
             streakLoading = false,
             xp = XpProgressUiState(CalculateXpProgressUseCase()(700L), loading = false),
+            achievements = AchievementsUiState(achievementsPreviewProgress(), loading = false),
         ))
     }
 }

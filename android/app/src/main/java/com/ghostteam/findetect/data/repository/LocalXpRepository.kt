@@ -7,6 +7,8 @@ import com.ghostteam.findetect.data.local.entity.XpEventEntity
 import com.ghostteam.findetect.data.local.entity.XpStateEntity
 import com.ghostteam.findetect.domain.model.XpReason
 import com.ghostteam.findetect.domain.model.XpRules
+import com.ghostteam.findetect.domain.model.AchievementCode
+import com.ghostteam.findetect.domain.model.AchievementRules
 import com.ghostteam.findetect.domain.repository.XpRepository
 import com.ghostteam.findetect.domain.usecase.CalculateStreakUseCase
 import java.util.UUID
@@ -58,6 +60,26 @@ class LocalXpRepository @Inject constructor(
         amount = XpRules.NO_SPENDING_XP,
         dailyLimit = XpRules.NO_SPENDING_MARKS_PER_DAY,
     )
+
+    /** Joined by the achievement transaction; retry returns the existing stable event identity. */
+    internal suspend fun recordAchievement(code: AchievementCode, date: LocalDate, at: Instant): String = database.withTransaction {
+        checkNotNull(dao.getState()) { "XP must be initialized before awarding achievements" }
+        val reference = code.name
+        val existing = dao.getBySource(XpReason.ACHIEVEMENT, reference)
+        if (existing != null) return@withTransaction existing.id
+        val event = XpEventEntity(
+            id = UUID.randomUUID().toString(),
+            reason = XpReason.ACHIEVEMENT,
+            sourceId = reference,
+            reasonRef = reference,
+            amount = AchievementRules.rewards.getValue(code),
+            counted = true,
+            localDate = date.toString(),
+            occurredAt = at,
+        )
+        dao.insertEvent(event)
+        event.id
+    }
 
     private suspend fun recordLimitedEvent(
         reason: XpReason,

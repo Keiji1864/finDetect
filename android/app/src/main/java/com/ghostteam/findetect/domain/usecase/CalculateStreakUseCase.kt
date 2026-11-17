@@ -3,6 +3,7 @@ package com.ghostteam.findetect.domain.usecase
 import com.ghostteam.findetect.domain.model.StreakEvent
 import com.ghostteam.findetect.domain.model.StreakProgress
 import com.ghostteam.findetect.domain.model.StreakWeekDay
+import com.ghostteam.findetect.domain.model.StreakAchievementHistory
 import javax.inject.Inject
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -23,6 +24,37 @@ class CalculateStreakUseCase @Inject constructor() {
             if (pending.remove(count)) reached[count] = date
         }
         return reached
+    }
+
+    /** Detects actual resets from the shared replay; a grace day alone never starts a comeback. */
+    fun achievementHistory(
+        activeDates: List<LocalDate>,
+        today: LocalDate,
+        targets: Collection<Int>,
+        comebackTarget: Int,
+    ): StreakAchievementHistory {
+        require(comebackTarget > 0)
+        val pending = targets.filter { it > 0 }.toMutableSet()
+        val reached = mutableMapOf<Int, LocalDate>()
+        var previous: LocalDate? = null
+        var hadReset = false
+        var consecutive = 0
+        var firstComeback: LocalDate? = null
+        val progress = replay(activeDates, today) { date, count ->
+            if (pending.remove(count)) reached[count] = date
+            val previousDate = previous
+            if (previousDate != null && count == 1) hadReset = true
+            consecutive = if (previousDate != null && previousDate.daysUntil(date) == 1) consecutive + 1 else 1
+            if (hadReset && consecutive >= comebackTarget && firstComeback == null) firstComeback = date
+            previous = date
+        }
+        val recent = previous?.let { it.daysUntil(today) <= 1 } == true
+        return StreakAchievementHistory(
+            progress = progress,
+            firstReachedDates = reached,
+            firstComebackDate = firstComeback,
+            comebackDays = if (hadReset && recent && progress.currentStreak > 0) consecutive.coerceAtMost(comebackTarget) else 0,
+        )
     }
 
     private fun replay(

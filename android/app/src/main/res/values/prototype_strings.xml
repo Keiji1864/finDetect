@@ -22,9 +22,6 @@
     <string name="ui_advice">Финансовый совет</string>
     <string name="ui_advice_title">Кафе: на 700 ₽ больше</string>
     <string name="ui_advice_hint">В этом месяце вы тратите на кафе больше, чем в прошлом.</string>
-    <string name="ui_achievements">Достижения · 3 из 11</string>
-    <string name="ui_achievements_title">Первая улика</string>
-    <string name="ui_achievements_hint">Первая операция</string>
     <string name="ui_recent">Последние операции</string>
     <string name="ui_total_balance">Общий баланс</string>
     <string name="ui_amount">Сумма</string>

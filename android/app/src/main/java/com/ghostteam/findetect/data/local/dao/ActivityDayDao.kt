@@ -18,6 +18,9 @@ interface ActivityDayDao {
     @Query("SELECT date FROM activity_days WHERE hadTransaction = 1 OR noSpendingConfirmed = 1 ORDER BY date ASC")
     suspend fun getActiveDates(): List<String>
 
+    @Query("SELECT * FROM activity_days WHERE hadTransaction = 1 OR noSpendingConfirmed = 1 ORDER BY date ASC")
+    suspend fun getActiveDays(): List<ActivityDayEntity>
+
     @Query("""SELECT EXISTS(SELECT 1 FROM transactions t
         INNER JOIN categories c ON c.id = t.categoryId
         WHERE t.deletedAt IS NULL AND c.isIncome = 0

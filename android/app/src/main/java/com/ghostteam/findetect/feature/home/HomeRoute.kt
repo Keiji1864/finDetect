@@ -12,6 +12,7 @@ fun HomeRoute(
     onOpenStreak: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
+    onOpenAchievements: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -24,5 +25,6 @@ fun HomeRoute(
         onOpenAnalytics = onOpenAnalytics,
         onRetry = viewModel::retry,
         onConfirmNoSpending = viewModel::confirmNoSpending,
+        onOpenAchievements = onOpenAchievements,
     )
 }

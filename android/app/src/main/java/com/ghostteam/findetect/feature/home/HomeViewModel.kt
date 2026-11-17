@@ -12,6 +12,9 @@ import com.ghostteam.findetect.domain.repository.ActivityRepository
 import com.ghostteam.findetect.domain.usecase.ObserveHomeFinanceUseCase
 import com.ghostteam.findetect.domain.usecase.ObserveStreakUseCase
 import com.ghostteam.findetect.domain.usecase.ObserveXpProgressUseCase
+import com.ghostteam.findetect.domain.usecase.ObserveAchievementsUseCase
+import com.ghostteam.findetect.feature.achievements.AchievementsStateHolder
+import com.ghostteam.findetect.feature.achievements.AchievementsUiState
 import com.ghostteam.findetect.feature.activity.DayActivityStateHolder
 import com.ghostteam.findetect.feature.activity.DayActivityUiState
 import com.ghostteam.findetect.feature.gamification.XpProgressStateHolder
@@ -46,6 +49,7 @@ data class HomeUiState(
     val streakLoading: Boolean = true,
     val streakError: Boolean = false,
     val xp: XpProgressUiState = XpProgressUiState(),
+    val achievements: AchievementsUiState = AchievementsUiState(),
 )
 
 private data class LoadedHomeFinance(
@@ -63,9 +67,11 @@ class HomeViewModel @Inject constructor(
     activity: ActivityRepository,
     private val observeStreak: ObserveStreakUseCase,
     observeXp: ObserveXpProgressUseCase,
+    observeAchievements: ObserveAchievementsUseCase,
 ) : ViewModel() {
     private val dayStatus = DayActivityStateHolder(viewModelScope, activity, days)
     private val xp = XpProgressStateHolder(viewModelScope, observeXp)
+    private val achievements = AchievementsStateHolder(viewModelScope, days.observe(), observeAchievements)
     private val day = MutableStateFlow(dayStatus.state.value.day)
     private val reload = MutableStateFlow(0)
     private val mutableState = MutableStateFlow(HomeUiState(day = day.value))
@@ -73,6 +79,7 @@ class HomeViewModel @Inject constructor(
 
     init {
         viewModelScope.launch { xp.state.collect { progress -> mutableState.update { it.copy(xp = progress) } } }
+        viewModelScope.launch { achievements.state.collect { content -> mutableState.update { it.copy(achievements = content) } } }
         viewModelScope.launch {
             dayStatus.state.collect { status ->
                 mutableState.update {
@@ -156,6 +163,7 @@ class HomeViewModel @Inject constructor(
     fun retry() {
         dayStatus.retry()
         xp.retry()
+        achievements.retry()
         reload.value += 1
     }
 

@@ -24,6 +24,7 @@ class LocalActivityRepository @Inject constructor(
     private val dao: ActivityDayDao,
     private val clock: Clock,
     private val xp: LocalXpRepository,
+    private val achievements: LocalAchievementRepository,
 ) : ActivityRepository {
     override fun observeActiveDates() = dao.observeActiveDates()
         .distinctUntilChanged()
@@ -47,6 +48,7 @@ class LocalActivityRepository @Inject constructor(
         }
         dao.confirmNoSpending(today.toString(), now)
         xp.recordNoSpending(today, now)
+        achievements.reconcile()
         ConfirmNoSpendingResult.CONFIRMED
     }
 
