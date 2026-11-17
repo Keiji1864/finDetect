@@ -76,7 +76,6 @@
     <string name="ui_change_password">Сменить пароль</string>
     <string name="ui_change_password_hint">Последнее изменение: 12 октября</string>
     <string name="ui_level">Уровень</string>
-    <string name="ui_level_hint">Следователь · 140 / 250 XP</string>
     <string name="ui_sign_out">Выйти из аккаунта</string>
     <string name="ui_delete_account">Удалить аккаунт</string>
 </resources>

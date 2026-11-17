@@ -1,7 +1,6 @@
 package com.ghostteam.findetect.feature.home
 
 import android.content.res.Configuration
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -10,12 +9,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.R
@@ -29,6 +26,9 @@ import com.ghostteam.findetect.domain.model.HomeFinanceSummary
 import com.ghostteam.findetect.domain.model.DayActivity
 import com.ghostteam.findetect.feature.activity.DayActivityUiState
 import com.ghostteam.findetect.feature.activity.NoSpendingSection
+import com.ghostteam.findetect.feature.gamification.XpProgressContent
+import com.ghostteam.findetect.feature.gamification.XpProgressUiState
+import com.ghostteam.findetect.domain.usecase.CalculateXpProgressUseCase
 import com.ghostteam.findetect.feature.streak.StreakCard
 import com.ghostteam.findetect.feature.streak.streakPreviewProgress
 import com.ghostteam.findetect.feature.prototype.*
@@ -55,7 +55,7 @@ fun HomeScreen(
     PrototypeScreen(R.string.ui_home, floatingAction = true, showLogo = true, onSettings = onOpenSettings, onAnalytics = onOpenAnalytics, action = {
         FinButton(stringResource(R.string.ui_add_transaction), onAddTransaction)
     }) {
-        item(key = "profile") { ProfileCard(onOpenProfile, state.gameElementsEnabled) }
+        item(key = "profile") { ProfileCard(onOpenProfile, state.gameElementsEnabled, state.xp, onRetry) }
         if (state.gameElementsEnabled) item(key = "streak") {
             StreakCard(state.streak, state.streakLoading, state.streakError, onRetry, onClick = onOpenStreak)
         }
@@ -99,18 +99,14 @@ fun HomeScreen(
 }
 
 @Composable
-private fun ProfileCard(onClick: () -> Unit, gameElementsEnabled: Boolean) {
+private fun ProfileCard(onClick: () -> Unit, gameElementsEnabled: Boolean, xp: XpProgressUiState, onRetry: () -> Unit) {
     FinCard(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             UiIconTile(R.drawable.ic_user)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(stringResource(R.string.ui_profile), style = FinTheme.typography.label, color = FinTheme.colors.navy)
                 if (gameElementsEnabled) {
-                    Text(stringResource(R.string.ui_profile_hint), style = FinTheme.typography.caption, color = FinTheme.colors.muted,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Box(Modifier.fillMaxWidth().height(6.dp).clip(FinTheme.shapes.tiny).background(FinTheme.colors.line)) {
-                        Box(Modifier.fillMaxWidth(0.56f).fillMaxHeight().background(FinTheme.colors.yellow))
-                    }
+                    XpProgressContent(xp, onRetry)
                 }
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = FinTheme.colors.muted, modifier = Modifier.size(20.dp))
@@ -190,6 +186,7 @@ private fun HomePreview() {
             dayStatus = DayActivityUiState(HomeFinanceDay(progress.today, TimeZone.UTC), DayActivity(), loading = false),
             streak = progress,
             streakLoading = false,
+            xp = XpProgressUiState(CalculateXpProgressUseCase()(700L), loading = false),
         ))
     }
 }

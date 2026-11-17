@@ -7,8 +7,11 @@ import com.ghostteam.findetect.domain.model.StreakProgress
 import com.ghostteam.findetect.domain.repository.ActivityRepository
 import com.ghostteam.findetect.domain.repository.SettingsRepository
 import com.ghostteam.findetect.domain.usecase.ObserveStreakUseCase
+import com.ghostteam.findetect.domain.usecase.ObserveXpProgressUseCase
 import com.ghostteam.findetect.feature.activity.DayActivityStateHolder
 import com.ghostteam.findetect.feature.activity.DayActivityUiState
+import com.ghostteam.findetect.feature.gamification.XpProgressStateHolder
+import com.ghostteam.findetect.feature.gamification.XpProgressUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -30,6 +33,7 @@ data class StreakUiState(
     val error: Boolean = false,
     val gameElementsEnabled: Boolean? = null,
     val settingsError: Boolean = false,
+    val xp: XpProgressUiState = XpProgressUiState(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -39,14 +43,17 @@ class StreakViewModel @Inject constructor(
     activity: ActivityRepository,
     settings: SettingsRepository,
     observeStreak: ObserveStreakUseCase,
+    observeXp: ObserveXpProgressUseCase,
 ) : ViewModel() {
     private val dayStatus = DayActivityStateHolder(viewModelScope, activity, days)
+    private val xp = XpProgressStateHolder(viewModelScope, observeXp)
     private val day = MutableStateFlow(dayStatus.state.value.day)
     private val reload = MutableStateFlow(0)
     private val mutableState = MutableStateFlow(StreakUiState(dayStatus.state.value))
     val state = mutableState.asStateFlow()
 
     init {
+        viewModelScope.launch { xp.state.collect { progress -> mutableState.update { it.copy(xp = progress) } } }
         viewModelScope.launch {
             dayStatus.state.collect { status ->
                 mutableState.update {
@@ -95,6 +102,7 @@ class StreakViewModel @Inject constructor(
 
     fun retry() {
         dayStatus.retry()
+        xp.retry()
         reload.update { it + 1 }
     }
 }

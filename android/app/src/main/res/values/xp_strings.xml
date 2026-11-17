@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xp_title_trainee">Стажёр</string>
+    <string name="xp_title_investigator">Следователь</string>
+    <string name="xp_title_senior_investigator">Старший следователь</string>
+    <string name="xp_title_detective">Детектив</string>
+    <string name="xp_title_chief_detective">Главный детектив</string>
+    <string name="xp_level_title">Уровень %1$d · %2$s</string>
+    <string name="xp_level_progress">%1$d / %2$d XP</string>
+    <string name="xp_total">Всего: %1$d XP</string>
+    <string name="xp_remaining">До следующего уровня: %1$d XP</string>
+    <string name="xp_max_level">Максимальный уровень</string>
+    <string name="xp_read_error">Не удалось загрузить опыт</string>
+    <string name="xp_progress_accessibility">Опыт текущего уровня: %1$d из %2$d XP. До следующего уровня: %3$d XP.</string>
+    <string name="xp_max_accessibility">Максимальный уровень. Всего %1$d XP.</string>
+</resources>

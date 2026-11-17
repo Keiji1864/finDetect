@@ -37,6 +37,7 @@ class LocalTransactionRepository @Inject constructor(
     private val categoryDao: CategoryDao,
     private val deletionDao: TransactionDeletionDao,
     private val clock: Clock,
+    private val xp: LocalXpRepository,
 ) : TransactionRepository {
     override fun observeDetailsById(id: String): Flow<TransactionDetails?> =
         transactionDao.observeDetailsById(id).map { it?.toDomain() }
@@ -113,10 +114,12 @@ class LocalTransactionRepository @Inject constructor(
             throw TransactionCreationException(TransactionCreationError.INVALID_AMOUNT, error)
         }
         transactionDao.insert(entity)
+        val enteredDate = entity.enteredAt.toLocalDateTime(TimeZone.currentSystemDefault()).date
         database.activityDayDao().recordTransaction(
-            entity.enteredAt.toLocalDateTime(TimeZone.currentSystemDefault()).date.toString(),
+            enteredDate.toString(),
             entity.enteredAt,
         )
+        xp.recordTransaction(entity.id, enteredDate, entity.enteredAt)
         entity.toDomain()
     }
 

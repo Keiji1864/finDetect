@@ -12,7 +12,24 @@ import kotlinx.datetime.plus
 
 /** Pure history replay. Dates are deduplicated, future dates ignored, and gaps processed without daily iteration. */
 class CalculateStreakUseCase @Inject constructor() {
-    operator fun invoke(activeDates: List<LocalDate>, today: LocalDate): StreakProgress {
+    operator fun invoke(activeDates: List<LocalDate>, today: LocalDate): StreakProgress =
+        replay(activeDates, today) { _, _ -> }
+
+    /** First attainment in the full history, using exactly the same grace/reset rules as the UI. */
+    fun firstReachedDates(activeDates: List<LocalDate>, today: LocalDate, targets: Collection<Int>): Map<Int, LocalDate> {
+        val pending = targets.filter { it > 0 }.toMutableSet()
+        val reached = mutableMapOf<Int, LocalDate>()
+        replay(activeDates, today) { date, count ->
+            if (pending.remove(count)) reached[count] = date
+        }
+        return reached
+    }
+
+    private fun replay(
+        activeDates: List<LocalDate>,
+        today: LocalDate,
+        onActiveDay: (LocalDate, Int) -> Unit,
+    ): StreakProgress {
         val dates = activeDates.asSequence().filter { it <= today }.distinct().sorted().toList()
         var current = 0
         var best = 0
@@ -41,6 +58,7 @@ class CalculateStreakUseCase @Inject constructor() {
             previous?.let { applyGap(it, it.daysUntil(date) - 1) }
             current += 1
             best = maxOf(best, current)
+            onActiveDay(date, current)
             if (!graceAvailable) {
                 recoveryDays += 1
                 if (recoveryDays == GRACE_RECOVERY_DAYS) {

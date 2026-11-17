@@ -15,7 +15,6 @@
     <string name="ui_zero">0</string>
     <string name="ui_currency">₽</string>
     <string name="ui_profile">Вилена · Уровень 2</string>
-    <string name="ui_profile_hint">Следователь · 140 / 250 XP</string>
     <string name="ui_streak">7 дней учёта</string>
     <string name="ui_record">Рекорд: 12 дней</string>
     <string name="ui_spent_today">Потрачено сегодня</string>

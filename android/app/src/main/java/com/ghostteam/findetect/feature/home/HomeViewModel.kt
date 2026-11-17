@@ -11,8 +11,11 @@ import com.ghostteam.findetect.domain.repository.SettingsRepository
 import com.ghostteam.findetect.domain.repository.ActivityRepository
 import com.ghostteam.findetect.domain.usecase.ObserveHomeFinanceUseCase
 import com.ghostteam.findetect.domain.usecase.ObserveStreakUseCase
+import com.ghostteam.findetect.domain.usecase.ObserveXpProgressUseCase
 import com.ghostteam.findetect.feature.activity.DayActivityStateHolder
 import com.ghostteam.findetect.feature.activity.DayActivityUiState
+import com.ghostteam.findetect.feature.gamification.XpProgressStateHolder
+import com.ghostteam.findetect.feature.gamification.XpProgressUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -42,6 +45,7 @@ data class HomeUiState(
     val streak: StreakProgress? = null,
     val streakLoading: Boolean = true,
     val streakError: Boolean = false,
+    val xp: XpProgressUiState = XpProgressUiState(),
 )
 
 private data class LoadedHomeFinance(
@@ -58,14 +62,17 @@ class HomeViewModel @Inject constructor(
     private val observeFinance: ObserveHomeFinanceUseCase,
     activity: ActivityRepository,
     private val observeStreak: ObserveStreakUseCase,
+    observeXp: ObserveXpProgressUseCase,
 ) : ViewModel() {
     private val dayStatus = DayActivityStateHolder(viewModelScope, activity, days)
+    private val xp = XpProgressStateHolder(viewModelScope, observeXp)
     private val day = MutableStateFlow(dayStatus.state.value.day)
     private val reload = MutableStateFlow(0)
     private val mutableState = MutableStateFlow(HomeUiState(day = day.value))
     val state = mutableState.asStateFlow()
 
     init {
+        viewModelScope.launch { xp.state.collect { progress -> mutableState.update { it.copy(xp = progress) } } }
         viewModelScope.launch {
             dayStatus.state.collect { status ->
                 mutableState.update {
@@ -148,6 +155,7 @@ class HomeViewModel @Inject constructor(
 
     fun retry() {
         dayStatus.retry()
+        xp.retry()
         reload.value += 1
     }
 

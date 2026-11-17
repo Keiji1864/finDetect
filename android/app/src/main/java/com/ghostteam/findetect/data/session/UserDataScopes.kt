@@ -10,11 +10,13 @@ import com.ghostteam.findetect.data.local.migration.MIGRATION_1_2
 import com.ghostteam.findetect.data.local.migration.MIGRATION_2_3
 import com.ghostteam.findetect.data.local.migration.MIGRATION_3_4
 import com.ghostteam.findetect.data.local.migration.MIGRATION_4_5
+import com.ghostteam.findetect.data.local.migration.MIGRATION_5_6
 import com.ghostteam.findetect.data.pin.PinStorage
 import com.ghostteam.findetect.data.reminder.ReminderNotifications
 import com.ghostteam.findetect.data.repository.*
 import com.ghostteam.findetect.domain.model.OnboardingStep
 import com.ghostteam.findetect.domain.model.SessionIdentity
+import com.ghostteam.findetect.domain.usecase.CalculateStreakUseCase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,21 +35,24 @@ class UserDataScope internal constructor(
     val pin: PinStorage,
     val settings: LocalSettingsRepository,
     clock: Clock,
+    calculateStreak: CalculateStreakUseCase,
 ) {
+    val xp = LocalXpRepository(database, database.xpDao(), clock, calculateStreak)
     val accounts = LocalAccountRepository(database, database.accountDao(), database.accountDeletionDao(), clock)
     val categories = LocalCategoryRepository(database, database.categoryDao())
     val transactions = LocalTransactionRepository(database, database.transactionDao(), database.accountDao(),
-        database.categoryDao(), database.transactionDeletionDao(), clock)
+        database.categoryDao(), database.transactionDeletionDao(), clock, xp)
     val adjustments = LocalBalanceAdjustmentRepository(database, database.adjustmentDao(), database.accountDao(),
         database.balanceDao(), database.balanceConfirmationDao(), clock)
     val balances = LocalBalanceRepository(database.balanceDao())
-    val activity = LocalActivityRepository(database, database.activityDayDao(), clock)
+    val activity = LocalActivityRepository(database, database.activityDayDao(), clock, xp)
 
     suspend fun hasPendingChanges(): Boolean = withContext(Dispatchers.IO) {
         database.openHelper.readableDatabase.query("""
             SELECT EXISTS(SELECT 1 FROM accounts WHERE syncStatus != 'SYNCED')
                 OR EXISTS(SELECT 1 FROM transactions WHERE syncStatus != 'SYNCED')
                 OR EXISTS(SELECT 1 FROM balance_adjustments WHERE syncStatus != 'SYNCED')
+                OR EXISTS(SELECT 1 FROM xp_events WHERE syncStatus != 'SYNCED')
         """.trimIndent()).use { it.moveToFirst() && it.getInt(0) != 0 }
     }
 }
@@ -59,6 +64,7 @@ class UserDataScopes @Inject constructor(
     private val device: DevicePreferences,
     private val initializer: LocalDataInitializer,
     private val clock: Clock,
+    private val calculateStreak: CalculateStreakUseCase,
     private val notifications: ReminderNotifications,
 ) {
     private val mutableCurrent = MutableStateFlow<UserDataScope?>(null)
@@ -69,12 +75,13 @@ class UserDataScopes @Inject constructor(
         val id = canonicalUserId(identity.userId)
         val gate = UserAccessGate()
         val database = Room.databaseBuilder(context, AppDatabase::class.java, databaseName(id))
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6).build()
         try {
             initializer.initialize(database, id)
             val pin = PinStorage(context, id, gate)
             pin.refresh()
-            UserDataScope(identity, database, gate, pin, LocalSettingsRepository(device, preferences.forUser(id), gate), clock)
+            UserDataScope(identity, database, gate, pin, LocalSettingsRepository(device, preferences.forUser(id), gate),
+                clock, calculateStreak).also { it.xp.initialize() }
         } catch (error: Exception) {
             database.close()
             throw error

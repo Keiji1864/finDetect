@@ -18,6 +18,9 @@ import com.ghostteam.findetect.domain.model.DayActivity
 import com.ghostteam.findetect.domain.model.LocalDay
 import com.ghostteam.findetect.feature.activity.DayActivityUiState
 import com.ghostteam.findetect.feature.activity.NoSpendingSection
+import com.ghostteam.findetect.feature.gamification.XpProgressCard
+import com.ghostteam.findetect.feature.gamification.XpProgressUiState
+import com.ghostteam.findetect.domain.usecase.CalculateXpProgressUseCase
 import kotlinx.datetime.TimeZone
 
 @Composable
@@ -38,6 +41,7 @@ fun StreakScreen(
             }
             state.gameElementsEnabled == true -> {
                 StreakCard(state.progress, state.loading, state.error, onRetry, expanded = true)
+                XpProgressCard(state.xp, onRetry, expanded = true)
                 FinNotice(stringResource(R.string.streak_every_day_title), text = stringResource(R.string.streak_every_day_hint))
             }
             else -> FinNotice(stringResource(R.string.streak_game_disabled), text = stringResource(R.string.streak_game_disabled_hint))
@@ -63,6 +67,7 @@ private fun StreakScreenPreview() {
         StreakScreen(StreakUiState(
             dayStatus = DayActivityUiState(LocalDay(progress.today, TimeZone.UTC), DayActivity(), loading = false),
             progress = progress, loading = false, gameElementsEnabled = true,
+            xp = XpProgressUiState(CalculateXpProgressUseCase()(700L), loading = false),
         ), {}, {}, {})
     }
 }
