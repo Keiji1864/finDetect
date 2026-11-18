@@ -25,7 +25,7 @@ object AuthFormValidation {
         if (confirmation != password) put(AuthField.CONFIRMATION, AuthFieldError.PASSWORD_MISMATCH)
     }
 
-    private fun validateEmail(value: String): AuthFieldError? = when {
+    fun validateEmail(value: String): AuthFieldError? = when {
         value.trim().isEmpty() -> AuthFieldError.REQUIRED
         value.trim().length > MAX_EMAIL || !Patterns.EMAIL_ADDRESS.matcher(value.trim()).matches() -> AuthFieldError.INVALID_EMAIL
         else -> null

@@ -18,6 +18,7 @@ import com.ghostteam.findetect.core.security.AppLockManager
 import com.ghostteam.findetect.domain.model.*
 import com.ghostteam.findetect.feature.login.LoginScreen
 import com.ghostteam.findetect.feature.register.RegisterScreen
+import com.ghostteam.findetect.feature.recovery.RecoveryRoute
 import com.ghostteam.findetect.feature.security.AppLockHost
 import com.ghostteam.findetect.feature.session.*
 
@@ -72,6 +73,7 @@ private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
             val recovery = session as? SessionState.StorageError
             val suggestedEmail by entry.savedStateHandle.getStateFlow<String?>(LOGIN_EMAIL, null).collectAsStateWithLifecycle()
             val accountCreated by entry.savedStateHandle.getStateFlow(LOGIN_ACCOUNT_CREATED, false).collectAsStateWithLifecycle()
+            val passwordReset by entry.savedStateHandle.getStateFlow<String?>(LOGIN_PASSWORD_RESET, null).collectAsStateWithLifecycle()
             val prefillRevision by entry.savedStateHandle.getStateFlow(LOGIN_PREFILL_REVISION, 0L).collectAsStateWithLifecycle()
             var handledPrefill by androidx.compose.runtime.saveable.rememberSaveable { mutableLongStateOf(0L) }
             LaunchedEffect(prefillRevision) {
@@ -81,6 +83,8 @@ private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
                 }
             }
             val message = authFormMessage(state) ?: when {
+                passwordReset == RESET_CONFIRMED -> stringResource(R.string.password_changed_sign_in)
+                passwordReset == RESET_UNCONFIRMED -> stringResource(R.string.password_unconfirmed_sign_in)
                 accountCreated || recovery?.accountCreated == true -> stringResource(R.string.auth_account_created)
                 reauthenticationReason == ReauthenticationReason.PASSWORD_CHANGED -> stringResource(R.string.password_changed_sign_in)
                 reauthenticationReason == ReauthenticationReason.PASSWORD_CHANGE_UNCONFIRMED -> stringResource(R.string.password_unconfirmed_sign_in)
@@ -89,12 +93,20 @@ private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
                 else -> null
             }
             LoginScreen(onLogin = model::login, onRegister = { nav.navigate(Destination.Register.route) },
+                onForgotPassword = { email ->
+                    entry.savedStateHandle[RECOVERY_EMAIL] = email
+                    nav.navigate(Destination.Recovery.route) { launchSingleTop = true }
+                },
                 initialEmail = suggestedEmail ?: recovery?.email ?: cached?.email.orEmpty(), emailRevision = prefillRevision,
                 state = state, message = message,
-                messageIsError = reauthenticationReason != ReauthenticationReason.PASSWORD_CHANGED || state.error != null,
+                messageIsError = state.error != null || !(passwordReset == RESET_CONFIRMED ||
+                    (passwordReset == null && reauthenticationReason == ReauthenticationReason.PASSWORD_CHANGED)),
                 onFieldChange = {
                     model.fieldChanged(it)
-                    if (it == AuthField.EMAIL) entry.savedStateHandle[LOGIN_ACCOUNT_CREATED] = false
+                    if (it == AuthField.EMAIL) {
+                        entry.savedStateHandle[LOGIN_ACCOUNT_CREATED] = false
+                        entry.savedStateHandle[LOGIN_PASSWORD_RESET] = null
+                    }
                 }, onRetry = if (recovery != null) onRetry else null)
         }
         composable(Destination.Register.route) {
@@ -105,6 +117,20 @@ private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
                     nav.getBackStackEntry(Destination.Login.route).savedStateHandle.apply {
                         this[LOGIN_EMAIL] = email
                         this[LOGIN_ACCOUNT_CREATED] = state.accountCreated
+                        this[LOGIN_PASSWORD_RESET] = null
+                        this[LOGIN_PREFILL_REVISION] = (get<Long>(LOGIN_PREFILL_REVISION) ?: 0L) + 1L
+                    }
+                    nav.popBackStack(Destination.Login.route, false)
+                })
+        }
+        composable(Destination.Recovery.route) {
+            val login = remember(it) { nav.getBackStackEntry(Destination.Login.route) }
+            RecoveryRoute(initialEmail = login.savedStateHandle[RECOVERY_EMAIL] ?: "",
+                onBack = { nav.popBackStack() }, onOpenLogin = { email, confirmed ->
+                    login.savedStateHandle.apply {
+                        this[LOGIN_EMAIL] = email
+                        this[LOGIN_ACCOUNT_CREATED] = false
+                        this[LOGIN_PASSWORD_RESET] = if (confirmed) RESET_CONFIRMED else RESET_UNCONFIRMED
                         this[LOGIN_PREFILL_REVISION] = (get<Long>(LOGIN_PREFILL_REVISION) ?: 0L) + 1L
                     }
                     nav.popBackStack(Destination.Login.route, false)
@@ -116,6 +142,10 @@ private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
 private const val LOGIN_EMAIL = "auth_login_email"
 private const val LOGIN_ACCOUNT_CREATED = "auth_login_account_created"
 private const val LOGIN_PREFILL_REVISION = "auth_login_prefill_revision"
+private const val LOGIN_PASSWORD_RESET = "auth_login_password_reset"
+private const val RECOVERY_EMAIL = "auth_recovery_email"
+private const val RESET_CONFIRMED = "confirmed"
+private const val RESET_UNCONFIRMED = "unconfirmed"
 
 @Composable
 private fun SessionLoading() {

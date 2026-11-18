@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recovery_mock_code">Только mock: код %1$s. Письмо не отправляется. Для неизвестной почты код не сработает.</string>
+</resources>

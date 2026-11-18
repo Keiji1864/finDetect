@@ -60,7 +60,7 @@ import com.ghostteam.findetect.feature.session.*
 @Composable
 fun LoginScreen(
     onLogin: (String, String) -> Unit = { _, _ -> },
-    onForgotPassword: () -> Unit = {},
+    onForgotPassword: (String) -> Unit = {},
     onRegister: () -> Unit = {},
     initialEmail: String = "",
     emailRevision: Long = 0L,
@@ -70,10 +70,10 @@ fun LoginScreen(
     messageIsError: Boolean = true,
     onRetry: (() -> Unit)? = null,
 ) {
-    var email by rememberSaveable(emailRevision) { mutableStateOf(initialEmail) }
-    var password by remember(emailRevision) { mutableStateOf("") }
+    var email by rememberSaveable(emailRevision, initialEmail) { mutableStateOf(initialEmail) }
+    var password by remember(emailRevision, initialEmail) { mutableStateOf("") }
     // Ошибки показываем только после первого нажатия на "Войти"
-    var submitted by rememberSaveable(emailRevision) { mutableStateOf(false) }
+    var submitted by rememberSaveable(emailRevision, initialEmail) { mutableStateOf(false) }
 
     val localErrors = if (submitted) AuthFormValidation.login(email, password) else emptyMap()
     val working = state.working
@@ -163,7 +163,7 @@ fun LoginScreen(
                 )
                 FinButton(
                     text = stringResource(R.string.ui_login_forgot),
-                    onClick = onForgotPassword,
+                    onClick = { onForgotPassword(email.trim()) },
                     enabled = !working,
                     style = FinButtonStyle.Secondary,
                 )

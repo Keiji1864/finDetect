@@ -23,14 +23,24 @@ object PasswordValidation {
     const val MIN_LENGTH = 8
     const val MAX_LENGTH = 128
 
+    fun reset(new: String, confirmation: String): Map<PasswordField, PasswordFieldError> = buildMap {
+        if (new.isEmpty()) put(PasswordField.NEW_PASSWORD, PasswordFieldError.REQUIRED)
+        else if (new.length !in MIN_LENGTH..MAX_LENGTH) put(PasswordField.NEW_PASSWORD, PasswordFieldError.LENGTH)
+        if (confirmation.isEmpty()) put(PasswordField.CONFIRMATION, PasswordFieldError.REQUIRED)
+        else if (confirmation != new) put(PasswordField.CONFIRMATION, PasswordFieldError.MISMATCH)
+    }
+
     fun change(current: String, new: String, confirmation: String): Map<PasswordField, PasswordFieldError> =
         buildMap {
             if (current.isEmpty()) put(PasswordField.CURRENT_PASSWORD, PasswordFieldError.REQUIRED)
             else if (current.length > MAX_LENGTH) put(PasswordField.CURRENT_PASSWORD, PasswordFieldError.LENGTH)
-            if (new.isEmpty()) put(PasswordField.NEW_PASSWORD, PasswordFieldError.REQUIRED)
-            else if (new.length !in MIN_LENGTH..MAX_LENGTH) put(PasswordField.NEW_PASSWORD, PasswordFieldError.LENGTH)
-            else if (new == current) put(PasswordField.NEW_PASSWORD, PasswordFieldError.SAME_AS_CURRENT)
-            if (confirmation.isEmpty()) put(PasswordField.CONFIRMATION, PasswordFieldError.REQUIRED)
-            else if (confirmation != new) put(PasswordField.CONFIRMATION, PasswordFieldError.MISMATCH)
+            putAll(reset(new, confirmation))
+            if (new == current && PasswordField.NEW_PASSWORD !in this)
+                put(PasswordField.NEW_PASSWORD, PasswordFieldError.SAME_AS_CURRENT)
         }
 }
+
+data class PasswordResetChallenge(val requestId: String, val expiresInSeconds: Int, val resendAfterSeconds: Int)
+
+/** A short-lived permission, kept only in memory; it is never an authenticated session. */
+class PasswordResetGrant(val token: String, val expiresInSeconds: Int)

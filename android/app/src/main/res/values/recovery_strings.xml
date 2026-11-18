@@ -2,16 +2,34 @@
 <resources>
     <!-- Восстановление пароля: ввод кода -->
     <string name="ui_recovery_code_title">Введите код</string>
-    <string name="ui_recovery_code_hint">Мы отправили 6-значный код на вашу электронную почту</string>
+    <string name="ui_recovery_code_hint">Если аккаунт с такой почтой существует, мы отправили код. Проверьте входящие и спам.</string>
     <string name="ui_recovery_code_error">Введите 6-значный код</string>
     <string name="ui_recovery_code_no_code">Не пришёл код?</string>
     <string name="ui_recovery_code_resend">Отправить ещё раз</string>
 
     <!-- Восстановление пароля: новый пароль -->
     <string name="ui_recovery_password_title">Создайте новый пароль</string>
-    <string name="ui_recovery_password_hint">Придумайте новый пароль. Он не должен совпадать с текущим.</string>
+    <string name="ui_recovery_password_hint">От 8 до 128 символов. Новый пароль должен отличаться от прежнего. После сохранения войдите с новым паролем.</string>
     <string name="ui_recovery_password_new_label">Новый пароль</string>
     <string name="ui_recovery_password_same">Новый пароль не должен совпадать с текущим</string>
     <string name="ui_recovery_password_show">Показать пароль</string>
     <string name="ui_recovery_password_hide">Скрыть пароль</string>
+    <string name="recovery_email_title">Восстановление пароля</string>
+    <string name="recovery_email_hint">Укажите почту вашего аккаунта. Мы отправим код для установки нового пароля.</string>
+    <string name="recovery_send_code">Отправить код</string>
+    <string name="recovery_send_wait">Отправить код через %1$d с</string>
+    <string name="recovery_resend_wait">Отправить ещё раз через %1$d с</string>
+    <string name="recovery_code_remaining">Код действует ещё %1$d:%2$02d</string>
+    <string name="recovery_verify_wait">Проверить код через %1$d с</string>
+    <string name="recovery_grant_remaining">Время на смену пароля: %1$d:%2$02d</string>
+    <string name="recovery_save_password">Сохранить пароль</string>
+    <string name="recovery_save_wait">Сохранить пароль через %1$d с</string>
+    <string name="recovery_restart">Начать восстановление заново</string>
+    <string name="recovery_code_invalid">Код неверный или уже использован. Проверьте код из последнего письма.</string>
+    <string name="recovery_code_expired">Срок действия кода истёк. Запросите новый код.</string>
+    <string name="recovery_new_code_required">Запросите новый код, чтобы продолжить восстановление.</string>
+    <string name="recovery_token_invalid">Разрешение на смену пароля истекло или уже использовано. Начните восстановление заново.</string>
+    <string name="recovery_exchange_unconfirmed">Ответ сервера не получен или некорректен. Код мог быть заменён или уже использован. Запросите новое письмо после окончания ожидания.</string>
+    <string name="recovery_complete_unconfirmed">Не удалось подтвердить результат. Пароль мог измениться. Попробуйте войти с новым паролем. Если он не подойдёт, начните восстановление заново.</string>
+    <string name="recovery_unavailable">Не удалось выполнить восстановление. Попробуйте позже.</string>
 </resources>

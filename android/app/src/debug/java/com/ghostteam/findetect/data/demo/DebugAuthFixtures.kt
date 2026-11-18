@@ -48,6 +48,7 @@ object DebugAuthFixtures {
         else Response(401, json.encodeToString(ApiErrorDto("UNAUTHORIZED", "Debug authorization required")))
 
     suspend fun response(path: String, request: HttpRequestData, json: Json, profiles: DebugProfileStore): Response? {
+        DebugPasswordRecoveryFixtures.response(path, request, json, profiles)?.let { return it }
         fun error(status: Int, code: String, details: List<ApiFieldErrorDto> = emptyList()) =
             Response(status, json.encodeToString(ApiErrorDto(code, "Debug response", details)))
         fun body(): String = (request.body as? OutgoingContent.ByteArrayContent)?.bytes()?.toString(Charsets.UTF_8).orEmpty()

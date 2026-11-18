@@ -3,41 +3,35 @@ package com.ghostteam.findetect.feature.recovery
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
@@ -46,184 +40,90 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.FinButton
-import com.ghostteam.findetect.core.designsystem.component.FinTopBar
+import com.ghostteam.findetect.core.designsystem.component.FinButtonStyle
+import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
+import com.ghostteam.findetect.domain.model.PasswordFailure
+import com.ghostteam.findetect.domain.model.PasswordField
 
 private const val CodeLength = 6
 
-/**
- * Восстановление пароля, шаг 1: "Введите код" (DESIGN.md 5.20). Стрелка "назад" и заголовок, пояснение
- * с адресом почты, шесть ячеек для цифр, ссылка "Отправить ещё раз", внизу "Продолжить".
- *
- * Сервера пока нет: [onContinue] вызывается, когда введены все шесть цифр (верность кода проверит сервер),
- * [onResend] вызывается по "Отправить ещё раз" и очищает введённый код. Почта пока заглушка из макета,
- * позже её передадут с экрана входа.
- */
+/** Code entry is explicit: neither typing the sixth digit nor reaching a deadline sends a request. */
 @Composable
 fun RecoveryCodeScreen(
-    email: String = stringResource(R.string.ui_login_email_placeholder),
+    state: RecoveryUiState = RecoveryUiState(step = RecoveryStep.CODE, codeSeconds = 600, resendSeconds = 60),
     onBack: () -> Unit = {},
+    onEdit: (PasswordField, String) -> Unit = { _, _ -> },
     onResend: () -> Unit = {},
     onContinue: () -> Unit = {},
 ) {
-    var code by rememberSaveable { mutableStateOf("") }
-    // Ошибку показываем только после нажатия на "Продолжить" с неполным кодом
-    var submitted by rememberSaveable { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
-    val c = FinTheme.colors
-    val hintStyle = FinTheme.typography.label.copy(fontWeight = FontWeight.Normal)
-    val codeError = submitted && code.length < CodeLength
+    val focus = LocalFocusManager.current
+    val editable = !state.working && !state.newCodeRequired
+    val submit: () -> Unit = { if (!state.verifyBlocked) { focus.clearFocus(); onContinue() } }
+    val codeError = state.fieldErrors.containsKey(PasswordField.CODE) || state.error == PasswordFailure.RESET_CODE_INVALID
+    LaunchedEffect(Unit) { if (editable) focusRequester.requestFocus() }
 
-    // Сразу открываем клавиатуру: код вводят цифрами с неё
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(c.paper)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding(),
-    ) {
-        FinTopBar(
-            title = stringResource(R.string.ui_recovery_code_title),
-            onBack = onBack,
-            titleStyle = FinTheme.typography.title,
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(
-                    start = FinDimens.screenPadding,
-                    end = FinDimens.screenPadding,
-                    top = FinDimens.blockGap,
-                    bottom = 16.dp,
-                ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.ui_recovery_code_hint),
-                    style = hintStyle,
-                    color = c.muted,
-                    textAlign = TextAlign.Center,
-                )
-                Text(text = email, style = hintStyle, color = c.navy, textAlign = TextAlign.Center)
+    FinSubScreen(title = stringResource(R.string.ui_recovery_code_title),
+        onBack = { if (!state.working) onBack() }) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap)) {
+            Text(stringResource(R.string.ui_recovery_code_hint), style = FinTheme.typography.body,
+                color = FinTheme.colors.muted, textAlign = TextAlign.Center)
+            Text(state.email, style = FinTheme.typography.label, color = FinTheme.colors.navy, textAlign = TextAlign.Center)
+            CodeInput(code = state.code, isError = codeError, enabled = editable, focusRequester = focusRequester,
+                onCodeChange = { onEdit(PasswordField.CODE, it) }, onDone = submit)
+            if (state.fieldErrors.containsKey(PasswordField.CODE)) {
+                Text(stringResource(R.string.ui_recovery_code_error), style = FinTheme.typography.caption, color = FinTheme.colors.red)
             }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                CodeInput(
-                    code = code,
-                    isError = codeError,
-                    focusRequester = focusRequester,
-                    onCodeChange = { code = it },
-                )
-                if (codeError) {
-                    Text(
-                        text = stringResource(R.string.ui_recovery_code_error),
-                        style = FinTheme.typography.caption,
-                        color = c.red,
-                    )
-                }
+            if (!state.newCodeRequired) {
+                Text(stringResource(R.string.recovery_code_remaining, state.codeSeconds / 60, state.codeSeconds % 60),
+                    style = FinTheme.typography.caption, color = FinTheme.colors.muted)
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.ui_recovery_code_no_code),
-                    style = hintStyle,
-                    color = c.muted,
-                )
-                Text(
-                    text = stringResource(R.string.ui_recovery_code_resend),
-                    style = FinTheme.typography.label.copy(fontWeight = FontWeight.Bold),
-                    color = c.navy,
-                    modifier = Modifier
-                        .clip(FinTheme.shapes.r8)
-                        .clickable {
-                            code = ""
-                            submitted = false
-                            onResend()
-                        }
-                        .padding(horizontal = 4.dp, vertical = 4.dp),
-                )
-            }
+            state.debugHint?.let { Text(it, style = FinTheme.typography.caption, color = FinTheme.colors.muted) }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = FinDimens.screenPadding)
-                .padding(bottom = 16.dp),
-        ) {
-            FinButton(
-                text = stringResource(R.string.ui_onboarding_continue),
-                onClick = {
-                    submitted = true
-                    if (code.length == CodeLength) onContinue()
-                },
-            )
-        }
+        RecoveryFeedback(state)
+        FinButton(text = if (state.verifyRetrySeconds > 0) stringResource(R.string.recovery_verify_wait, state.verifyRetrySeconds)
+            else stringResource(R.string.ui_onboarding_continue), onClick = submit, enabled = !state.verifyBlocked,
+            loading = state.working && state.operation == RecoveryOperation.VERIFY)
+        Text(stringResource(R.string.ui_recovery_code_no_code), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+        FinButton(text = if (state.resendSeconds > 0) stringResource(R.string.recovery_resend_wait, state.resendSeconds)
+            else stringResource(R.string.ui_recovery_code_resend), onClick = { focus.clearFocus(); onResend() },
+            enabled = !state.requestBlocked, loading = state.working && state.operation == RecoveryOperation.REQUEST,
+            style = FinButtonStyle.Secondary)
     }
 }
 
-/**
- * Шесть ячеек под цифры. Ввод один, невидимый: он ловит клавиатуру и фокус, а ячейки рисуют его значение.
- * Пустая ячейка показывает точку, активная (куда пойдёт следующая цифра) обведена жёлтым, при ошибке все красные.
- */
+/** One editable value behind six decorative cells preserves leading zeros and supports paste and IME. */
 @Composable
-private fun CodeInput(
-    code: String,
-    isError: Boolean,
-    focusRequester: FocusRequester,
-    onCodeChange: (String) -> Unit,
-) {
+private fun CodeInput(code: String, isError: Boolean, enabled: Boolean, focusRequester: FocusRequester,
+    onCodeChange: (String) -> Unit, onDone: () -> Unit) {
     val c = FinTheme.colors
     var focused by remember { mutableStateOf(false) }
-
     BasicTextField(
-        // Курсор всегда в конце: цифры добавляются справа, стирается последняя
         value = TextFieldValue(code, selection = TextRange(code.length)),
-        onValueChange = { onCodeChange(it.text.filter(Char::isDigit).take(CodeLength)) },
+        onValueChange = { onCodeChange(it.text.filter { digit -> digit in '0'..'9' }.take(CodeLength)) },
+        enabled = enabled,
+        singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
-        modifier = Modifier
-            .fillMaxWidth()
-            .focusRequester(focusRequester)
-            .onFocusChanged { focused = it.isFocused },
-        decorationBox = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                repeat(CodeLength) { index ->
-                    val active = focused && index == code.length.coerceAtMost(CodeLength - 1)
-                    val borderColor = when {
-                        isError -> c.red
-                        active -> c.yellow
-                        else -> c.line
-                    }
-                    val borderWidth = if (active || isError) FinDimens.borderFocused else FinDimens.borderWidth
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .aspectRatio(0.8f)
-                            .clip(FinTheme.shapes.r12)
-                            .background(c.white)
-                            .border(borderWidth, borderColor, FinTheme.shapes.r12),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        val digit = code.getOrNull(index)
-                        if (digit != null) {
-                            Text(text = digit.toString(), style = FinTheme.typography.heading, color = c.navy)
-                        } else {
-                            Box(Modifier.size(6.dp).clip(CircleShape).background(c.navy))
+        keyboardActions = KeyboardActions(onDone = { onDone() }),
+        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester).onFocusChanged { focused = it.isFocused },
+        decorationBox = { innerTextField ->
+            Box {
+                Box(Modifier.size(1.dp).alpha(0f)) { innerTextField() }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.clearAndSetSemantics {}) {
+                    repeat(CodeLength) { index ->
+                        val active = enabled && focused && index == code.length.coerceAtMost(CodeLength - 1)
+                        val borderColor = when { isError -> c.red; active -> c.yellow; else -> c.line }
+                        val borderWidth = if (active || isError) FinDimens.borderFocused else FinDimens.borderWidth
+                        Box(modifier = Modifier.weight(1f).aspectRatio(0.8f).clip(FinTheme.shapes.r12)
+                            .background(c.white).border(borderWidth, borderColor, FinTheme.shapes.r12),
+                            contentAlignment = Alignment.Center) {
+                            val digit = code.getOrNull(index)
+                            if (digit != null) Text(digit.toString(), style = FinTheme.typography.heading, color = c.navy)
+                            else Box(Modifier.size(6.dp).clip(CircleShape).background(c.navy))
                         }
                     }
                 }
@@ -232,7 +132,15 @@ private fun CodeInput(
     )
 }
 
-@Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
+@Preview(showBackground = true, widthDp = 360, heightDp = 740)
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun RecoveryCodeScreenPreview() { FinDetectTheme { RecoveryCodeScreen() } }
+
+@Preview(showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.5f)
+@Preview(showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.5f, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun RecoveryCodeExpiredPreview() {
+    FinDetectTheme { RecoveryCodeScreen(RecoveryUiState(step = RecoveryStep.CODE, newCodeRequired = true,
+        error = PasswordFailure.RESET_CODE_EXPIRED)) }
+}

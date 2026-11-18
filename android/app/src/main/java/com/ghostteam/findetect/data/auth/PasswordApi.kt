@@ -27,7 +27,7 @@ import kotlinx.serialization.json.Json
 class PasswordApi @Inject constructor(@AuthClient private val client: HttpClient, private val json: Json) {
     suspend fun changePassword(accessToken: String, currentPassword: String, newPassword: String) {
         request("auth/password/change", ChangePasswordRequestDto(currentPassword, newPassword), 204,
-            accessToken = accessToken, changesPassword = true) { }
+            accessToken = accessToken) { }
     }
 
     suspend fun requestReset(email: String): PasswordResetChallengeDto =
@@ -48,8 +48,7 @@ class PasswordApi @Inject constructor(@AuthClient private val client: HttpClient
         }
 
     suspend fun completeReset(resetToken: String, newPassword: String) {
-        request("auth/password/reset/complete", CompletePasswordResetRequestDto(resetToken, newPassword), 204,
-            changesPassword = true) { }
+        request("auth/password/reset/complete", CompletePasswordResetRequestDto(resetToken, newPassword), 204) { }
     }
 
     private suspend inline fun <reified B : Any, R> request(
@@ -57,7 +56,6 @@ class PasswordApi @Inject constructor(@AuthClient private val client: HttpClient
         payload: B,
         expectedStatus: Int,
         accessToken: String? = null,
-        changesPassword: Boolean = false,
         read: (HttpResponse) -> R,
     ): R {
         try {
@@ -69,18 +67,23 @@ class PasswordApi @Inject constructor(@AuthClient private val client: HttpClient
             }
             if (response.status.value == expectedStatus) return read(response)
             if (response.status.value in 200..299) {
-                throw PasswordException(PasswordFailure.BAD_RESPONSE, outcomeUnknown = changesPassword)
+                throw PasswordException(PasswordFailure.BAD_RESPONSE, outcomeUnknown = true)
             }
-            throw failure(response, changesPassword)
+            // A rejected mail queue request preserves the previous challenge. Other 5xx may follow a commit.
+            throw failure(response, path != "auth/password/reset/request" || response.status.value != 503)
         } catch (error: CancellationException) { throw error }
-        catch (error: PasswordException) { throw error }
-        catch (_: HttpRequestTimeoutException) { throw PasswordException(PasswordFailure.TIMEOUT, outcomeUnknown = changesPassword) }
-        catch (_: SocketTimeoutException) { throw PasswordException(PasswordFailure.TIMEOUT, outcomeUnknown = changesPassword) }
-        catch (_: IOException) { throw PasswordException(PasswordFailure.NETWORK, outcomeUnknown = changesPassword) }
-        catch (_: Exception) { throw PasswordException(PasswordFailure.BAD_RESPONSE, outcomeUnknown = changesPassword) }
+        catch (error: PasswordException) {
+            if (error.reason == PasswordFailure.BAD_RESPONSE)
+                throw PasswordException(PasswordFailure.BAD_RESPONSE, outcomeUnknown = true)
+            throw error
+        }
+        catch (_: HttpRequestTimeoutException) { throw PasswordException(PasswordFailure.TIMEOUT, outcomeUnknown = true) }
+        catch (_: SocketTimeoutException) { throw PasswordException(PasswordFailure.TIMEOUT, outcomeUnknown = true) }
+        catch (_: IOException) { throw PasswordException(PasswordFailure.NETWORK, outcomeUnknown = true) }
+        catch (_: Exception) { throw PasswordException(PasswordFailure.BAD_RESPONSE, outcomeUnknown = true) }
     }
 
-    private suspend fun failure(response: HttpResponse, changesPassword: Boolean): PasswordException {
+    private suspend fun failure(response: HttpResponse, uncertainServerFailure: Boolean): PasswordException {
         // The status remains authoritative even if the error body is malformed or cannot be read.
         val status = response.status.value
         val retryAfter = response.headers[HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()
@@ -114,7 +117,7 @@ class PasswordApi @Inject constructor(@AuthClient private val client: HttpClient
                 else -> PasswordException(PasswordFailure.VALIDATION, fields)
             }
             status == 429 -> PasswordException(PasswordFailure.RATE_LIMITED, retryAfterSeconds = retryAfter)
-            else -> PasswordException(PasswordFailure.UNAVAILABLE, outcomeUnknown = changesPassword && status >= 500)
+            else -> PasswordException(PasswordFailure.UNAVAILABLE, outcomeUnknown = uncertainServerFailure && status >= 500)
         }
     }
 

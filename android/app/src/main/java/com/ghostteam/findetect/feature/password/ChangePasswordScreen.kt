@@ -87,7 +87,7 @@ fun ChangePasswordScreen(
 }
 
 @Composable
-private fun passwordFieldText(field: PasswordField, error: PasswordFieldError?): String? = error?.let {
+internal fun passwordFieldText(field: PasswordField, error: PasswordFieldError?): String? = error?.let {
     stringResource(when (it) {
         PasswordFieldError.REQUIRED -> R.string.session_password_required
         PasswordFieldError.LENGTH -> if (field == PasswordField.CURRENT_PASSWORD) R.string.password_current_length else R.string.auth_password_length

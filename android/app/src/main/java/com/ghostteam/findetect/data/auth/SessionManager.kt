@@ -243,6 +243,55 @@ class SessionManager @Inject constructor(
         expireLocked(resetPin = false, reason = ReauthenticationReason.PASSWORD_CHANGE_UNCONFIRMED)
     }
 
+    override suspend fun requestReset(email: String): PasswordResetChallenge = passwordApi.requestReset(email).let {
+        PasswordResetChallenge(it.requestId, it.expiresInSeconds, it.resendAfterSeconds)
+    }
+
+    override suspend fun verifyReset(requestId: String, code: String): PasswordResetGrant =
+        passwordApi.verifyReset(requestId, code).let { PasswordResetGrant(it.resetToken, it.expiresInSeconds) }
+
+    override suspend fun completeReset(email: String, resetToken: String, newPassword: String) {
+        val errors = PasswordValidation.reset(newPassword, newPassword)
+        if (errors.isNotEmpty()) throw PasswordException(PasswordFailure.VALIDATION, errors)
+        // The recovery form belongs to the public auth stack. A late receipt never signs out a newer login.
+        val attempt = onSession {
+            check(restoreFinished && state.value !is SessionState.Active)
+            generation
+        }
+        jobs.async {
+            passwordWrites.withLock {
+                try { passwordApi.completeReset(resetToken, newPassword) }
+                catch (error: PasswordException) {
+                    if (error.outcomeUnknown) finishPasswordRecovery(attempt, email, ReauthenticationReason.PASSWORD_CHANGE_UNCONFIRMED)
+                    throw error
+                }
+                finishPasswordRecovery(attempt, email, ReauthenticationReason.PASSWORD_CHANGED)
+            }
+        }.await()
+    }
+
+    private suspend fun finishPasswordRecovery(attempt: Long, email: String, reason: ReauthenticationReason) =
+        withContext(NonCancellable) {
+            onSession {
+                val previous = record
+                if (attempt == generation && previous != null && previous.user?.email.equals(email.trim(), ignoreCase = true)) {
+                    if (previous.mode == "active") {
+                        // Storage recovery can expose auth UI with an old active record still on disk.
+                        expireLocked(resetPin = false, reason = reason)
+                    } else if (previous.mode == "reauth") {
+                        val next = previous.copy(resetPinUserId = null, reauthenticationReason = reason)
+                        try {
+                            storage.write(next)
+                            record = next
+                            mutableState.value = SessionState.ReauthenticationRequired(next.user, next.reauthenticationReason)
+                        } catch (_: Exception) {
+                            mutableState.value = SessionState.StorageError(email = email.trim())
+                        }
+                    }
+                }
+            }
+        }
+
     suspend fun refreshAfterUnauthorized(used: AccessCredentials): AccessCredentials? {
         val attempt = onSession {
             val current = credentialsLocked()?.takeIf { it.identity == used.identity } ?: return@onSession null
