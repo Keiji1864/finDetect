@@ -14,9 +14,13 @@ val localProperties = Properties().apply {
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
-val apiMode = localProperties.getProperty("API_MODE", "mock").trim().lowercase()
+val apiMode = localProperties.getProperty("API_MODE", "remote").trim().lowercase()
 require(apiMode in setOf("mock", "remote")) { "API_MODE must be mock or remote" }
 val configuredBaseUrl = localProperties.getProperty("BASE_URL", "http://10.0.2.2:8080/api/v1").trim().trimEnd('/')
+val releaseUrl = localProperties.getProperty("RELEASE_BASE_URL", "https://localhost/api/v1").trim().trimEnd('/')
+val releaseUri = URI(releaseUrl)
+require(releaseUri.scheme == "https" && releaseUri.host != null && releaseUri.userInfo == null &&
+    releaseUri.query == null && releaseUri.fragment == null) { "RELEASE_BASE_URL must be an HTTPS URL" }
 val apiUri = runCatching { URI(configuredBaseUrl) }.getOrElse { error("BASE_URL must be a valid URI") }
 require(apiUri.scheme?.lowercase() in setOf("http", "https") && apiUri.host != null &&
     apiUri.userInfo == null && apiUri.query == null && apiUri.fragment == null) { "BASE_URL must be an HTTP(S) API base URL" }
@@ -48,6 +52,7 @@ android {
             buildConfigField("boolean", "USE_MOCK_API", (apiMode == "mock").toString())
         }
         release {
+            buildConfigField("String", "BASE_URL", "\"$releaseUrl\"")
             optimization {
                 enable = false
             }
@@ -55,7 +60,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            // Provide the release key through Android Studio’s signed bundle wizard.
         }
     }
     compileOptions {

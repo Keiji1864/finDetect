@@ -7,6 +7,9 @@ info:
     Серверный API мобильного приложения «ФинДетектив» (учёт доходов и расходов,
     ИИ-прогноз, геймификация).
 
+    Локальная версия Android использует /sync для обмена данными. Список реализованных маршрутов находится в README.
+    Пообъектные маршруты ниже также описывают планируемые функции.
+
     **Принципы контракта**
     - Приложение работает offline-first: идентификаторы (UUID) создаёт клиент,
       создание и обновление идемпотентны (`PUT /resource/{id}`).
@@ -132,6 +135,33 @@ security:
   - bearerAuth: []
 
 paths:
+  /sync:
+    post:
+      operationId: syncUserChanges
+      summary: Сохранить изменения текущего пользователя и получить серверные изменения
+      description: |
+        Первое обращение передаёт revision=0. Курсор принадлежит текущему пользователю.
+        Ключи tables соответствуют таблицам из FinanceController.TABLES, значения — массивы записей.
+        Поля записи содержат строковое представление значения или null. Денежные поля с суффиксом
+        Minor передаются в минимальных единицах, логические поля — строками "0" или "1".
+        Ответ содержит актуальные версии отправленных строк и изменения после указанной ревизии.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncChanges'
+      responses:
+        '200':
+          description: Изменения зафиксированы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncChanges'
+        '400':
+          description: Некорректные данные или ссылки на связанные записи
+        '401':
+          description: Требуется действующая сессия
 
   # ==========================================================================
   # AUTH
@@ -1685,6 +1715,23 @@ components:
   # СХЕМЫ
   # ==========================================================================
   schemas:
+    SyncChanges:
+      type: object
+      required: [revision, tables]
+      properties:
+        revision:
+          type: integer
+          format: int64
+          minimum: 0
+        tables:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+              additionalProperties:
+                type: string
+                nullable: true
 
     # --- Общие типы ---------------------------------------------------------
     CurrencyCode:
