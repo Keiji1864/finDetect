@@ -40,6 +40,9 @@ import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.feature.prototype.UiIconTile
 import com.ghostteam.findetect.domain.model.ProfileFailure
 import com.ghostteam.findetect.domain.model.SessionUser
+import com.ghostteam.findetect.domain.usecase.CalculateXpProgressUseCase
+import com.ghostteam.findetect.feature.gamification.XpProgressCard
+import com.ghostteam.findetect.feature.gamification.XpProgressUiState
 
 /**
  * Профиль (Figma 09): аватар, имя и почта, поля, "Сменить пароль", "Уровень", выход и удаление аккаунта.
@@ -60,6 +63,7 @@ fun ProfileScreen(
     onRefresh: () -> Unit = {},
     onConfirmDelete: () -> Unit = {},
     onDismissDelete: () -> Unit = {},
+    onRetryXp: () -> Unit = {},
 ) {
     val name = state.user?.name ?: stringResource(R.string.ui_profile_name_value)
     val email = state.user?.email ?: stringResource(R.string.ui_profile_email_value)
@@ -134,11 +138,7 @@ fun ProfileScreen(
             leading = { UiIconTile(R.drawable.ic_lock) },
             onClick = { if (!busy) onChangePassword() },
         )
-        if (gameElementsEnabled) FinRow(
-            title = stringResource(R.string.ui_level),
-            subtitle = stringResource(R.string.ui_level_hint),
-            leading = { UiIconTile(R.drawable.ic_trophy) },
-        )
+        if (gameElementsEnabled) XpProgressCard(state.xp, onRetryXp)
         FinButton(
             text = stringResource(R.string.ui_sign_out),
             onClick = onLogout,
@@ -187,7 +187,11 @@ private fun profileErrorText(state: ProfileUiState): String {
 @Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun ProfileScreenPreview() { FinDetectTheme { ProfileScreen() } }
+private fun ProfileScreenPreview() {
+    FinDetectTheme {
+        ProfileScreen(state = ProfileUiState(xp = XpProgressUiState(CalculateXpProgressUseCase()(700L), loading = false)))
+    }
+}
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 740)
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)

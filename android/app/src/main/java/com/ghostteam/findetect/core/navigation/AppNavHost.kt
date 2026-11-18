@@ -32,6 +32,8 @@ import com.ghostteam.findetect.feature.incomes.IncomeRoute
 import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
 import com.ghostteam.findetect.feature.profile.ProfileRoute
+import com.ghostteam.findetect.feature.streak.StreakRoute
+import com.ghostteam.findetect.feature.achievements.AchievementsRoute
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
 import com.ghostteam.findetect.feature.settings.CurrencySettingsScreen
 import com.ghostteam.findetect.feature.settings.GamificationSettingsScreen
@@ -152,10 +154,14 @@ fun AppNavHost(session: SessionState.Active, sessionModel: UserSessionViewModel,
                 HomeRoute(
                     onAddTransaction = { openTransaction(AddTransactionMode.Switchable) },
                     onOpenProfile = { open(Destination.Profile) },
+                    onOpenStreak = { open(Destination.Streak) },
+                    onOpenAchievements = { open(Destination.Achievements) },
                     onOpenSettings = openSettings,
                     onOpenAnalytics = { openAnalytics(false) },
                 )
             }
+            composable(Destination.Streak.route) { StreakRoute(onBack = back) }
+            composable(Destination.Achievements.route) { AchievementsRoute(onBack = back) }
             composable(Destination.Expenses.route) {
                 ExpensesRoute(
                     period = financePeriod.selected,

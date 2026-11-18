@@ -9,6 +9,8 @@ import com.ghostteam.findetect.domain.model.DayActivity
 import com.ghostteam.findetect.domain.repository.ActivityRepository
 import javax.inject.Inject
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -21,7 +23,13 @@ class LocalActivityRepository @Inject constructor(
     private val database: AppDatabase,
     private val dao: ActivityDayDao,
     private val clock: Clock,
+    private val xp: LocalXpRepository,
+    private val achievements: LocalAchievementRepository,
 ) : ActivityRepository {
+    override fun observeActiveDates() = dao.observeActiveDates()
+        .distinctUntilChanged()
+        .map { dates -> dates.map { LocalDate.parse(it) } }
+
     override fun observeDay(date: LocalDate, zone: TimeZone) = combine(
         dao.observe(date.toString()),
         dao.observeHasExpense(date.atStartOfDayIn(zone), date.plus(DatePeriod(days = 1)).atStartOfDayIn(zone)),
@@ -39,6 +47,8 @@ class LocalActivityRepository @Inject constructor(
             return@withTransaction ConfirmNoSpendingResult.HAS_EXPENSE
         }
         dao.confirmNoSpending(today.toString(), now)
+        xp.recordNoSpending(today, now)
+        achievements.reconcile()
         ConfirmNoSpendingResult.CONFIRMED
     }
 

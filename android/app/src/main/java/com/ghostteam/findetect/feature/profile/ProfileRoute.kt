@@ -12,5 +12,5 @@ fun ProfileRoute(onBack: () -> Unit, onLogout: () -> Unit, logoutWorking: Boolea
     ProfileScreen(state = state, onBack = onBack, onLogout = onLogout, working = logoutWorking,
         gameElementsEnabled = gameElementsEnabled, onNameChange = viewModel::editName, onSaveName = viewModel::save,
         onRefresh = viewModel::refresh, onDeleteAccount = viewModel::askDelete,
-        onConfirmDelete = viewModel::confirmDelete, onDismissDelete = viewModel::dismissDelete)
+        onConfirmDelete = viewModel::confirmDelete, onDismissDelete = viewModel::dismissDelete, onRetryXp = viewModel::retryXp)
 }

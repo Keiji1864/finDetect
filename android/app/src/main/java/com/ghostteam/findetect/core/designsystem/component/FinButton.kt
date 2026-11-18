@@ -1,9 +1,10 @@
 package com.ghostteam.findetect.core.designsystem.component
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -12,15 +13,19 @@ import androidx.compose.material3.Button
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ghostteam.findetect.R
+import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 
 enum class FinButtonStyle { Primary, Secondary, Danger }
 
 /**
- * Кнопка 48 dp на всю ширину контента (DESIGN.md 5.1).
+ * Кнопка от 48 dp на всю ширину контента; растёт при крупном шрифте (DESIGN.md 5.1).
  * Состояния: обычное, недоступное (enabled = false), загрузка (loading = true, ширина сохраняется).
  */
 
@@ -48,7 +53,7 @@ fun FinButton(
     Button(
         onClick = { if (!loading) onClick() },
         enabled = enabled,
-        modifier = modifier.fillMaxWidth().height(FinDimens.buttonHeight),
+        modifier = modifier.fillMaxWidth().heightIn(min = FinDimens.buttonHeight),
         shape = FinTheme.shapes.r12,
         colors = ButtonDefaults.buttonColors(
             containerColor = container,
@@ -57,7 +62,7 @@ fun FinButton(
             disabledContentColor = c.muted,
         ),
         border = border,
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     ) {
         if (loading) {
             CircularProgressIndicator(
@@ -69,4 +74,11 @@ fun FinButton(
             Text(text = text, style = FinTheme.typography.label, textAlign = TextAlign.Center)
         }
     }
+}
+
+@Preview(showBackground = true, widthDp = 320, fontScale = 2f)
+@Preview(showBackground = true, widthDp = 320, fontScale = 2f, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FinButtonLargeFontPreview() {
+    FinDetectTheme { FinButton(stringResource(R.string.home_no_spending), {}) }
 }

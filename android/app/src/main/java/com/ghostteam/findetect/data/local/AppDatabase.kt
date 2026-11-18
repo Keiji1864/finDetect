@@ -21,16 +21,26 @@ import com.ghostteam.findetect.data.local.entity.AdjustmentEntity
 import com.ghostteam.findetect.data.local.entity.CategoryEntity
 import com.ghostteam.findetect.data.local.entity.TransactionEntity
 import com.ghostteam.findetect.data.local.entity.TransactionDeletionEntity
+import com.ghostteam.findetect.data.local.dao.XpDao
+import com.ghostteam.findetect.data.local.entity.XpEventEntity
+import com.ghostteam.findetect.data.local.entity.XpStateEntity
+import com.ghostteam.findetect.data.local.dao.AchievementDao
+import com.ghostteam.findetect.data.local.entity.AchievementEntity
+import com.ghostteam.findetect.data.local.entity.AchievementStateEntity
+import com.ghostteam.findetect.data.local.entity.AchievementTransactionFactEntity
 
 @Database(
     entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, AdjustmentEntity::class,
         AccountDeletionEntity::class, BalanceConfirmationEntity::class, TransactionDeletionEntity::class,
-        ActivityDayEntity::class, NotificationDayEntity::class],
-    version = 5,
+        ActivityDayEntity::class, NotificationDayEntity::class, XpEventEntity::class, XpStateEntity::class,
+        AchievementEntity::class, AchievementStateEntity::class, AchievementTransactionFactEntity::class],
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun achievementDao(): AchievementDao
+    abstract fun xpDao(): XpDao
     abstract fun activityDayDao(): ActivityDayDao
     abstract fun accountDao(): AccountDao
     abstract fun categoryDao(): CategoryDao

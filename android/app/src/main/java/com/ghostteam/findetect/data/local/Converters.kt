@@ -2,6 +2,8 @@ package com.ghostteam.findetect.data.local
 
 import androidx.room.TypeConverter
 import com.ghostteam.findetect.domain.model.SyncStatus
+import com.ghostteam.findetect.domain.model.XpReason
+import com.ghostteam.findetect.domain.model.AchievementCode
 import kotlinx.datetime.Instant
 
 class Converters {
@@ -10,6 +12,18 @@ class Converters {
 
     @TypeConverter
     fun toSyncStatus(value: String): SyncStatus = SyncStatus.valueOf(value)
+
+    @TypeConverter
+    fun fromXpReason(value: XpReason): String = value.name
+
+    @TypeConverter
+    fun toXpReason(value: String): XpReason = XpReason.valueOf(value)
+
+    @TypeConverter
+    fun fromAchievementCode(value: AchievementCode): String = value.name
+
+    @TypeConverter
+    fun toAchievementCode(value: String): AchievementCode = AchievementCode.valueOf(value)
 
     @TypeConverter
     fun fromInstant(value: Instant?): String? = value?.toString()?.let { timestamp ->

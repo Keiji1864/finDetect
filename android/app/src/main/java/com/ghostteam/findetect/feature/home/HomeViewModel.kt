@@ -2,13 +2,23 @@ package com.ghostteam.findetect.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ghostteam.findetect.core.time.LocalDayObserver
 import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.domain.model.HomeFinanceSummary
+import com.ghostteam.findetect.domain.model.LocalDay
+import com.ghostteam.findetect.domain.model.StreakProgress
 import com.ghostteam.findetect.domain.repository.SettingsRepository
 import com.ghostteam.findetect.domain.repository.ActivityRepository
-import com.ghostteam.findetect.domain.model.ConfirmNoSpendingResult
-import com.ghostteam.findetect.domain.model.DayActivity
 import com.ghostteam.findetect.domain.usecase.ObserveHomeFinanceUseCase
+import com.ghostteam.findetect.domain.usecase.ObserveStreakUseCase
+import com.ghostteam.findetect.domain.usecase.ObserveXpProgressUseCase
+import com.ghostteam.findetect.domain.usecase.ObserveAchievementsUseCase
+import com.ghostteam.findetect.feature.achievements.AchievementsStateHolder
+import com.ghostteam.findetect.feature.achievements.AchievementsUiState
+import com.ghostteam.findetect.feature.activity.DayActivityStateHolder
+import com.ghostteam.findetect.feature.activity.DayActivityUiState
+import com.ghostteam.findetect.feature.gamification.XpProgressStateHolder
+import com.ghostteam.findetect.feature.gamification.XpProgressUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -24,12 +34,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Clock
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 
-data class HomeFinanceDay(val date: LocalDate, val zone: TimeZone)
+typealias HomeFinanceDay = LocalDay
 
 data class HomeUiState(
     val day: HomeFinanceDay,
@@ -38,11 +44,12 @@ data class HomeUiState(
     val loading: Boolean = true,
     val error: Boolean = false,
     val gameElementsEnabled: Boolean = false,
-    val dayActivity: DayActivity? = null,
-    val activityLoading: Boolean = true,
-    val activitySaving: Boolean = false,
-    val activityError: Boolean = false,
-    val dayChanged: Boolean = false,
+    val dayStatus: DayActivityUiState = DayActivityUiState(day),
+    val streak: StreakProgress? = null,
+    val streakLoading: Boolean = true,
+    val streakError: Boolean = false,
+    val xp: XpProgressUiState = XpProgressUiState(),
+    val achievements: AchievementsUiState = AchievementsUiState(),
 )
 
 private data class LoadedHomeFinance(
@@ -54,17 +61,58 @@ private data class LoadedHomeFinance(
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val clock: Clock,
+    days: LocalDayObserver,
     private val settings: SettingsRepository,
     private val observeFinance: ObserveHomeFinanceUseCase,
-    private val activity: ActivityRepository,
+    activity: ActivityRepository,
+    private val observeStreak: ObserveStreakUseCase,
+    observeXp: ObserveXpProgressUseCase,
+    observeAchievements: ObserveAchievementsUseCase,
 ) : ViewModel() {
-    private val day = MutableStateFlow(currentDay())
+    private val dayStatus = DayActivityStateHolder(viewModelScope, activity, days)
+    private val xp = XpProgressStateHolder(viewModelScope, observeXp)
+    private val achievements = AchievementsStateHolder(viewModelScope, days.observe(), observeAchievements)
+    private val day = MutableStateFlow(dayStatus.state.value.day)
     private val reload = MutableStateFlow(0)
     private val mutableState = MutableStateFlow(HomeUiState(day = day.value))
     val state = mutableState.asStateFlow()
 
     init {
+        viewModelScope.launch { xp.state.collect { progress -> mutableState.update { it.copy(xp = progress) } } }
+        viewModelScope.launch { achievements.state.collect { content -> mutableState.update { it.copy(achievements = content) } } }
+        viewModelScope.launch {
+            dayStatus.state.collect { status ->
+                mutableState.update {
+                    if (it.day == status.day) it.copy(dayStatus = status)
+                    else it.copy(day = status.day, dayStatus = status, finance = null, loading = true, error = false,
+                        streak = null, streakLoading = true, streakError = false)
+                }
+                day.value = status.day
+            }
+        }
+        viewModelScope.launch {
+            day.flatMapLatest { selectedDay ->
+                reload.flatMapLatest {
+                    observeStreak(selectedDay.date)
+                        .map { selectedDay to it }
+                        .onStart {
+                            mutableState.update {
+                                if (it.day == selectedDay) it.copy(streakLoading = true, streakError = false) else it
+                            }
+                        }
+                        .catch { error ->
+                            if (error is CancellationException) throw error
+                            mutableState.update {
+                                if (it.day == selectedDay) it.copy(streak = null, streakLoading = false, streakError = true) else it
+                            }
+                        }
+                }
+            }.collect { (loadedDay, progress) ->
+                mutableState.update {
+                    if (it.day == loadedDay) it.copy(streak = progress, streakLoading = false, streakError = false) else it
+                }
+            }
+        }
         viewModelScope.launch {
             reload.flatMapLatest {
                 settings.settings.map { it.gameElementsEnabled }.catch { error ->
@@ -72,21 +120,6 @@ class HomeViewModel @Inject constructor(
                     mutableState.update { it.copy(gameElementsEnabled = false) }
                 }
             }.collect { enabled -> mutableState.update { it.copy(gameElementsEnabled = enabled) } }
-        }
-        viewModelScope.launch {
-            day.flatMapLatest { selectedDay ->
-                reload.flatMapLatest {
-                    activity.observeDay(selectedDay.date, selectedDay.zone)
-                        .map { selectedDay to it }
-                        .onStart { mutableState.update { it.copy(activityLoading = true, activityError = false) } }
-                        .catch { error ->
-                            if (error is CancellationException) throw error
-                            mutableState.update { it.copy(dayActivity = null, activityLoading = false, activityError = true) }
-                        }
-                }
-            }.collect { (loadedDay, value) ->
-                mutableState.update { if (it.day == loadedDay) it.copy(dayActivity = value, activityLoading = false, activityError = false) else it }
-            }
         }
         viewModelScope.launch {
             day.flatMapLatest { selectedDay ->
@@ -99,8 +132,7 @@ class HomeViewModel @Inject constructor(
                             )
                         }.onStart {
                             mutableState.update { previous ->
-                                previous.copy(
-                                    day = selectedDay,
+                                if (previous.day != selectedDay) previous else previous.copy(
                                     currency = currency,
                                     finance = previous.finance?.takeIf {
                                         previous.day == selectedDay && previous.currency == currency
@@ -111,11 +143,11 @@ class HomeViewModel @Inject constructor(
                             }
                         }.catch { error ->
                             if (error is CancellationException) throw error
-                            mutableState.update { it.copy(loading = false, error = true) }
+                            mutableState.update { if (it.day == selectedDay) it.copy(loading = false, error = true) else it }
                         }
                     }.catch { error ->
                         if (error is CancellationException) throw error
-                        mutableState.update { it.copy(loading = false, error = true) }
+                        mutableState.update { if (it.day == selectedDay) it.copy(loading = false, error = true) else it }
                     }
                 }
             }.collect { result ->
@@ -128,47 +160,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** Rebind after midnight, a time zone change, or returning to the foreground. */
-    fun refreshDay() {
-        val current = currentDay()
-        if (day.value == current) return
-        mutableState.update { it.copy(day = current, finance = null, loading = true, error = false,
-            dayActivity = null, activityLoading = true, activityError = false, dayChanged = false) }
-        day.value = current
-    }
-
     fun retry() {
-        refreshDay()
+        dayStatus.retry()
+        xp.retry()
+        achievements.retry()
         reload.value += 1
     }
 
-    fun confirmNoSpending() {
-        val current = state.value
-        if (current.activitySaving || current.activityLoading || current.dayActivity == null ||
-            current.dayActivity.hasExpense || current.dayActivity.noSpendingConfirmed) return
-        mutableState.update { it.copy(activitySaving = true, activityError = false, dayChanged = false) }
-        viewModelScope.launch {
-            try {
-                when (activity.confirmNoSpending(current.day.date)) {
-                    ConfirmNoSpendingResult.CONFIRMED, ConfirmNoSpendingResult.ALREADY_CONFIRMED -> mutableState.update {
-                        if (it.day == current.day) it.copy(dayActivity = (it.dayActivity ?: DayActivity()).copy(noSpendingConfirmed = true)) else it
-                    }
-                    ConfirmNoSpendingResult.HAS_EXPENSE -> mutableState.update {
-                        if (it.day == current.day) it.copy(dayActivity = (it.dayActivity ?: DayActivity()).copy(hasExpense = true)) else it
-                    }
-                    ConfirmNoSpendingResult.DAY_CHANGED -> {
-                        refreshDay()
-                        mutableState.update { it.copy(dayChanged = true) }
-                    }
-                }
-            } catch (error: CancellationException) { throw error }
-            catch (_: Exception) { mutableState.update { it.copy(activityError = true) } }
-            finally { mutableState.update { it.copy(activitySaving = false) } }
-        }
-    }
-
-    private fun currentDay(): HomeFinanceDay {
-        val zone = TimeZone.currentSystemDefault()
-        return HomeFinanceDay(clock.now().toLocalDateTime(zone).date, zone)
-    }
+    fun confirmNoSpending() = dayStatus.confirmNoSpending()
 }

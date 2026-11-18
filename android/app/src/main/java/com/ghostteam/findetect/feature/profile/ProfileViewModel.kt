@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.ghostteam.findetect.domain.model.*
 import com.ghostteam.findetect.domain.repository.AuthRepository
 import com.ghostteam.findetect.domain.repository.ProfileRepository
+import com.ghostteam.findetect.domain.usecase.ObserveXpProgressUseCase
+import com.ghostteam.findetect.feature.gamification.XpProgressStateHolder
+import com.ghostteam.findetect.feature.gamification.XpProgressUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -28,6 +31,7 @@ data class ProfileUiState(
     val saved: Boolean = false,
     val error: ProfileFailure? = null,
     val errorAction: ProfileAction? = null,
+    val xp: XpProgressUiState = XpProgressUiState(),
 ) {
     val busy: Boolean get() = saving || deleting
     val dirty: Boolean get() = user != null && draftName.trim() != user.name.trim()
@@ -42,7 +46,9 @@ class ProfileViewModel @Inject constructor(
     private val auth: AuthRepository,
     private val owner: SessionIdentity,
     private val savedState: SavedStateHandle,
+    observeXp: ObserveXpProgressUseCase,
 ) : ViewModel() {
+    private val xp = XpProgressStateHolder(viewModelScope, observeXp)
     private val initialUser = checkNotNull((auth.state.value as? SessionState.Active)?.takeIf { it.identity == owner }?.user)
     private val initialDraft = savedState.get<String>(DRAFT).takeIf { savedState.get<String>(OWNER) == owner.sessionId } ?: initialUser.name
     private val mutableState = MutableStateFlow(ProfileUiState(user = initialUser, draftName = initialDraft))
@@ -50,6 +56,7 @@ class ProfileViewModel @Inject constructor(
 
     init {
         savedState[OWNER] = owner.sessionId
+        viewModelScope.launch { xp.state.collect { progress -> mutableState.update { it.copy(xp = progress) } } }
         viewModelScope.launch {
             auth.state.collect { session ->
                 val active = (session as? SessionState.Active)?.takeIf { it.identity == owner } ?: return@collect
@@ -67,6 +74,8 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun current() = (auth.state.value as? SessionState.Active)?.identity == owner
+
+    fun retryXp() { if (current()) xp.retry() }
 
     fun editName(value: String) {
         if (!current() || state.value.busy) return

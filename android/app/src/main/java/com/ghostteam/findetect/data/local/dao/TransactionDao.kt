@@ -53,6 +53,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getById(id: String): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE enteredAt <= :until ORDER BY enteredAt, id LIMIT 1")
+    suspend fun getFirstEntered(until: Instant): TransactionEntity?
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(entity: TransactionEntity)
 

@@ -1,7 +1,6 @@
 package com.ghostteam.findetect.feature.home
 
 import android.content.res.Configuration
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -10,12 +9,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.R
@@ -26,6 +23,17 @@ import com.ghostteam.findetect.core.util.formatDate
 import com.ghostteam.findetect.core.util.formatMoney
 import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.domain.model.HomeFinanceSummary
+import com.ghostteam.findetect.domain.model.DayActivity
+import com.ghostteam.findetect.feature.activity.DayActivityUiState
+import com.ghostteam.findetect.feature.activity.NoSpendingSection
+import com.ghostteam.findetect.feature.achievements.AchievementsPreviewCard
+import com.ghostteam.findetect.feature.achievements.AchievementsUiState
+import com.ghostteam.findetect.feature.achievements.achievementsPreviewProgress
+import com.ghostteam.findetect.feature.gamification.XpProgressContent
+import com.ghostteam.findetect.feature.gamification.XpProgressUiState
+import com.ghostteam.findetect.domain.usecase.CalculateXpProgressUseCase
+import com.ghostteam.findetect.feature.streak.StreakCard
+import com.ghostteam.findetect.feature.streak.streakPreviewProgress
 import com.ghostteam.findetect.feature.prototype.*
 import com.ghostteam.findetect.feature.transaction.TransactionRow
 import com.ghostteam.findetect.feature.transaction.transactionsPreviewSummary
@@ -39,38 +47,25 @@ fun HomeScreen(
     state: HomeUiState,
     onAddTransaction: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
+    onOpenStreak: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
     onRetry: () -> Unit = {},
     onConfirmNoSpending: () -> Unit = {},
+    onOpenAchievements: () -> Unit = {},
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val finance = state.finance
     PrototypeScreen(R.string.ui_home, floatingAction = true, showLogo = true, onSettings = onOpenSettings, onAnalytics = onOpenAnalytics, action = {
         FinButton(stringResource(R.string.ui_add_transaction), onAddTransaction)
     }) {
-        item(key = "profile") { ProfileCard(onOpenProfile, state.gameElementsEnabled) }
-        if (state.gameElementsEnabled) item(key = "streak") { StreakCard() }
+        item(key = "profile") { ProfileCard(onOpenProfile, state.gameElementsEnabled, state.xp, onRetry) }
+        if (state.gameElementsEnabled) item(key = "streak") {
+            StreakCard(state.streak, state.streakLoading, state.streakError, onRetry, onClick = onOpenStreak)
+        }
         item(key = "today") { TodayCard(state) }
         item(key = "no_spending") {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                val activity = state.dayActivity
-                FinButton(
-                    text = stringResource(if (activity?.noSpendingConfirmed == true) R.string.home_day_confirmed else R.string.home_no_spending),
-                    onClick = onConfirmNoSpending,
-                    style = FinButtonStyle.Secondary,
-                    enabled = activity != null && !activity.hasExpense && !activity.noSpendingConfirmed &&
-                        !state.activityLoading && !state.activitySaving && !state.activityError,
-                    loading = state.activitySaving,
-                )
-                if (activity?.hasExpense == true && !activity.noSpendingConfirmed) Text(
-                    stringResource(R.string.home_has_expense), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
-                if (state.dayChanged) Text(stringResource(R.string.home_day_changed), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
-                if (state.activityError) {
-                    Text(stringResource(R.string.home_activity_error), style = FinTheme.typography.caption, color = FinTheme.colors.red)
-                    FinButton(stringResource(R.string.finance_retry), onRetry, style = FinButtonStyle.Secondary)
-                }
-            }
+            NoSpendingSection(state.dayStatus, onConfirmNoSpending, onRetry)
         }
         if (state.error) {
             item(key = "finance_error") {
@@ -89,7 +84,9 @@ fun HomeScreen(
                 pager = stringResource(R.string.ui_advice_page),
             )
         }
-        if (state.gameElementsEnabled) item(key = "achievements") { AchievementsCard() }
+        if (state.gameElementsEnabled) item(key = "achievements") {
+            AchievementsPreviewCard(state.achievements, onOpenAchievements, onRetry)
+        }
         item(key = "recent_title") {
             Text(stringResource(R.string.ui_recent), style = FinTheme.typography.sectionTitle, color = FinTheme.colors.navy)
         }
@@ -108,47 +105,17 @@ fun HomeScreen(
 }
 
 @Composable
-private fun ProfileCard(onClick: () -> Unit, gameElementsEnabled: Boolean) {
+private fun ProfileCard(onClick: () -> Unit, gameElementsEnabled: Boolean, xp: XpProgressUiState, onRetry: () -> Unit) {
     FinCard(onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             UiIconTile(R.drawable.ic_user)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(stringResource(R.string.ui_profile), style = FinTheme.typography.label, color = FinTheme.colors.navy)
                 if (gameElementsEnabled) {
-                    Text(stringResource(R.string.ui_profile_hint), style = FinTheme.typography.caption, color = FinTheme.colors.muted,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Box(Modifier.fillMaxWidth().height(6.dp).clip(FinTheme.shapes.tiny).background(FinTheme.colors.line)) {
-                        Box(Modifier.fillMaxWidth(0.56f).fillMaxHeight().background(FinTheme.colors.yellow))
-                    }
+                    XpProgressContent(xp, onRetry)
                 }
             }
             Icon(Icons.Outlined.ChevronRight, null, tint = FinTheme.colors.muted, modifier = Modifier.size(20.dp))
-        }
-    }
-}
-
-@Composable
-private fun StreakCard() {
-    val c = FinTheme.colors
-    FinCard(background = c.cream) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(painterResource(R.drawable.ic_flame), null, tint = c.yellow, modifier = Modifier.size(24.dp))
-                Text(stringResource(R.string.ui_streak), Modifier.weight(1f), style = FinTheme.typography.subheading,
-                    color = c.navy, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(stringResource(R.string.ui_record), style = FinTheme.typography.caption, color = c.muted)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf(R.string.ui_mon, R.string.ui_tue, R.string.ui_wed, R.string.ui_thu,
-                    R.string.ui_fri, R.string.ui_sat, R.string.ui_sun).forEach { day ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Box(Modifier.size(32.dp).background(c.yellow, FinTheme.shapes.chip), contentAlignment = Alignment.Center) {
-                            Icon(painterResource(R.drawable.ic_check), null, tint = c.navy, modifier = Modifier.size(20.dp))
-                        }
-                        Text(stringResource(day), style = FinTheme.typography.caption, color = c.muted)
-                    }
-                }
-            }
         }
     }
 }
@@ -191,38 +158,27 @@ private fun TodayCard(state: HomeUiState) {
     }
 }
 
-@Composable
-private fun AchievementsCard() {
-    FinCard {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.ui_achievements), Modifier.weight(1f),
-                    style = FinTheme.typography.label, color = FinTheme.colors.navy)
-                Icon(Icons.Outlined.ChevronRight, null, tint = FinTheme.colors.muted, modifier = Modifier.size(20.dp))
-            }
-            FinRow(stringResource(R.string.ui_achievements_title), subtitle = stringResource(R.string.ui_achievements_hint),
-                compact = true, inSheet = true, leading = { UiIconTile(R.drawable.ic_trophy) })
-        }
-    }
-}
-
 @Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun HomePreview() {
+    val progress = streakPreviewProgress()
     val transactions = transactionsPreviewSummary().days.first().transactions +
         transactionsPreviewSummary(isIncome = true).days.first().transactions.map { details ->
             details.copy(transaction = details.transaction.copy(id = "preview-income"))
         }
     MainScreenPreview(Destination.Home.route) {
         HomeScreen(HomeUiState(
-            day = HomeFinanceDay(LocalDate(2026, 11, 14), TimeZone.UTC),
+            day = HomeFinanceDay(progress.today, TimeZone.UTC),
             currency = AppCurrency.RUB,
             finance = HomeFinanceSummary(BigDecimal("125.00"), BigDecimal("100.00"), transactions),
             loading = false,
             gameElementsEnabled = true,
-            dayActivity = com.ghostteam.findetect.domain.model.DayActivity(),
-            activityLoading = false,
+            dayStatus = DayActivityUiState(HomeFinanceDay(progress.today, TimeZone.UTC), DayActivity(), loading = false),
+            streak = progress,
+            streakLoading = false,
+            xp = XpProgressUiState(CalculateXpProgressUseCase()(700L), loading = false),
+            achievements = AchievementsUiState(achievementsPreviewProgress(), loading = false),
         ))
     }
 }

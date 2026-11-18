@@ -22,6 +22,8 @@ object RepositoryModule {
     @Provides fun adjustments(user: UserDataScope): BalanceAdjustmentRepository = user.adjustments
     @Provides fun balances(user: UserDataScope): BalanceRepository = user.balances
     @Provides fun activity(user: UserDataScope): ActivityRepository = user.activity
+    @Provides fun xp(user: UserDataScope): XpRepository = user.xp
+    @Provides fun achievements(user: UserDataScope): AchievementRepository = user.achievements
     @Provides fun settings(user: UserDataScope): SettingsRepository = user.settings
     @Provides fun pin(user: UserDataScope): PinRepository = user.pin
 }

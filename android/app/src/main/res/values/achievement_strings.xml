@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="achievements_title">Достижения</string>
+    <string name="achievements_home_title">Достижения · %1$d из %2$d</string>
+    <string name="achievements_count">Открыто %1$d из %2$d</string>
+    <string name="achievements_read_error">Не удалось загрузить достижения</string>
+    <string name="achievements_game_disabled">Игровые элементы выключены</string>
+    <string name="achievements_game_disabled_hint">Достижения и опыт продолжают накапливаться. Они появятся после включения игровых элементов в настройках.</string>
+    <string name="achievement_locked">Закрыто</string>
+    <string name="achievement_earned_on">Получено %1$s</string>
+    <string name="achievement_progress">Прогресс: %1$d из %2$d</string>
+    <string name="achievement_reward">Награда: %1$d XP</string>
+    <string name="achievement_legacy_reward">За прежний прогресс · без XP</string>
+    <string name="achievement_first_clue">Первая улика</string>
+    <string name="achievement_streak_3">Три дня в деле</string>
+    <string name="achievement_streak_7">Неделя в деле</string>
+    <string name="achievement_streak_14">Две недели в деле</string>
+    <string name="achievement_streak_30">Месяц в деле</string>
+    <string name="achievement_streak_100">Сто дней в деле</string>
+    <string name="achievement_back_in_action">Снова в строю</string>
+    <string name="achievement_fresh_clues">Свежие улики</string>
+    <string name="achievement_within_limit">В рамках дела</string>
+    <string name="achievement_reached_income">Дотянул до поступления</string>
+    <string name="achievement_forecaster">Прогнозист</string>
+    <string name="achievement_first_clue_condition">Создайте первую операцию: расход или доход.</string>
+    <string name="achievement_back_in_action_condition">После сброса серии будьте активны 3 календарных дня подряд.</string>
+    <string name="achievement_fresh_clues_condition">7 завершённых дней подряд вносите все операции в день совершения, хотя бы одну каждый день.</string>
+    <string name="achievement_within_limit_condition">7 завершённых дней подряд не превышайте сохранённый дневной ориентир, подтверждая учёт каждого дня.</string>
+    <string name="achievement_reached_income_condition">Дойдите до заранее заданной даты дохода без отрицательного доступного остатка за весь период.</string>
+    <string name="achievement_forecaster_condition">Сохраните будущую дату следующего дохода.</string>
+    <plurals name="achievement_streak_condition">
+        <item quantity="one">Поддерживайте серию %1$d активный день.</item>
+        <item quantity="few">Поддерживайте серию %1$d активных дня.</item>
+        <item quantity="many">Поддерживайте серию %1$d активных дней.</item>
+        <item quantity="other">Поддерживайте серию %1$d активных дней.</item>
+    </plurals>
+</resources>
