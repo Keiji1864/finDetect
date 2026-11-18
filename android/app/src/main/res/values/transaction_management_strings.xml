@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="transaction_edit_expense">Изменить расход</string>
+    <string name="transaction_edit_income">Изменить доход</string>
+    <string name="transaction_delete">Удалить операцию</string>
+    <string name="transaction_delete_title">Удалить операцию?</string>
+    <string name="transaction_delete_hint">Баланс и суммы за период будут пересчитаны. В течение 6 секунд удаление можно отменить.</string>
+    <string name="transaction_delete_confirm">Удалить</string>
+    <string name="transaction_delete_cancel">Отмена</string>
+    <string name="transaction_deleted">Операция удалена</string>
+    <string name="transaction_undo">Отменить</string>
+    <string name="transaction_undo_failed">Не удалось восстановить операцию. Время отмены могло истечь.</string>
+    <string name="transaction_deleted_account">%1$s (удалён)</string>
+    <string name="transaction_archived_category">%1$s (в архиве)</string>
+    <string name="transaction_not_found">Операция удалена или больше недоступна.</string>
+    <string name="transaction_changed">Операция изменилась. Загрузите актуальные данные перед сохранением. Введённые изменения будут заменены.</string>
+    <string name="transaction_reload">Загрузить актуальные данные</string>
+    <string name="transaction_currency_changed">Валюта выбранного счёта изменилась на %1$s. Проверьте сумму: она не конвертируется.</string>
+    <string name="transaction_accept_currency">Использовать %1$s</string>
+    <string name="transaction_manage_error">Не удалось изменить операцию. Попробуйте ещё раз.</string>
+</resources>

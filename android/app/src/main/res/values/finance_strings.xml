@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="finance_loading">Загрузка…</string>
+    <string name="finance_retry">Повторить</string>
+    <string name="accounts_empty">Пока нет счетов в этой валюте</string>
+    <string name="accounts_empty_hint">Добавьте счёт, чтобы записывать расходы и доходы.</string>
+    <string name="accounts_read_error">Не удалось загрузить счета. Попробуйте ещё раз.</string>
+    <string name="accounts_save_error">Не удалось сохранить счёт. Данные формы сохранены, попробуйте ещё раз.</string>
+    <string name="accounts_currency_error">Счёт сохранён, но переключить валюту отображения не удалось.</string>
+    <string name="currency_settings_error">Не удалось прочитать или сохранить валюту. Попробуйте ещё раз.</string>
+    <string name="accounts_name_error">Введите название от 1 до 100 символов.</string>
+    <string name="accounts_balance_error">Введите сумму от 0 до 999999999,99, не более двух знаков после запятой.</string>
+    <string name="accounts_icon_title">Значок счёта</string>
+    <string name="accounts_icon_choose">Выбрать</string>
+    <string name="finance_icon_chart">График</string>
+    <string name="finance_icon_user">Пользователь</string>
+    <string name="finance_icon_gear">Настройки</string>
+    <string name="finance_icon_basket">Корзина</string>
+    <string name="finance_icon_coffee">Кофе</string>
+    <string name="finance_icon_bus">Автобус</string>
+    <string name="finance_icon_calendar">Календарь</string>
+    <string name="finance_icon_trophy">Кубок</string>
+    <string name="finance_icon_flame">Огонь</string>
+    <string name="finance_icon_spark">Искра</string>
+    <string name="finance_icon_lock">Замок</string>
+    <string name="finance_icon_receipt">Чек</string>
+    <string name="finance_icon_plus">Плюс</string>
+    <string name="finance_icon_check">Галочка</string>
+</resources>

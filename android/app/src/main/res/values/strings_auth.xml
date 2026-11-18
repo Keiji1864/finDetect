@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="auth_email_required">Введите почту</string>
+    <string name="auth_name_length">Имя должно содержать от 1 до 50 символов</string>
+    <string name="auth_password_length">Пароль должен содержать от 8 до 128 символов</string>
+    <string name="auth_invalid_field">Проверьте значение этого поля</string>
+    <string name="auth_check_fields">Проверьте введённые данные</string>
+    <string name="auth_timeout">Не удалось дождаться ответа. Проверьте подключение и попробуйте ещё раз.</string>
+    <string name="auth_rate_limited">Слишком много попыток. Попробуйте позже.</string>
+    <string name="auth_retry_after">Слишком много попыток. Повторить можно через %1$d с.</string>
+    <string name="auth_account_created">Аккаунт создан. Для продолжения войдите с указанной почтой и паролем.</string>
+    <string name="auth_registration_unconfirmed">Не удалось получить подтверждение регистрации. Аккаунт мог быть создан. Попробуйте войти с указанной почтой.</string>
+    <string name="auth_go_to_login">Перейти ко входу</string>
+</resources>

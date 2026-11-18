@@ -472,4 +472,20 @@ fun AppNavHost(
             },
         )
     }
+    if (financePeriod.open) FinancePeriodSheet(financePeriodViewModel)
+    EditTransactionRoute(editTransactionViewModel, transactionSnackbar)
+    val sessionError = stringResource(R.string.session_action_error)
+    LaunchedEffect(sessionUi.error) { if (sessionUi.error) transactionSnackbar.showSnackbar(sessionError) }
+    if (sessionUi.confirmLogout) AlertDialog(
+        onDismissRequest = sessionModel::dismissLogout,
+        containerColor = FinTheme.colors.paper,
+        title = { Text(stringResource(R.string.session_logout_title), style = FinTheme.typography.heading, color = FinTheme.colors.navy) },
+        text = { Text(stringResource(R.string.session_logout_pending), style = FinTheme.typography.body, color = FinTheme.colors.navy) },
+        confirmButton = { TextButton(onClick = { sessionModel.logout(confirmed = true) }) {
+            Text(stringResource(R.string.ui_sign_out), color = FinTheme.colors.red, style = FinTheme.typography.label)
+        } },
+        dismissButton = { TextButton(onClick = sessionModel::dismissLogout) {
+            Text(stringResource(R.string.session_stay), color = FinTheme.colors.navy, style = FinTheme.typography.label)
+        } },
+    )
 }
