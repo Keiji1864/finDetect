@@ -59,7 +59,7 @@
 
     <!-- Игровые элементы -->
     <string name="ui_gamification_about">Что входит</string>
-    <string name="ui_gamification_about_hint">Серия дней, очки, уровни, достижения и напоминания. Если выключить, эти блоки скроются.</string>
+    <string name="ui_gamification_about_hint">Серия дней, очки, уровни и достижения. Если выключить, эти блоки скроются, а прогресс сохранится. Напоминания и отметка дня без трат работают независимо.</string>
 
     <!-- Безопасность / PIN -->
     <string name="ui_pin_create">Придумайте PIN-код</string>
@@ -76,7 +76,6 @@
     <string name="ui_change_password">Сменить пароль</string>
     <string name="ui_change_password_hint">Последнее изменение: 12 октября</string>
     <string name="ui_level">Уровень</string>
-    <string name="ui_level_hint">Следователь · 140 / 250 XP</string>
     <string name="ui_sign_out">Выйти из аккаунта</string>
     <string name="ui_delete_account">Удалить аккаунт</string>
 </resources>

@@ -3,8 +3,6 @@ package com.ghostteam.findetect.feature.settings
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ShoppingBasket
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -54,7 +52,7 @@ fun AppearanceSettingsScreen(onBack: () -> Unit = {}) {
                 Text(stringResource(R.string.ui_preview_hint), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
             }
         }
-        DisplayRow(R.string.ui_groceries, R.string.ui_store, R.string.ui_groceries_amount, Icons.Outlined.ShoppingBasket)
+        DisplayRow(R.string.ui_groceries, R.string.ui_store, R.string.ui_groceries_amount, R.drawable.ic_basket)
     }
 
     when (sheet) {

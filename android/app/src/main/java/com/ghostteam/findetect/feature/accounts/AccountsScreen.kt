@@ -1,56 +1,102 @@
 package com.ghostteam.findetect.feature.accounts
 
 import android.content.res.Configuration
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.Payments
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.R
-import com.ghostteam.findetect.core.designsystem.theme.*
+import com.ghostteam.findetect.core.designsystem.component.*
+import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.core.navigation.Destination
-import com.ghostteam.findetect.feature.prototype.*
+import com.ghostteam.findetect.core.util.formatMoney
+import com.ghostteam.findetect.feature.prototype.MainScreenPreview
+import com.ghostteam.findetect.feature.prototype.PrototypeScreen
+import java.math.BigDecimal
 
 @Composable
-fun AccountsScreen(onOpenSettings: () -> Unit = {}, onOpenAnalytics: () -> Unit = {}) {
-    PrototypeScreen(R.string.ui_accounts, onSettings = onOpenSettings, onAnalytics = onOpenAnalytics) {
-        item(key = "balance") {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(stringResource(R.string.ui_total_balance), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
-                Text(stringResource(R.string.ui_balance_total), style = FinTheme.typography.balance, color = FinTheme.colors.navy)
+fun AccountsRoute(onOpenAnalytics: () -> Unit = {}, onOpenSettings: () -> Unit = {}, viewModel: AccountsViewModel = hiltViewModel(),
+    editor: AccountEditorViewModel = hiltViewModel()) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val editorState by editor.state.collectAsStateWithLifecycle()
+    val currencySwitch by editor.currencySwitch.collectAsStateWithLifecycle()
+    Box(Modifier.fillMaxSize()) {
+        AccountsScreen(state, viewModel::openForm, viewModel::retryRead, viewModel::retryCurrencySwitch, onOpenAnalytics, onOpenSettings,
+            onEditAccount = { editor.open(it) }, onAdjustBalance = { editor.open(it, balanceOnly = true) },
+            accountActionsEnabled = !state.formOpen && !state.switchingCurrency && editorState.page == null && currencySwitch == null)
+        AccountManagementContent(editor, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    }
+    if (state.formOpen) {
+        AccountSheet(state, viewModel::changeDraft, viewModel::openPicker, viewModel::closePicker,
+            viewModel::selectCurrency, viewModel::selectIcon, viewModel::confirmIcon, viewModel::save, viewModel::closeForm)
+    }
+}
+
+@Composable
+fun AccountsScreen(
+    state: AccountsUiState,
+    onCreate: () -> Unit,
+    onRetry: () -> Unit = {},
+    onRetryCurrency: () -> Unit = {},
+    onOpenAnalytics: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onEditAccount: (String) -> Unit = {},
+    onAdjustBalance: (String) -> Unit = {},
+    accountActionsEnabled: Boolean = true,
+) {
+    PrototypeScreen(R.string.ui_accounts, onAnalytics = onOpenAnalytics, onSettings = onOpenSettings) {
+        if (state.summary != null || (!state.loading && !state.readError)) {
+            item(key = "balance") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.ui_total_balance), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+                    Text(formatMoney(state.summary?.total ?: BigDecimal.ZERO, state.currency.name),
+                        style = FinTheme.typography.balance, color = FinTheme.colors.navy)
+                }
             }
         }
-        item(key = "main_account") {
-            DisplayRow(R.string.ui_main_account, R.string.ui_ruble_account, R.string.ui_main_balance,
-                Icons.Outlined.AccountBalanceWallet)
+        if (state.loading) {
+            item(key = "loading") { Text(stringResource(R.string.finance_loading), color = FinTheme.colors.muted) }
         }
-        item(key = "cash") {
-            DisplayRow(R.string.ui_cash, R.string.ui_wallet, R.string.ui_cash_balance,
-                Icons.Outlined.Payments)
+        if (state.readError) {
+            item(key = "error") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.accounts_read_error), color = FinTheme.colors.red)
+                    FinButton(stringResource(R.string.finance_retry), onRetry, style = FinButtonStyle.Secondary)
+                }
+            }
         }
-        item(key = "savings") {
-            DisplayRow(R.string.ui_savings, R.string.ui_future, R.string.ui_savings_balance,
-                Icons.Outlined.AccountBalanceWallet)
+        if (state.pendingCurrency != null && !state.switchingCurrency) {
+            item(key = "switch_error") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.accounts_currency_error), color = FinTheme.colors.red)
+                    FinButton(stringResource(R.string.finance_retry), onRetryCurrency, style = FinButtonStyle.Secondary)
+                }
+            }
+        }
+        if (!state.loading && !state.readError && state.summary?.accounts.isNullOrEmpty()) {
+            item(key = "empty") {
+                FinNotice(stringResource(R.string.accounts_empty), text = stringResource(R.string.accounts_empty_hint))
+            }
+        }
+        items(state.summary?.accounts.orEmpty(), key = { it.account.id }) { balance ->
+            AccountRow(balance, onEdit = { onEditAccount(balance.account.id) },
+                onBalance = { onAdjustBalance(balance.account.id) }, enabled = accountActionsEnabled)
         }
         item(key = "add") {
-            OutlinedButton(
-                onClick = {}, enabled = false,
-                modifier = Modifier.fillMaxWidth().height(FinDimens.buttonHeight),
-                shape = FinTheme.shapes.r12,
-                border = BorderStroke(1.dp, FinTheme.colors.slate),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    disabledContainerColor = FinTheme.colors.white,
-                    disabledContentColor = FinTheme.colors.muted,
-                ),
-            ) {
-                Text(stringResource(R.string.ui_add_account), style = FinTheme.typography.label)
-            }
+            FinButton(stringResource(R.string.ui_add_account), onCreate, style = FinButtonStyle.Secondary,
+                enabled = state.currencyReady && !state.switchingCurrency)
         }
     }
 }
@@ -58,4 +104,8 @@ fun AccountsScreen(onOpenSettings: () -> Unit = {}, onOpenAnalytics: () -> Unit 
 @Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun AccountsPreview() { MainScreenPreview(Destination.Accounts.route) { AccountsScreen() } }
+private fun AccountsPreview() {
+    MainScreenPreview(Destination.Accounts.route) {
+        AccountsScreen(AccountsUiState(loading = false, currencyReady = true), onCreate = {})
+    }
+}

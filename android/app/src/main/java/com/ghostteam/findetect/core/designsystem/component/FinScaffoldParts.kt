@@ -1,5 +1,6 @@
 package com.ghostteam.findetect.core.designsystem.component
 
+import android.content.res.Configuration
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,13 +13,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -34,9 +34,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.tooling.preview.Preview
+import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
+import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import androidx.compose.ui.text.TextStyle
 
@@ -51,12 +55,13 @@ fun FinTopBar(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     titleStyle: TextStyle = FinTheme.typography.heading,
+    titleMaxLines: Int = 1,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(FinDimens.appBarHeight)
+            .heightIn(min = FinDimens.appBarHeight)
             .padding(start = if (onBack != null) 12.dp else FinDimens.screenPadding, end = FinDimens.screenPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -65,9 +70,8 @@ fun FinTopBar(
                 modifier = Modifier.size(40.dp).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
             ) {
-                // TODO: заменить на векторную иконку Icon/back из UI-kit (res/drawable)
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    painter = painterResource(R.drawable.ic_back),
                     contentDescription = null,
                     tint = FinTheme.colors.navy,
                     modifier = Modifier.size(FinDimens.iconSize),
@@ -79,13 +83,22 @@ fun FinTopBar(
             style = titleStyle,
             color = FinTheme.colors.navy,
             modifier = Modifier.weight(1f),
-            maxLines = 1,
+            maxLines = titleMaxLines,
         )
         Row(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             content = actions,
         )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 320, fontScale = 2f)
+@Preview(showBackground = true, widthDp = 320, fontScale = 2f, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun FinTopBarMultilinePreview() {
+    FinDetectTheme {
+        FinTopBar(stringResource(R.string.streak_title), onBack = {}, titleStyle = FinTheme.typography.title, titleMaxLines = 2)
     }
 }
 

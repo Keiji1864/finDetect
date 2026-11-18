@@ -1,353 +1,112 @@
 package com.ghostteam.findetect;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.util.Locale;
+import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.PBEKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.util.Base64;
-import java.util.HexFormat;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
-
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1")
+@Transactional
 public class AuthController {
+    record Register(@NotBlank @Size(max=50) String name, @NotBlank @Email @Size(max=254) String email,
+                    @NotNull @Size(min=8,max=128) String password) {}
+    record Login(@NotBlank @Email @Size(max=254) String email, @NotNull @Size(max=128) String password) {}
+    record Refresh(@NotBlank @Size(max=128) String refreshToken) {}
+    record Rename(@NotBlank @Size(max=50) String name) {}
+    record User(UUID id, String email, String name) {}
+    record Tokens(String accessToken, String refreshToken, long expiresIn) {}
+    record Result(User user, Tokens tokens) {}
 
     private final JdbcTemplate db;
-    private final TransactionTemplate tx;
-    private final SecureRandom random = new SecureRandom();
+    private final Secrets secrets = new Secrets();
+    private final String dummyHash = secrets.hashPassword(secrets.token());
 
-    public AuthController(
-            JdbcTemplate db,
-            PlatformTransactionManager transactionManager
-    ) {
-        this.db = db;
-        this.tx = new TransactionTemplate(transactionManager);
-    }
+    public AuthController(JdbcTemplate db) { this.db = db; }
 
-    public record Credentials(
-            String name,
-            String login,
-            String password
-    ) {}
-
-    private ResponseStatusException bad(String message) {
-        return new ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                message
-        );
-    }
-
-    private String normalizeLogin(String value) {
-        if (value == null) {
-            throw bad("Введите почту или телефон");
-        }
-
-        String login = value.trim().toLowerCase(Locale.ROOT);
-
-        boolean email = login.matches(
-                "[^\\s@]+@[^\\s@]+\\.[^\\s@]+"
-        );
-
-        boolean phone = login.matches(
-                "\\+[1-9][0-9]{7,14}"
-        );
-
-        if (login.length() > 254 || (!email && !phone)) {
-            throw bad(
-                    "Введите почту или телефон в формате +79991234567"
-            );
-        }
-
-        return login;
-    }
-
-    private void validatePassword(String password) {
-        if (
-                password == null
-                        || password.length() < 8
-                        || password.length() > 128
-        ) {
-            throw bad("Пароль должен содержать от 8 до 128 символов");
-        }
-    }
-
-    private byte[] derive(
-            String password,
-            byte[] salt
-    ) throws Exception {
-        PBEKeySpec spec = new PBEKeySpec(
-                password.toCharArray(),
-                salt,
-                600000,
-                256
-        );
-
+    @PostMapping("/auth/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Result register(@Valid @RequestBody Register input) {
+        User user = new User(UUID.randomUUID(), email(input.email()), input.name().strip());
         try {
-            return SecretKeyFactory
-                    .getInstance("PBKDF2WithHmacSHA256")
-                    .generateSecret(spec)
-                    .getEncoded();
-        } finally {
-            spec.clearPassword();
+            db.update("INSERT INTO users(id,email,name,password_hash) VALUES(?,?,?,?)",
+                    user.id(), user.email(), user.name(), secrets.hashPassword(input.password()));
+        } catch (DuplicateKeyException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT);
         }
+        return new Result(user, issue(user.id()));
     }
 
-    private String hashPassword(String password) {
-        try {
-            byte[] salt = new byte[16];
-            random.nextBytes(salt);
-
-            return "pbkdf2$600000$"
-                    + Base64.getEncoder().encodeToString(salt)
-                    + "$"
-                    + Base64.getEncoder().encodeToString(
-                    derive(password, salt)
-            );
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+    @PostMapping("/auth/login")
+    public Result login(@Valid @RequestBody Login input) {
+        var rows = db.queryForList("SELECT id,email,name,password_hash FROM users WHERE email=?", email(input.email()));
+        String hash = rows.isEmpty() ? dummyHash : (String) rows.get(0).get("password_hash");
+        if (!secrets.verifyPassword(input.password(), hash) || rows.isEmpty()) throw unauthorized();
+        var row = rows.get(0);
+        User user = new User((UUID) row.get("id"), (String) row.get("email"), (String) row.get("name"));
+        return new Result(user, issue(user.id()));
     }
 
-    private boolean verifyPassword(
-            String password,
-            String stored
-    ) {
-        try {
-            String[] parts = stored.split("\\$");
-
-            if (
-                    parts.length != 4
-                            || !parts[0].equals("pbkdf2")
-                            || !parts[1].equals("600000")
-            ) {
-                return false;
-            }
-
-            byte[] salt = Base64.getDecoder().decode(parts[2]);
-            byte[] expected = Base64.getDecoder().decode(parts[3]);
-            byte[] actual = derive(password, salt);
-
-            return MessageDigest.isEqual(actual, expected);
-        } catch (Exception e) {
-            return false;
-        }
+    @PostMapping("/auth/refresh")
+    public Tokens refresh(@Valid @RequestBody Refresh input) {
+        var ids = db.queryForList("""
+                DELETE FROM sessions WHERE refresh_hash=? AND refresh_until>now() RETURNING user_id
+                """, UUID.class, secrets.digest(input.refreshToken()));
+        if (ids.isEmpty()) throw unauthorized();
+        return issue(ids.get(0));
     }
 
-    private String digest(String token) {
-        try {
-            byte[] hash = MessageDigest
-                    .getInstance("SHA-256")
-                    .digest(token.getBytes(StandardCharsets.UTF_8));
-
-            return HexFormat.of().formatHex(hash);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private Map<String, Object> createSession(UUID userId) {
-        byte[] bytes = new byte[32];
-        random.nextBytes(bytes);
-
-        String token = Base64.getUrlEncoder()
-                .withoutPadding()
-                .encodeToString(bytes);
-
-        db.update(
-                """
-                INSERT INTO sessions (
-                    user_id,
-                    refresh_token_hash,
-                    expires_at
-                )
-                VALUES (?, ?, now() + interval '1 day')
-                """,
-                userId,
-                digest(token)
-        );
-
-        return Map.of(
-                "token", token,
-                "userId", userId.toString()
-        );
-    }
-
-    @PostMapping("/register")
-    public Map<String, Object> register(
-            @RequestBody Credentials credentials
-    ) {
-        String login = normalizeLogin(credentials.login());
-        validatePassword(credentials.password());
-
-        if (
-                credentials.name() == null
-                        || credentials.name().trim().isEmpty()
-                        || credentials.name().trim().length() > 100
-        ) {
-            throw bad("Введите имя до 100 символов");
-        }
-
-        String passwordHash = hashPassword(credentials.password());
-
-        try {
-            return tx.execute(status -> {
-                UUID userId = UUID.randomUUID();
-
-                db.update(
-                        """
-                        INSERT INTO users (
-                            id,
-                            display_name,
-                            password_hash,
-                            status
-                        )
-                        VALUES (?, ?, ?, 'active')
-                        """,
-                        userId,
-                        credentials.name().trim(),
-                        passwordHash
-                );
-
-                db.update(
-                        """
-                        INSERT INTO user_identities (
-                            user_id,
-                            type,
-                            login
-                        )
-                        VALUES (?, ?, ?)
-                        """,
-                        userId,
-                        login.contains("@") ? "email" : "phone",
-                        login
-                );
-
-                db.update(
-                        "INSERT INTO user_settings (user_id) VALUES (?)",
-                        userId
-                );
-
-                return createSession(userId);
-            });
-        } catch (DuplicateKeyException e) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Этот логин уже используется"
-            );
-        }
-    }
-
-    @PostMapping("/login")
-    public Map<String, Object> login(
-            @RequestBody Credentials credentials
-    ) {
-        String login = normalizeLogin(credentials.login());
-        validatePassword(credentials.password());
-
-        var users = db.queryForList(
-                """
-                SELECT u.id, u.password_hash
-                FROM users u
-                JOIN user_identities i ON i.user_id = u.id
-                WHERE i.login = ?
-                  AND u.status = 'active'
-                """,
-                login
-        );
-
-        if (
-                users.size() != 1
-                        || !verifyPassword(
-                        credentials.password(),
-                        users.get(0).get("password_hash").toString()
-                )
-        ) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Неверный логин или пароль"
-            );
-        }
-
-        return createSession((UUID) users.get(0).get("id"));
-    }
-
-    @PostMapping("/logout")
-    public Map<String, Boolean> logout(
-            @RequestHeader("Authorization") String authorization
-    ) {
-        String token = authorization.startsWith("Bearer ")
-                ? authorization.substring(7)
-                : "";
-
-        db.update(
-                """
-                UPDATE sessions
-                SET revoked_at = now()
-                WHERE refresh_token_hash = ?
-                  AND revoked_at IS NULL
-                """,
-                digest(token)
-        );
-
-        return Map.of("success", true);
+    @PostMapping("/auth/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody Refresh input) {
+        db.update("DELETE FROM sessions WHERE refresh_hash=?", secrets.digest(input.refreshToken()));
     }
 
     @GetMapping("/me")
-    public Map<String, Object> me(
-            @RequestHeader("Authorization") String authorization
-    ) {
-        String token = authorization.startsWith("Bearer ")
-                ? authorization.substring(7)
-                : "";
-
-        var users = db.queryForList(
-                """
-                SELECT u.id, u.display_name
-                FROM sessions s
-                JOIN users u ON u.id = s.user_id
-                WHERE s.refresh_token_hash = ?
-                  AND s.revoked_at IS NULL
-                  AND s.expires_at > now()
-                  AND u.status = 'active'
-                """,
-                digest(token)
-        );
-
-        if (users.size() != 1) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "Войдите снова"
-            );
-        }
-
-        return users.get(0);
+    public User me(@RequestHeader(value="Authorization",required=false) String header) {
+        return profile(owner(header));
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<Map<String, String>> error(
-            ResponseStatusException exception
-    ) {
-        return ResponseEntity
-                .status(exception.getStatusCode())
-                .body(Map.of(
-                        "message",
-                        Objects.requireNonNullElse(
-                                exception.getReason(),
-                                "Ошибка запроса"
-                        )
-                ));
+    @PatchMapping("/me")
+    public User rename(@RequestHeader(value="Authorization",required=false) String header, @Valid @RequestBody Rename input) {
+        UUID id = owner(header);
+        db.update("UPDATE users SET name=? WHERE id=?", input.name().strip(), id);
+        return profile(id);
     }
+
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@RequestHeader(value="Authorization",required=false) String header) {
+        db.update("DELETE FROM users WHERE id=?", owner(header));
+    }
+
+    UUID owner(String header) {
+        if (header == null || !header.startsWith("Bearer ") || header.length()>140) throw unauthorized();
+        return db.queryForList("SELECT user_id FROM sessions WHERE access_hash=? AND access_until>now()",
+                UUID.class, secrets.digest(header.substring(7))).stream().findFirst().orElseThrow(AuthController::unauthorized);
+    }
+
+    private User profile(UUID id) {
+        return db.queryForObject("SELECT id,email,name FROM users WHERE id=?", (rs,i) ->
+                new User(id,rs.getString("email"),rs.getString("name")),id);
+    }
+
+    private Tokens issue(UUID id) {
+        Tokens pair = new Tokens(secrets.token(), secrets.token(), 900);
+        db.update("DELETE FROM sessions WHERE user_id=? AND refresh_until<=now()", id);
+        db.update("""
+                INSERT INTO sessions(access_hash,refresh_hash,user_id,access_until,refresh_until)
+                VALUES(?,?,?,now()+interval '15 minutes',now()+interval '30 days')
+                """,secrets.digest(pair.accessToken()),secrets.digest(pair.refreshToken()),id);
+        return pair;
+    }
+
+    private static String email(String value) { return value.strip().toLowerCase(Locale.ROOT); }
+    private static ResponseStatusException unauthorized() { return new ResponseStatusException(HttpStatus.UNAUTHORIZED); }
 }

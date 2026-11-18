@@ -12,4 +12,9 @@ data class AppSettings(
     val language: AppLanguage = AppLanguage.RU,
     val gameElementsEnabled: Boolean = true,
     val forecastTipsEnabled: Boolean = true,
+    val dailyReminder: DailyReminderSettings = DailyReminderSettings(),
 )
+
+data class DailyReminderSettings(val enabled: Boolean = false, val hour: Int = 20) {
+    init { require(hour in 18..22) }
+}

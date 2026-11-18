@@ -1,19 +1,12 @@
 package com.ghostteam.findetect.feature.settings
 
 import android.content.res.Configuration
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.EmojiEvents
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Payments
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.runtime.getValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.ghostteam.findetect.R
@@ -21,97 +14,85 @@ import com.ghostteam.findetect.core.designsystem.component.FinRow
 import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.feature.prototype.UiIconTile
+import com.ghostteam.findetect.domain.model.AppCurrency
+import com.ghostteam.findetect.domain.model.AppSettings
+import com.ghostteam.findetect.domain.repository.PinStatus
 
+/**
+ * Настройки (Figma 07): пять строк, каждая ведёт на свой подэкран.
+ * Выхода из аккаунта здесь нет, он только в Профиле.
+ */
 @Composable
 fun SettingsScreen(
-    onLogout: () -> Unit = {},
     onBack: () -> Unit = {},
     onOpenAppearance: () -> Unit = {},
     onOpenCurrency: () -> Unit = {},
     onOpenSecurity: () -> Unit = {},
     onOpenReminders: () -> Unit = {},
     onOpenGamification: () -> Unit = {},
+    viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    FinSubScreen(
-        title = stringResource(R.string.ui_settings),
-        onBack = onBack
-    ) {
-        SettingsRow(
-            R.string.ui_settings_appearance,
-            R.string.ui_settings_appearance_hint,
-            Icons.Outlined.Settings,
-            onOpenAppearance
-        )
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    RefreshNotificationPermission(viewModel::refreshSystemPermission)
+    SettingsContent(state, viewModel::retryRead, onBack, onOpenAppearance, onOpenCurrency, onOpenSecurity, onOpenReminders, onOpenGamification)
+}
 
-        SettingsRow(
-            R.string.ui_settings_currency,
-            R.string.ui_settings_currency_hint,
-            Icons.Outlined.Payments,
-            onOpenCurrency
-        )
-
-        SettingsRow(
-            R.string.ui_settings_security,
-            R.string.ui_settings_security_hint,
-            Icons.Outlined.Lock,
-            onOpenSecurity
-        )
-
-        SettingsRow(
-            R.string.ui_settings_reminders,
-            R.string.ui_settings_reminders_hint,
-            Icons.Outlined.CalendarMonth,
-            onOpenReminders
-        )
-
-        SettingsRow(
-            R.string.ui_settings_gamification,
-            R.string.ui_settings_gamification_hint,
-            Icons.Outlined.EmojiEvents,
-            onOpenGamification
-        )
-
-        OutlinedButton(
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Выйти из аккаунта")
+@Composable
+private fun SettingsContent(
+    state: SettingsUiState, onRetry: () -> Unit, onBack: () -> Unit,
+    onOpenAppearance: () -> Unit, onOpenCurrency: () -> Unit, onOpenSecurity: () -> Unit,
+    onOpenReminders: () -> Unit, onOpenGamification: () -> Unit,
+) {
+    val settings = state.settings
+    val loading = stringResource(R.string.finance_loading)
+    FinSubScreen(title = stringResource(R.string.ui_settings), onBack = onBack) {
+        SettingsStatus(state, onRetry)
+        SettingsRow(R.string.ui_settings_appearance, stringResource(R.string.ui_settings_appearance_hint), R.drawable.ic_settings, onOpenAppearance)
+        SettingsRow(R.string.ui_settings_currency, settings?.let { stringResource(currencyName(it.currency)) } ?: loading, R.drawable.ic_cash, onOpenCurrency)
+        SettingsRow(R.string.ui_settings_security, stringResource(when (state.pin) {
+            PinStatus.LOADING -> R.string.finance_loading
+            PinStatus.DISABLED -> R.string.settings_pin_disabled
+            PinStatus.ENABLED -> R.string.settings_pin_enabled
+            PinStatus.ERROR -> R.string.settings_pin_error
+        }), R.drawable.ic_lock, onOpenSecurity)
+        val reminderSummary = when {
+            settings == null -> loading
+            !settings.dailyReminder.enabled -> stringResource(R.string.settings_disabled)
+            !state.notificationsAllowed -> stringResource(R.string.reminder_system_blocked)
+            else -> stringResource(R.string.reminder_summary, stringResource(R.string.reminder_time, settings.dailyReminder.hour))
         }
+        SettingsRow(R.string.ui_settings_reminders, reminderSummary, R.drawable.ic_calendar, onOpenReminders)
+        SettingsRow(R.string.ui_settings_gamification, settings?.let { stringResource(if (it.gameElementsEnabled) R.string.settings_enabled else R.string.settings_disabled) } ?: loading,
+            R.drawable.ic_trophy, onOpenGamification)
     }
 }
 
 @Composable
 private fun SettingsRow(
     @StringRes title: Int,
-    @StringRes subtitle: Int,
-    icon: ImageVector,
+    subtitle: String,
+    @DrawableRes icon: Int,
     onClick: () -> Unit,
 ) {
     FinRow(
         title = stringResource(title),
-        subtitle = stringResource(subtitle),
-        leading = {
-            UiIconTile(icon)
-        },
-        onClick = onClick
+        subtitle = subtitle,
+        leading = { UiIconTile(icon) },
+        onClick = onClick,
     )
 }
 
-@Preview(
-    showBackground = true,
-    showSystemUi = true,
-    widthDp = 412,
-    heightDp = 892
-)
-@Preview(
-    showBackground = true,
-    widthDp = 360,
-    heightDp = 740,
-    uiMode = Configuration.UI_MODE_NIGHT_YES
-)
+@StringRes
+private fun currencyName(currency: AppCurrency): Int = when (currency) {
+    AppCurrency.RUB -> R.string.ui_currency_rub_name
+    AppCurrency.USD -> R.string.ui_currency_usd_name
+    AppCurrency.EUR -> R.string.ui_currency_eur_name
+    AppCurrency.CNY -> R.string.ui_currency_cny_name
+}
+
+@Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
+@Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SettingsScreenPreview() {
-    FinDetectTheme {
-        SettingsScreen()
-    }
+    FinDetectTheme { SettingsContent(SettingsUiState(settings = AppSettings(), pin = PinStatus.DISABLED), {}, {}, {}, {}, {}, {}, {}) }
 }
