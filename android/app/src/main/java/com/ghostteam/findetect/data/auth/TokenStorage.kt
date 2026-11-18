@@ -5,6 +5,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.AtomicFile
 import com.ghostteam.findetect.domain.model.SessionUser
+import com.ghostteam.findetect.domain.model.ReauthenticationReason
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.security.KeyStore
@@ -33,6 +34,7 @@ internal data class StoredSession(
     val expiresAt: Long? = null,
     val cleanupUserId: String? = null,
     val resetPinUserId: String? = null,
+    val reauthenticationReason: ReauthenticationReason = ReauthenticationReason.SESSION_EXPIRED,
 )
 
 /** One atomic encrypted record contains both rotating tokens. No password or plaintext backup. */

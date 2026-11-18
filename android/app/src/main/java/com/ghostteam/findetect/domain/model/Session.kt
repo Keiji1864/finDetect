@@ -10,11 +10,17 @@ data class SessionIdentity(val userId: String, val sessionId: String)
 
 enum class OnboardingStep { INCOME, PIN, DONE }
 
+@Serializable
+enum class ReauthenticationReason { SESSION_EXPIRED, PASSWORD_CHANGED, PASSWORD_CHANGE_UNCONFIRMED }
+
 sealed interface SessionState {
     data object Restoring : SessionState
     data object SignedOut : SessionState
     data class Active(val identity: SessionIdentity, val user: SessionUser, val onboarding: OnboardingStep) : SessionState
-    data class ReauthenticationRequired(val user: SessionUser?) : SessionState
+    data class ReauthenticationRequired(
+        val user: SessionUser?,
+        val reason: ReauthenticationReason = ReauthenticationReason.SESSION_EXPIRED,
+    ) : SessionState
     data class StorageError(val email: String? = null, val accountCreated: Boolean = false) : SessionState
 }
 

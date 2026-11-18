@@ -35,7 +35,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -43,6 +42,7 @@ import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.FinButton
 import com.ghostteam.findetect.core.designsystem.component.FinButtonStyle
 import com.ghostteam.findetect.core.designsystem.component.FinTextField
+import com.ghostteam.findetect.core.designsystem.component.FinPasswordField
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
@@ -67,6 +67,7 @@ fun LoginScreen(
     state: AuthUiState = AuthUiState(),
     onFieldChange: (AuthField) -> Unit = {},
     message: String? = null,
+    messageIsError: Boolean = true,
     onRetry: (() -> Unit)? = null,
 ) {
     var email by rememberSaveable(emailRevision) { mutableStateOf(initialEmail) }
@@ -133,7 +134,7 @@ fun LoginScreen(
                     errorText = authFieldText(AuthField.EMAIL, localErrors[AuthField.EMAIL] ?: state.fieldErrors[AuthField.EMAIL]),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
                 )
-                FinTextField(
+                FinPasswordField(
                     label = stringResource(R.string.ui_login_password_label),
                     value = password,
                     onValueChange = { password = it; onFieldChange(AuthField.PASSWORD) },
@@ -141,7 +142,6 @@ fun LoginScreen(
                     errorText = authFieldText(AuthField.PASSWORD, localErrors[AuthField.PASSWORD] ?: state.fieldErrors[AuthField.PASSWORD]),
                     placeholder = stringResource(R.string.ui_login_password_placeholder),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                    visualTransformation = PasswordVisualTransformation(),
                     keyboardActions = KeyboardActions(onDone = { submit() }),
                 )
             }
@@ -152,7 +152,8 @@ fun LoginScreen(
             Column(
                 verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap),
             ) {
-                if (feedback != null) Text(feedback, style = FinTheme.typography.caption, color = c.red)
+                if (feedback != null) Text(feedback, style = FinTheme.typography.caption,
+                    color = if (messageIsError) c.red else c.muted)
                 if (onRetry != null) FinButton(stringResource(R.string.finance_retry), onRetry, enabled = !working, style = FinButtonStyle.Secondary)
                 FinButton(
                     text = stringResource(R.string.ui_login_sign_in),

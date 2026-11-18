@@ -32,6 +32,7 @@ import com.ghostteam.findetect.feature.incomes.IncomeRoute
 import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
 import com.ghostteam.findetect.feature.profile.ProfileRoute
+import com.ghostteam.findetect.feature.password.ChangePasswordRoute
 import com.ghostteam.findetect.feature.streak.StreakRoute
 import com.ghostteam.findetect.feature.achievements.AchievementsRoute
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
@@ -238,10 +239,12 @@ fun AppNavHost(session: SessionState.Active, sessionModel: UserSessionViewModel,
                 ProfileRoute(
                     gameElementsEnabled = settings.settings?.gameElementsEnabled == true,
                     onBack = back,
+                    onChangePassword = { open(Destination.ChangePassword) },
                     onLogout = { sessionModel.logout() },
                     logoutWorking = sessionUi.working,
                 )
             }
+            composable(Destination.ChangePassword.route) { ChangePasswordRoute(onBack = back) }
             composable(Destination.Settings.route) {
                 SettingsScreen(
                     onBack = back,

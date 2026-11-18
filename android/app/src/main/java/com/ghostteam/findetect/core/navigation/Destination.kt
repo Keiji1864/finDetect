@@ -35,6 +35,7 @@ sealed class Destination(val route: String) {
         fun createRoute(period: Period) = "income-month/${period.start}/${period.end}"
     }
 
+    data object ChangePassword : Destination("profile/password")
     data object Settings : Destination("settings")
     data object SettingsAppearance : Destination("settings/appearance")
     data object SettingsCurrency : Destination("settings/currency")

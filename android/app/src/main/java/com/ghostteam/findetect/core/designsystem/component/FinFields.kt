@@ -94,7 +94,7 @@ fun FinSelectField(
 /**
  * Поле ввода текста: Название, Комментарий, Почта, Пароль, Сумма.
  * Открывает системную клавиатуру. Состояния: пустое (placeholder), в фокусе (1.5 dp navy), ошибка (red + текст).
- * Для пароля передай visualTransformation = PasswordVisualTransformation().
+ * Для пароля используй [FinPasswordField] с общим переключателем показа/скрытия.
  * [keyboardActions] lets forms handle IME confirmation with the same guard as their submit button.
  * [trailing] adds optional content on the right, such as the password visibility toggle.
  */

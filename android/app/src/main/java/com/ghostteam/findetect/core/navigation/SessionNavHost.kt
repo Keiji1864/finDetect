@@ -68,6 +68,7 @@ private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
             val model: AuthViewModel = hiltViewModel()
             val state by model.state.collectAsStateWithLifecycle()
             val cached = (session as? SessionState.ReauthenticationRequired)?.user
+            val reauthenticationReason = (session as? SessionState.ReauthenticationRequired)?.reason
             val recovery = session as? SessionState.StorageError
             val suggestedEmail by entry.savedStateHandle.getStateFlow<String?>(LOGIN_EMAIL, null).collectAsStateWithLifecycle()
             val accountCreated by entry.savedStateHandle.getStateFlow(LOGIN_ACCOUNT_CREATED, false).collectAsStateWithLifecycle()
@@ -81,6 +82,8 @@ private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
             }
             val message = authFormMessage(state) ?: when {
                 accountCreated || recovery?.accountCreated == true -> stringResource(R.string.auth_account_created)
+                reauthenticationReason == ReauthenticationReason.PASSWORD_CHANGED -> stringResource(R.string.password_changed_sign_in)
+                reauthenticationReason == ReauthenticationReason.PASSWORD_CHANGE_UNCONFIRMED -> stringResource(R.string.password_unconfirmed_sign_in)
                 session is SessionState.ReauthenticationRequired -> stringResource(R.string.session_expired)
                 recovery != null -> stringResource(R.string.session_storage_error)
                 else -> null
@@ -88,6 +91,7 @@ private fun AuthNavHost(session: SessionState, onRetry: () -> Unit) {
             LoginScreen(onLogin = model::login, onRegister = { nav.navigate(Destination.Register.route) },
                 initialEmail = suggestedEmail ?: recovery?.email ?: cached?.email.orEmpty(), emailRevision = prefillRevision,
                 state = state, message = message,
+                messageIsError = reauthenticationReason != ReauthenticationReason.PASSWORD_CHANGED || state.error != null,
                 onFieldChange = {
                     model.fieldChanged(it)
                     if (it == AuthField.EMAIL) entry.savedStateHandle[LOGIN_ACCOUNT_CREATED] = false

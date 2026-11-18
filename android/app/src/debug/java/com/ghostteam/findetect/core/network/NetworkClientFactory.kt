@@ -18,7 +18,6 @@ import io.ktor.http.HeadersBuilder
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
-import io.ktor.http.headersOf
 import javax.inject.Inject
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -36,11 +35,14 @@ class NetworkClientFactory @Inject constructor(
             engine = MockEngine.config {
                 addHandler { request ->
                     val path = request.url.encodedPath.trimEnd('/').removePrefix(basePath)
+                    val passwordRequest = path.startsWith("/auth/password/")
                     val auth = DebugAuthFixtures.response(path, request, json, profiles)
+                        ?: if (!path.startsWith("/auth/")) DebugAuthFixtures.authorizationError(request, json, profiles) else null
                     if (auth != null) return@addHandler respond(
                         content = auth.body, status = HttpStatusCode.fromValue(auth.status),
                         headers = HeadersBuilder().apply {
                             append(HttpHeaders.ContentType, auth.contentType)
+                            if (passwordRequest) append(HttpHeaders.CacheControl, "no-store")
                             auth.retryAfterSeconds?.let { append(HttpHeaders.RetryAfter, it.toString()) }
                         }.build(),
                     )
@@ -56,7 +58,10 @@ class NetworkClientFactory @Inject constructor(
                     respond(
                         content = body ?: json.encodeToString(ApiErrorDto("NOT_FOUND", "No static demo response for this request")),
                         status = if (body == null) HttpStatusCode.NotFound else HttpStatusCode.OK,
-                        headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                        headers = HeadersBuilder().apply {
+                            append(HttpHeaders.ContentType, "application/json")
+                            if (passwordRequest) append(HttpHeaders.CacheControl, "no-store")
+                        }.build(),
                     )
                 }
             },
