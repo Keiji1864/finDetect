@@ -74,7 +74,7 @@
     <string name="ui_profile_email_label">Электронная почта</string>
     <string name="ui_profile_email_value">name@example.com</string>
     <string name="ui_change_password">Сменить пароль</string>
-    <string name="ui_change_password_hint">Последнее изменение: 12 октября</string>
+    <string name="ui_change_password_hint">Для смены нужен текущий пароль</string>
     <string name="ui_level">Уровень</string>
     <string name="ui_sign_out">Выйти из аккаунта</string>
     <string name="ui_delete_account">Удалить аккаунт</string>

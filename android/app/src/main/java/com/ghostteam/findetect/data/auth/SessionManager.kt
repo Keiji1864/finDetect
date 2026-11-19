@@ -9,6 +9,7 @@ import com.ghostteam.findetect.data.remote.ProfileApi
 import com.ghostteam.findetect.domain.model.*
 import com.ghostteam.findetect.domain.repository.AuthRepository
 import com.ghostteam.findetect.domain.repository.ProfileRepository
+import com.ghostteam.findetect.domain.repository.PasswordRepository
 import dagger.Lazy
 import java.util.UUID
 import javax.inject.Inject
@@ -35,14 +36,16 @@ private class RefreshAttempt(
 class SessionManager @Inject constructor(
     private val storage: TokenStorage,
     private val api: AuthApi,
+    private val passwordApi: PasswordApi,
     private val users: UserDataScopes,
     private val device: DevicePreferences,
     private val clock: Clock,
     private val finance: Lazy<com.ghostteam.findetect.data.sync.FinanceSyncApi>,
     private val profileApi: Lazy<ProfileApi>,
-) : AuthRepository, ProfileRepository {
+) : AuthRepository, ProfileRepository, PasswordRepository {
     private val transitions = Mutex()
     private val profileWrites = Mutex()
+    private val passwordWrites = Mutex()
     private val jobs = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutableState = MutableStateFlow<SessionState>(SessionState.Restoring)
     override val state = mutableState.asStateFlow()
@@ -73,7 +76,8 @@ class SessionManager @Inject constructor(
                 }
                 val restored = saved
                 if (restored?.mode == "active" && device.isSessionBlocked(checkNotNull(restored.sessionId))) {
-                    saved = StoredSession(mode = "reauth", user = restored.user, cleanupUserId = restored.cleanupUserId)
+                    saved = StoredSession(mode = "reauth", user = restored.user, sessionId = restored.sessionId,
+                        cleanupUserId = restored.cleanupUserId)
                     record = saved
                 }
                 saved?.cleanupUserId?.let { id ->
@@ -92,7 +96,8 @@ class SessionManager @Inject constructor(
                 device.finishCleanups(cleanupReceipts)
                 when (saved?.mode) {
                     "active" -> activate(checkNotNull(saved), false)
-                    "reauth" -> mutableState.value = SessionState.ReauthenticationRequired(saved?.user)
+                    "reauth" -> mutableState.value = SessionState.ReauthenticationRequired(saved?.user,
+                        saved?.reauthenticationReason ?: ReauthenticationReason.SESSION_EXPIRED)
                     else -> mutableState.value = SessionState.SignedOut
                 }
             } catch (error: CancellationException) { throw error }
@@ -214,6 +219,108 @@ class SessionManager @Inject constructor(
         if (isCurrent(identity)) expireLocked(resetPin = false)
     }
 
+    override suspend fun changePassword(owner: SessionIdentity, currentPassword: String, newPassword: String) {
+        val errors = PasswordValidation.change(currentPassword, newPassword, newPassword)
+        if (errors.isNotEmpty()) throw PasswordException(PasswordFailure.VALIDATION, errors)
+        // The request and its durable completion outlive the screen waiting for them.
+        jobs.async {
+            passwordWrites.withLock {
+                val used = onSession { requireOwnerLocked(owner); checkNotNull(credentialsLocked()) }
+                try {
+                    passwordApi.changePassword(used.token, currentPassword, newPassword)
+                } catch (error: PasswordException) {
+                    if (error.reason != PasswordFailure.UNAUTHORIZED) throw error
+                    // A 401 rejects the mutation. Refresh may update credentials, never replay the POST.
+                    val refreshed = try { refreshAfterUnauthorized(used) }
+                    catch (cancelled: CancellationException) { throw cancelled }
+                    catch (failure: AuthException) {
+                        throw PasswordException(when (failure.reason) {
+                            AuthFailure.NETWORK -> PasswordFailure.NETWORK
+                            AuthFailure.TIMEOUT -> PasswordFailure.TIMEOUT
+                            AuthFailure.RATE_LIMITED -> PasswordFailure.RATE_LIMITED
+                            AuthFailure.STORAGE -> PasswordFailure.STORAGE
+                            else -> PasswordFailure.UNAVAILABLE
+                        }, retryAfterSeconds = failure.retryAfterSeconds)
+                    }
+                    if (refreshed == null) throw PasswordException(PasswordFailure.UNAUTHORIZED)
+                    throw PasswordException(PasswordFailure.SESSION_REFRESHED)
+                }
+                withContext(NonCancellable) {
+                    onSession {
+                        when {
+                            isCurrent(owner) -> expireLocked(resetPin = false, reason = ReauthenticationReason.PASSWORD_CHANGED)
+                            record?.mode == "reauth" && record?.sessionId == owner.sessionId -> {
+                                // A concurrent protected request may have noticed the revocation first.
+                                // Update feedback without cancelling a sign-in already in progress.
+                                val next = checkNotNull(record).copy(reauthenticationReason = ReauthenticationReason.PASSWORD_CHANGED)
+                                try {
+                                    storage.write(next)
+                                    record = next
+                                    mutableState.value = SessionState.ReauthenticationRequired(next.user, next.reauthenticationReason)
+                                } catch (_: Exception) { mutableState.value = SessionState.StorageError(email = next.user?.email) }
+                            }
+                        }
+                        if (state.value is SessionState.StorageError) throw PasswordException(PasswordFailure.STORAGE)
+                    }
+                }
+            }
+        }.await()
+    }
+
+    override suspend fun signInAfterUnconfirmedChange(owner: SessionIdentity) = onSession {
+        requireOwnerLocked(owner)
+        expireLocked(resetPin = false, reason = ReauthenticationReason.PASSWORD_CHANGE_UNCONFIRMED)
+    }
+
+    override suspend fun requestReset(email: String): PasswordResetChallenge = passwordApi.requestReset(email).let {
+        PasswordResetChallenge(it.requestId, it.expiresInSeconds, it.resendAfterSeconds)
+    }
+
+    override suspend fun verifyReset(requestId: String, code: String): PasswordResetGrant =
+        passwordApi.verifyReset(requestId, code).let { PasswordResetGrant(it.resetToken, it.expiresInSeconds) }
+
+    override suspend fun completeReset(email: String, resetToken: String, newPassword: String) {
+        val errors = PasswordValidation.reset(newPassword, newPassword)
+        if (errors.isNotEmpty()) throw PasswordException(PasswordFailure.VALIDATION, errors)
+        // The recovery form belongs to the public auth stack. A late receipt never signs out a newer login.
+        val attempt = onSession {
+            check(restoreFinished && state.value !is SessionState.Active)
+            generation
+        }
+        jobs.async {
+            passwordWrites.withLock {
+                try { passwordApi.completeReset(resetToken, newPassword) }
+                catch (error: PasswordException) {
+                    if (error.outcomeUnknown) finishPasswordRecovery(attempt, email, ReauthenticationReason.PASSWORD_CHANGE_UNCONFIRMED)
+                    throw error
+                }
+                finishPasswordRecovery(attempt, email, ReauthenticationReason.PASSWORD_CHANGED)
+            }
+        }.await()
+    }
+
+    private suspend fun finishPasswordRecovery(attempt: Long, email: String, reason: ReauthenticationReason) =
+        withContext(NonCancellable) {
+            onSession {
+                val previous = record
+                if (attempt == generation && previous != null && previous.user?.email.equals(email.trim(), ignoreCase = true)) {
+                    if (previous.mode == "active") {
+                        // Storage recovery can expose auth UI with an old active record still on disk.
+                        expireLocked(resetPin = false, reason = reason)
+                    } else if (previous.mode == "reauth") {
+                        val next = previous.copy(resetPinUserId = null, reauthenticationReason = reason)
+                        try {
+                            storage.write(next)
+                            record = next
+                            mutableState.value = SessionState.ReauthenticationRequired(next.user, next.reauthenticationReason)
+                        } catch (_: Exception) {
+                            mutableState.value = SessionState.StorageError(email = email.trim())
+                        }
+                    }
+                }
+            }
+        }
+
     suspend fun refreshAfterUnauthorized(used: AccessCredentials): AccessCredentials? {
         val attempt = onSession {
             val current = credentialsLocked()?.takeIf { it.identity == used.identity } ?: return@onSession null
@@ -293,17 +400,19 @@ class SessionManager @Inject constructor(
         if (state.value is SessionState.Active) expireLocked(resetPin = true)
     }
 
-    private suspend fun expireLocked(resetPin: Boolean) = withContext(NonCancellable) {
+    private suspend fun expireLocked(resetPin: Boolean,
+        reason: ReauthenticationReason = ReauthenticationReason.SESSION_EXPIRED) = withContext(NonCancellable) {
         val previous = record ?: return@withContext
         ++generation
-        val next = StoredSession(mode = "reauth", user = previous.user,
-            resetPinUserId = if (resetPin) previous.user?.id else null, cleanupUserId = previous.cleanupUserId)
+        val next = StoredSession(mode = "reauth", user = previous.user, sessionId = previous.sessionId,
+            resetPinUserId = if (resetPin) previous.user?.id else null, cleanupUserId = previous.cleanupUserId,
+            reauthenticationReason = reason)
         try {
             previous.sessionId?.let { preventCachedRestore(it) }
             storage.write(next)
             record = next
             refreshAttempt = null
-            mutableState.value = SessionState.ReauthenticationRequired(next.user)
+            mutableState.value = SessionState.ReauthenticationRequired(next.user, reason)
         } catch (_: Exception) { mutableState.value = SessionState.StorageError() }
         closeUserScope()
     }

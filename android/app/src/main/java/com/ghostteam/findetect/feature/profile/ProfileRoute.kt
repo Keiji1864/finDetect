@@ -6,10 +6,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
-fun ProfileRoute(onBack: () -> Unit, onLogout: () -> Unit, logoutWorking: Boolean, gameElementsEnabled: Boolean,
+fun ProfileRoute(onBack: () -> Unit, onChangePassword: () -> Unit, onLogout: () -> Unit, logoutWorking: Boolean, gameElementsEnabled: Boolean,
     viewModel: ProfileViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    ProfileScreen(state = state, onBack = onBack, onLogout = onLogout, working = logoutWorking,
+    ProfileScreen(state = state, onBack = onBack, onChangePassword = onChangePassword, onLogout = onLogout, working = logoutWorking,
         gameElementsEnabled = gameElementsEnabled, onNameChange = viewModel::editName, onSaveName = viewModel::save,
         onRefresh = viewModel::refresh, onDeleteAccount = viewModel::askDelete,
         onConfirmDelete = viewModel::confirmDelete, onDismissDelete = viewModel::dismissDelete, onRetryXp = viewModel::retryXp)

@@ -28,13 +28,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.FinButton
 import com.ghostteam.findetect.core.designsystem.component.FinButtonStyle
 import com.ghostteam.findetect.core.designsystem.component.FinTextField
+import com.ghostteam.findetect.core.designsystem.component.FinPasswordField
 import com.ghostteam.findetect.core.designsystem.component.FinTopBar
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
@@ -42,12 +42,6 @@ import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.domain.model.AuthField
 import com.ghostteam.findetect.feature.session.*
 
-/**
- * Регистрация (Figma 06): стрелка "назад" и заголовок "Создать аккаунт", четыре поля
- * (имя, почта, пароль, повтор пароля), кнопка "Создать аккаунт" прижата к низу экрана.
- *
- * Form limits follow the API contract. Passwords remain in memory only.
- */
 @Composable
 fun RegisterScreen(
     onBack: () -> Unit = {},
@@ -61,7 +55,6 @@ fun RegisterScreen(
     var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var repeat by remember { mutableStateOf("") }
-    // Ошибки показываем только после первого нажатия на "Создать аккаунт"
     var submitted by rememberSaveable { mutableStateOf(false) }
 
     val localErrors = if (submitted && !state.accountCreated) AuthFormValidation.registration(name, email, password, repeat) else emptyMap()
@@ -122,7 +115,7 @@ fun RegisterScreen(
                 errorText = authFieldText(AuthField.EMAIL, localErrors[AuthField.EMAIL] ?: state.fieldErrors[AuthField.EMAIL]),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             )
-            FinTextField(
+            FinPasswordField(
                 label = stringResource(R.string.ui_login_password_label),
                 value = password,
                 onValueChange = { password = it; onFieldChange(AuthField.PASSWORD) },
@@ -130,9 +123,8 @@ fun RegisterScreen(
                 placeholder = stringResource(R.string.ui_login_password_placeholder),
                 errorText = authFieldText(AuthField.PASSWORD, localErrors[AuthField.PASSWORD] ?: state.fieldErrors[AuthField.PASSWORD]),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Next),
-                visualTransformation = PasswordVisualTransformation(),
             )
-            FinTextField(
+            FinPasswordField(
                 label = stringResource(R.string.ui_register_repeat_label),
                 value = repeat,
                 onValueChange = { repeat = it; onFieldChange(AuthField.CONFIRMATION) },
@@ -140,7 +132,6 @@ fun RegisterScreen(
                 placeholder = stringResource(R.string.ui_login_password_placeholder),
                 errorText = authFieldText(AuthField.CONFIRMATION, localErrors[AuthField.CONFIRMATION] ?: state.fieldErrors[AuthField.CONFIRMATION]),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                visualTransformation = PasswordVisualTransformation(),
                 keyboardActions = KeyboardActions(onDone = { submit() }),
             )
             if (feedback != null) Text(feedback, style = FinTheme.typography.caption, color = FinTheme.colors.red)
