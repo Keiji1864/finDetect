@@ -3,6 +3,8 @@ package com.ghostteam.findetect.data.session
 import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.room.Room
 import com.ghostteam.findetect.core.data.LocalDataInitializer
@@ -48,7 +50,8 @@ class UserDataScope internal constructor(
     val database: AppDatabase,
     val gate: UserAccessGate,
     val pin: PinStorage,
-    val settings: LocalSettingsRepository,
+    device: DevicePreferences,
+    preferences: DataStore<Preferences>,
     clock: Clock,
     calculateStreak: CalculateStreakUseCase,
     calculateAchievements: CalculateAchievementsUseCase,
@@ -59,6 +62,7 @@ class UserDataScope internal constructor(
     internal val exchange = com.ghostteam.findetect.data.sync.RoomExchange(database, gate)
     val xp = LocalXpRepository(database, database.xpDao(), clock, calculateStreak)
     val achievements = LocalAchievementRepository(database, database.achievementDao(), clock, calculateAchievements, xp)
+    val settings = LocalSettingsRepository(device, preferences, database, gate, achievements, clock)
     val accounts = LocalAccountRepository(database, database.accountDao(), database.accountDeletionDao(), clock)
     val categories = LocalCategoryRepository(database, database.categoryDao())
     val transactions = LocalTransactionRepository(database, database.transactionDao(), database.accountDao(),
@@ -126,7 +130,7 @@ class UserDataScopes @Inject constructor(
             database.categoryDao().upsertAll(com.ghostteam.findetect.data.local.defaultCategories.filter { it.id !in known })
             val pin = PinStorage(context, id, gate)
             pin.refresh()
-            UserDataScope(identity, database, gate, pin, LocalSettingsRepository(device, preferences.forUser(id), database.personalSettingsDao(), gate),
+            UserDataScope(identity, database, gate, pin, device, preferences.forUser(id),
                 clock, calculateStreak, calculateAchievements).also {
                 it.settings.initialize()
                 it.xp.initialize()

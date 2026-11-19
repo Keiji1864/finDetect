@@ -29,7 +29,7 @@ import com.ghostteam.findetect.feature.analytics.CategoryDetailRoute
 import com.ghostteam.findetect.feature.expenses.ExpensesRoute
 import com.ghostteam.findetect.feature.home.HomeRoute
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
-import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
+import com.ghostteam.findetect.feature.settings.IncomeScheduleRoute
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
 import com.ghostteam.findetect.feature.profile.ProfileRoute
 import com.ghostteam.findetect.feature.password.ChangePasswordRoute
@@ -172,14 +172,11 @@ fun AppNavHost(
         NavHost(controller, start, Modifier.padding(padding)) {
             composable(Destination.ChangePassword.route) { ChangePasswordRoute(onBack = back) }
             composable(Destination.Onboarding.route) {
-                OnboardingIncomeScreen(
+                IncomeScheduleRoute(
+                    onboarding = true,
+                    advancing = sessionUi.working,
                     onBack = onExit,
-                    onContinue = { date, repeat ->
-                        sessionModel.saveIncome(date, repeat) {
-                            open(Destination.OnboardingPin)
-                        }
-                    },
-                    onSkip = {
+                    onSaved = {
                         sessionModel.advance(OnboardingStep.PIN) {
                             open(Destination.OnboardingPin)
                         }
@@ -370,6 +367,7 @@ fun AppNavHost(
             composable(Destination.Settings.route) {
                 SettingsScreen(
                     onBack = back,
+                    onOpenIncome = { open(Destination.SettingsIncome) },
                     onOpenAppearance = {
                         open(Destination.SettingsAppearance)
                     },
@@ -386,6 +384,10 @@ fun AppNavHost(
                         open(Destination.SettingsGamification)
                     },
                 )
+            }
+
+            composable(Destination.SettingsIncome.route) {
+                IncomeScheduleRoute(onBack = back, onSaved = back)
             }
 
             composable(Destination.SettingsAppearance.route) {

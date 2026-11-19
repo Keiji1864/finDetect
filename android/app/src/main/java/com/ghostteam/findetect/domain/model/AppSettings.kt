@@ -13,6 +13,7 @@ data class AppSettings(
     val gameElementsEnabled: Boolean = true,
     val forecastTipsEnabled: Boolean = true,
     val dailyReminder: DailyReminderSettings = DailyReminderSettings(),
+    val incomeSchedule: IncomeSchedule? = null,
 )
 
 data class DailyReminderSettings(val enabled: Boolean = false, val hour: Int = 20) {
