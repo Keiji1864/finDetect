@@ -1,0 +1,3 @@
+<resources>
+    <string name="sync_temporarily_unavailable">Показаны данные с этого устройства. Повторим синхронизацию при подключении к серверу.</string>
+</resources>

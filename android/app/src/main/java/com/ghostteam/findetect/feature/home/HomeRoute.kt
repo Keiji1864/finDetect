@@ -7,6 +7,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun HomeRoute(
+    userName: String,
     onAddTransaction: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
     onOpenStreak: () -> Unit = {},
@@ -18,6 +19,7 @@ fun HomeRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     HomeScreen(
         state = state,
+        userName = userName,
         onAddTransaction = onAddTransaction,
         onOpenProfile = onOpenProfile,
         onOpenStreak = onOpenStreak,

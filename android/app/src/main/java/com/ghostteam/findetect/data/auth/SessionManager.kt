@@ -38,6 +38,7 @@ class SessionManager @Inject constructor(
     private val users: UserDataScopes,
     private val device: DevicePreferences,
     private val clock: Clock,
+    private val finance: Lazy<com.ghostteam.findetect.data.sync.FinanceSyncApi>,
     private val profileApi: Lazy<ProfileApi>,
 ) : AuthRepository, ProfileRepository {
     private val transitions = Mutex()
@@ -46,6 +47,7 @@ class SessionManager @Inject constructor(
     private val mutableState = MutableStateFlow<SessionState>(SessionState.Restoring)
     override val state = mutableState.asStateFlow()
     @Volatile private var record: StoredSession? = null
+    private var financeJob: Job? = null
     private var generation = 0L
     private var restoreFinished = false
     // Read and changed only under onSession, together with the session record.
@@ -94,7 +96,7 @@ class SessionManager @Inject constructor(
                     else -> mutableState.value = SessionState.SignedOut
                 }
             } catch (error: CancellationException) { throw error }
-            catch (_: Exception) { mutableState.value = recovery ?: SessionState.StorageError(); users.close() }
+            catch (_: Exception) { mutableState.value = recovery ?: SessionState.StorageError(); closeUserScope() }
             finally { restoreFinished = true }
         }
     }
@@ -135,7 +137,7 @@ class SessionManager @Inject constructor(
                 record = next
                 device.finishCleanups(cleanupReceipts)
                 mutableState.value = SessionState.Restoring
-                users.close()
+                closeUserScope()
                 if (resetPin != null) {
                     users.resetPin(id)
                     next = next.copy(resetPinUserId = null)
@@ -146,9 +148,15 @@ class SessionManager @Inject constructor(
             }
         } catch (_: Exception) {
             mutableState.value = SessionState.StorageError(email = response.user.email, accountCreated = registration)
-            users.close()
+            closeUserScope()
             throw AuthException(AuthFailure.STORAGE)
         }
+    }
+
+    private suspend fun closeUserScope() {
+        financeJob?.cancel()
+        financeJob = null
+        users.close()
     }
 
     private suspend fun activate(saved: StoredSession, registration: Boolean) {
@@ -159,11 +167,32 @@ class SessionManager @Inject constructor(
         val step = users.onboarding(user.id, registration)
         users.saveOnboarding(user.id, step)
         val scope = users.open(identity)
+        val remote = !com.ghostteam.findetect.BuildConfig.USE_MOCK_API
+        if (remote) {
+            try {
+                scope.exchange.exchange { finance.get().initial(it,checkNotNull(saved.accessToken)) }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { scope.syncFailed(true) }
+        }
         users.publish(scope)
         refreshRevision += 1
         profileRevision += 1
         refreshAttempt = null
         mutableState.value = SessionState.Active(identity, user, step)
+        financeJob?.cancel()
+        if (remote) financeJob = jobs.launch {
+            while (isCurrent(identity)) {
+                try {
+                    scope.exchange.awaitChange()
+                    delay(350)
+                    if (!isCurrent(identity)) break
+                    scope.exchange.exchange { finance.get().exchange(it,identity) }
+                    scope.syncFailed(false)
+                }
+                catch (error: CancellationException) { throw error }
+                catch (_: Exception) { scope.syncFailed(true); delay(15_000) }
+            }
+        }
     }
 
     suspend fun credentials(): AccessCredentials? = onSession { credentialsLocked() }
@@ -245,7 +274,7 @@ class SessionManager @Inject constructor(
                     preventCachedRestore(owner.sessionId)
                     refreshAttempt = null
                     mutableState.value = SessionState.StorageError()
-                    users.close()
+                    closeUserScope()
                     throw AuthException(AuthFailure.STORAGE)
                 }
             }
@@ -276,20 +305,30 @@ class SessionManager @Inject constructor(
             refreshAttempt = null
             mutableState.value = SessionState.ReauthenticationRequired(next.user)
         } catch (_: Exception) { mutableState.value = SessionState.StorageError() }
-        users.close()
+        closeUserScope()
     }
 
-    override suspend fun logout(discardPendingChanges: Boolean): LogoutResult = onSession {
-        val current = state.value as? SessionState.Active ?: return@onSession LogoutResult.DONE
-        if (!discardPendingChanges && users.requireCurrent().hasPendingChanges()) return@onSession LogoutResult.NEEDS_CONFIRMATION
-        val refresh = record?.refreshToken
-        clearLocalSessionLocked(current.user.id)
-        if (refresh != null) jobs.launch {
-            try { withTimeout(5_000) { api.logout(refresh) } }
+    override suspend fun logout(discardPendingChanges: Boolean): LogoutResult {
+        val scope = users.current.value ?: return LogoutResult.DONE
+        val remote = !com.ghostteam.findetect.BuildConfig.USE_MOCK_API
+        if (remote && !discardPendingChanges) {
+            try { scope.exchange.exchange { finance.get().exchange(it,scope.identity) } }
             catch (error: CancellationException) { throw error }
-            catch (_: Exception) { /* Local logout has already completed. */ }
+            catch (_: Exception) { /* Ask before discarding any unconfirmed local changes. */ }
         }
-        LogoutResult.DONE
+        return onSession {
+            if (!isCurrent(scope.identity)) return@onSession LogoutResult.DONE
+            val current = state.value as? SessionState.Active ?: return@onSession LogoutResult.DONE
+            if (!discardPendingChanges && (if (remote) scope.exchange.pending() else scope.hasPendingChanges())) return@onSession LogoutResult.NEEDS_CONFIRMATION
+            val refresh = record?.refreshToken
+            clearLocalSessionLocked(current.user.id)
+            if (refresh != null) jobs.launch {
+                try { withTimeout(5_000) { api.logout(refresh) } }
+                catch (error: CancellationException) { throw error }
+                catch (_: Exception) { /* Local logout has already completed. */ }
+            }
+            LogoutResult.DONE
+        }
     }
 
     /** Used by logout and by a confirmed DELETE, never by an unconfirmed network failure. */
@@ -308,7 +347,7 @@ class SessionManager @Inject constructor(
                     ++generation
                     mutableState.value = SessionState.Restoring
                 }
-                if (users.current.value?.identity?.userId == userId) users.close()
+                if (users.current.value?.identity?.userId == userId) closeUserScope()
                 users.deleteUserData(userId)
                 val done = StoredSession(mode = "signed_out")
                 storage.write(done)
@@ -317,7 +356,7 @@ class SessionManager @Inject constructor(
                 mutableState.value = SessionState.SignedOut
             } catch (_: Exception) {
                 mutableState.value = SessionState.StorageError()
-                if (users.current.value?.identity?.userId == userId) users.close()
+                if (users.current.value?.identity?.userId == userId) closeUserScope()
                 throw AuthException(AuthFailure.STORAGE)
             }
         }

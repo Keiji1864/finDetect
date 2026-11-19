@@ -1,0 +1,18 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: findetect
+      POSTGRES_USER: ${DB_USER:-findetect}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-findetect_local}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - findetect_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-findetect} -d findetect"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  findetect_data:
