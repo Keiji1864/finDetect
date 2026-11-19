@@ -129,6 +129,7 @@ fun AppNavHost(session: SessionState.Active, sessionModel: UserSessionViewModel,
         },
     ) { padding ->
         NavHost(controller, start, Modifier.padding(padding)) {
+            composable(Destination.ChangePassword.route) { ChangePasswordRoute(onBack = back) }
             composable(Destination.Onboarding.route) {
                 OnboardingIncomeScreen(
                     onBack = onExit,
@@ -237,14 +238,13 @@ fun AppNavHost(session: SessionState.Active, sessionModel: UserSessionViewModel,
                 val settingsViewModel: SettingsViewModel = hiltViewModel()
                 val settings by settingsViewModel.state.collectAsStateWithLifecycle()
                 ProfileRoute(
+                    onChangePassword = { open(Destination.ChangePassword) },
                     gameElementsEnabled = settings.settings?.gameElementsEnabled == true,
                     onBack = back,
-                    onChangePassword = { open(Destination.ChangePassword) },
                     onLogout = { sessionModel.logout() },
                     logoutWorking = sessionUi.working,
                 )
             }
-            composable(Destination.ChangePassword.route) { ChangePasswordRoute(onBack = back) }
             composable(Destination.Settings.route) {
                 SettingsScreen(
                     onBack = back,
