@@ -68,7 +68,7 @@ class LocalXpRepository @Inject constructor(
         val existing = dao.getBySource(XpReason.ACHIEVEMENT, reference)
         if (existing != null) return@withTransaction existing.id
         val event = XpEventEntity(
-            id = UUID.randomUUID().toString(),
+            id = UUID.nameUUIDFromBytes("ACHIEVEMENT:$reference".toByteArray()).toString(),
             reason = XpReason.ACHIEVEMENT,
             sourceId = reference,
             reasonRef = reference,
@@ -95,7 +95,7 @@ class LocalXpRepository @Inject constructor(
             val counted = dao.countDailyAwards(localDate, reason) < dailyLimit
             // Even a capped action retains its identity; later deletion/retry cannot turn it into an award.
             dao.insertEvent(XpEventEntity(
-                id = UUID.randomUUID().toString(),
+                id = UUID.nameUUIDFromBytes("$reason:$sourceId".toByteArray()).toString(),
                 reason = reason,
                 sourceId = sourceId,
                 reasonRef = null,
@@ -122,7 +122,7 @@ class LocalXpRepository @Inject constructor(
             val activity = checkNotNull(database.activityDayDao().get(reachedDate.toString()))
             val reference = milestone.activeDays.toString()
             dao.insertEvent(XpEventEntity(
-                id = UUID.randomUUID().toString(),
+                id = UUID.nameUUIDFromBytes("STREAK_MILESTONE:$reference".toByteArray()).toString(),
                 reason = XpReason.STREAK_MILESTONE,
                 sourceId = reference,
                 reasonRef = reference,

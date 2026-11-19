@@ -12,6 +12,7 @@ import com.ghostteam.findetect.data.local.migration.MIGRATION_2_3
 import com.ghostteam.findetect.data.local.migration.MIGRATION_3_4
 import com.ghostteam.findetect.data.local.migration.MIGRATION_4_5
 import com.ghostteam.findetect.data.local.migration.MIGRATION_5_6
+import com.ghostteam.findetect.data.local.migration.MIGRATION_7_8
 import com.ghostteam.findetect.data.local.migration.MIGRATION_6_7
 import com.ghostteam.findetect.data.pin.PinStorage
 import com.ghostteam.findetect.data.reminder.ReminderNotifications
@@ -52,6 +53,10 @@ class UserDataScope internal constructor(
     calculateStreak: CalculateStreakUseCase,
     calculateAchievements: CalculateAchievementsUseCase,
 ) {
+    private val mutableSyncFailed = MutableStateFlow(false)
+    val syncFailed = mutableSyncFailed.asStateFlow()
+    internal fun syncFailed(value: Boolean) { mutableSyncFailed.value = value }
+    internal val exchange = com.ghostteam.findetect.data.sync.RoomExchange(database, gate)
     val xp = LocalXpRepository(database, database.xpDao(), clock, calculateStreak)
     val achievements = LocalAchievementRepository(database, database.achievementDao(), clock, calculateAchievements, xp)
     val accounts = LocalAccountRepository(database, database.accountDao(), database.accountDeletionDao(), clock)
@@ -112,13 +117,18 @@ class UserDataScopes @Inject constructor(
         val id = canonicalUserId(identity.userId)
         val gate = UserAccessGate()
         val database = Room.databaseBuilder(context, AppDatabase::class.java, databaseName(id))
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build()
         try {
             initializer.initialize(database, id)
+            val known = database.openHelper.readableDatabase.query("SELECT id FROM categories").use { rows ->
+                    buildSet { while (rows.moveToNext()) add(rows.getString(0)) }
+                }
+            database.categoryDao().upsertAll(com.ghostteam.findetect.data.local.defaultCategories.filter { it.id !in known })
             val pin = PinStorage(context, id, gate)
             pin.refresh()
-            UserDataScope(identity, database, gate, pin, LocalSettingsRepository(device, preferences.forUser(id), gate),
+            UserDataScope(identity, database, gate, pin, LocalSettingsRepository(device, preferences.forUser(id), database.personalSettingsDao(), gate),
                 clock, calculateStreak, calculateAchievements).also {
+                it.settings.initialize()
                 it.xp.initialize()
                 it.achievements.initialize()
             }

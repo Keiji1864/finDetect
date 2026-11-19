@@ -12,6 +12,9 @@ import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.domain.model.AppSettings
 import com.ghostteam.findetect.domain.model.DailyReminderSettings
 import com.ghostteam.findetect.domain.repository.SettingsRepository
+import com.ghostteam.findetect.data.local.dao.*
+import kotlinx.coroutines.flow.first
+import kotlinx.datetime.Clock
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -19,18 +22,25 @@ import kotlinx.coroutines.flow.map
 class LocalSettingsRepository(
     private val device: DevicePreferences,
     private val store: DataStore<Preferences>,
+    private val dao: PersonalSettingsDao,
     private val gate: UserAccessGate,
 ) : SettingsRepository {
-    override val settings = combine(device.store.data, store.data) { devicePreferences, preferences ->
+    override val settings = combine(device.store.data, dao.observe()) { devicePreferences, preferences ->
         AppSettings(
             currency = AppCurrency.entries.firstOrNull { it.name == devicePreferences[currencyKey] } ?: AppCurrency.RUB,
-            gameElementsEnabled = preferences[gameKey] ?: true,
+            gameElementsEnabled = preferences.gameEnabled,
             dailyReminder = DailyReminderSettings(
-                enabled = preferences[reminderEnabledKey] ?: false,
-                hour = (preferences[reminderHourKey] ?: 20).coerceIn(18, 22),
+                enabled = preferences.reminderEnabled,
+                hour = preferences.reminderHour,
             ),
         )
     }.distinctUntilChanged()
+
+    internal suspend fun initialize() {
+        val old = store.data.first()
+        dao.seed(PersonalSettings(gameEnabled = old[gameKey] ?: true, reminderEnabled = old[reminderEnabledKey] ?: false,
+            reminderHour = (old[reminderHourKey] ?: 20).coerceIn(18,22), modifiedAt = "1970-01-01T00:00:00.000000000Z"))
+    }
 
     override val currency = settings.map { it.currency }.distinctUntilChanged()
 
@@ -40,18 +50,18 @@ class LocalSettingsRepository(
     }
 
     override suspend fun setGameElementsEnabled(enabled: Boolean) = gate.use {
-        store.edit { it[gameKey] = enabled }
+        dao.game(enabled, Clock.System.now().toString())
         Unit
     }
 
     override suspend fun setDailyReminderEnabled(enabled: Boolean) = gate.use {
-        store.edit { it[reminderEnabledKey] = enabled }
+        dao.reminder(enabled, Clock.System.now().toString())
         Unit
     }
 
     override suspend fun setDailyReminderHour(hour: Int) = gate.use {
         require(hour in 18..22)
-        store.edit { it[reminderHourKey] = hour }
+        dao.hour(hour, Clock.System.now().toString())
         Unit
     }
 

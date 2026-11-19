@@ -72,13 +72,13 @@ private fun formatIncomeDate(millis: Long): String =
 /**
  * Онбоардинг, шаг "Когда следующий доход?" (Figma 06): стрелка "назад", заголовок в две строки,
  * подсказка, поля "Следующее поступление" (календарь) и "Повторять" (шторка), плашка,
- * внизу "Продолжить" и "Пропустить". Ничего не сохраняется: и "Продолжить", и "Пропустить" идут дальше.
+ * внизу "Продолжить" и "Пропустить".
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnboardingIncomeScreen(
     onBack: () -> Unit = {},
-    onContinue: () -> Unit = {},
+    onContinue: (Long, Int) -> Unit = { _, _ -> },
     onSkip: () -> Unit = {},
 ) {
     var dateMillis by rememberSaveable { mutableLongStateOf(defaultIncomeMillis()) }
@@ -162,7 +162,7 @@ fun OnboardingIncomeScreen(
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(FinDimens.blockGap),
         ) {
-            FinButton(text = stringResource(R.string.ui_onboarding_continue), onClick = onContinue)
+            FinButton(text = stringResource(R.string.ui_onboarding_continue), onClick = { onContinue(dateMillis, repeatIndex) })
             FinButton(
                 text = stringResource(R.string.ui_onboarding_skip),
                 onClick = onSkip,
