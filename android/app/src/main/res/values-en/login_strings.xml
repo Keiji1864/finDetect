@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_login_tagline">Your finances under control</string>
+    <string name="ui_login_email_label">Email</string>
+    <string name="ui_login_email_placeholder">name@example.com</string>
+    <string name="ui_login_email_error">Enter a valid email address</string>
+    <string name="ui_login_password_label">Password</string>
+    <string name="ui_login_password_placeholder">••••••••</string>
+    <string name="ui_login_password_error">Enter your password</string>
+    <string name="ui_login_sign_in">Sign in</string>
+    <string name="ui_login_forgot">Forgot password?</string>
+    <string name="ui_login_no_account">New here?</string>
+    <string name="ui_login_register">Sign up</string>
+</resources>

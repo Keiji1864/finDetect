@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="xp_title_trainee">Trainee</string>
+    <string name="xp_title_investigator">Investigator</string>
+    <string name="xp_title_senior_investigator">Senior Investigator</string>
+    <string name="xp_title_detective">Detective</string>
+    <string name="xp_title_chief_detective">Chief Detective</string>
+    <string name="xp_level_title">Level %1$d · %2$s</string>
+    <string name="xp_level_progress">%1$d / %2$d XP</string>
+    <string name="xp_total">Total: %1$d XP</string>
+    <string name="xp_remaining">XP to next level: %1$d</string>
+    <string name="xp_max_level">Maximum level</string>
+    <string name="xp_read_error">Could not load XP</string>
+    <string name="xp_progress_accessibility">Level progress: %1$d of %2$d XP. XP to next level: %3$d.</string>
+    <string name="xp_max_accessibility">Maximum level. %1$d XP in total.</string>
+</resources>

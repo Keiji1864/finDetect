@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_recovery_code_title">Enter the code</string>
+    <string name="ui_recovery_code_hint">If an account exists for this email, we sent a code. Check your inbox and spam folder.</string>
+    <string name="ui_recovery_code_error">Enter the 6-digit code</string>
+    <string name="ui_recovery_code_no_code">Didn’t get a code?</string>
+    <string name="ui_recovery_code_resend">Resend code</string>
+    <string name="ui_recovery_password_title">Create a new password</string>
+    <string name="ui_recovery_password_hint">Use 8 to 128 characters. Choose a password different from your old one, then sign in with your new password.</string>
+    <string name="ui_recovery_password_new_label">New password</string>
+    <string name="ui_recovery_password_same">Choose a password different from your current one</string>
+    <string name="ui_recovery_password_show">Show password</string>
+    <string name="ui_recovery_password_hide">Hide password</string>
+    <string name="recovery_email_title">Reset password</string>
+    <string name="recovery_email_hint">Enter the email for your account. We’ll send a code to reset your password.</string>
+    <string name="recovery_send_code">Send code</string>
+    <string name="recovery_send_wait">Send code in %1$d s</string>
+    <string name="recovery_resend_wait">Resend in %1$d s</string>
+    <string name="recovery_code_remaining">Code expires in %1$d:%2$02d</string>
+    <string name="recovery_verify_wait">Check code in %1$d s</string>
+    <string name="recovery_grant_remaining">Time to reset your password: %1$d:%2$02d</string>
+    <string name="recovery_save_password">Save password</string>
+    <string name="recovery_save_wait">Save password in %1$d s</string>
+    <string name="recovery_restart">Start over</string>
+    <string name="recovery_code_invalid">Incorrect or already used code. Check the code in the most recent email.</string>
+    <string name="recovery_code_expired">Code expired. Request a new one.</string>
+    <string name="recovery_new_code_required">Request a new code to continue.</string>
+    <string name="recovery_token_invalid">Your reset authorization expired or was already used. Start over.</string>
+    <string name="recovery_exchange_unconfirmed">The server response was missing or invalid. The code may have been replaced or used. Request another email when the timer ends.</string>
+    <string name="recovery_complete_unconfirmed">We couldn’t confirm the result. Try signing in with your new password. If that fails, start the reset again.</string>
+    <string name="recovery_unavailable">Could not reset your password. Try again later.</string>
+</resources>

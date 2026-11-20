@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_settings_appearance">Appearance and language</string>
+    <string name="ui_settings_appearance_hint">Light · English</string>
+    <string name="ui_settings_currency">Currency</string>
+    <string name="ui_settings_currency_hint">Russian ruble</string>
+    <string name="ui_settings_security">Security</string>
+    <string name="ui_settings_security_hint">PIN enabled</string>
+    <string name="ui_settings_reminders">Reminders</string>
+    <string name="ui_settings_reminders_hint">Daily at 20:00</string>
+    <string name="ui_settings_gamification">Game features</string>
+    <string name="ui_settings_gamification_hint">Streaks and achievements</string>
+    <string name="ui_theme">Theme</string>
+    <string name="ui_language">Language</string>
+    <string name="ui_theme_light">Light</string>
+    <string name="ui_theme_dark">Dark</string>
+    <string name="ui_theme_system">System</string>
+    <string name="ui_language_ru">Русский</string>
+    <string name="ui_language_en">English</string>
+    <string name="ui_preview">Preview</string>
+    <string name="ui_preview_hint">Light background, navy text and yellow accents</string>
+    <string name="ui_currency_title">Display currency</string>
+    <string name="ui_currency_rub">RUB</string>
+    <string name="ui_currency_rub_name">Russian ruble</string>
+    <string name="ui_currency_usd">USD</string>
+    <string name="ui_currency_usd_name">US dollar</string>
+    <string name="ui_currency_eur">EUR</string>
+    <string name="ui_currency_eur_name">Euro</string>
+    <string name="ui_currency_cny">CNY</string>
+    <string name="ui_currency_cny_name">Chinese yuan</string>
+    <string name="ui_no_conversion">No currency conversion</string>
+    <string name="ui_no_conversion_hint">Only transactions and accounts in the selected currency are shown.</string>
+    <string name="ui_reminders_toggle">Remind me to log transactions</string>
+    <string name="ui_reminders_time">Time</string>
+    <string name="ui_reminders_period">Frequency</string>
+    <string name="ui_reminders_choose_time">Reminder time</string>
+    <string name="ui_notifications_permission">Notification permission</string>
+    <string name="ui_notifications_permission_hint">Enable notifications in device settings</string>
+    <string name="ui_open_settings">Open settings</string>
+    <string-array name="ui_reminder_times">
+        <item>18:00</item>
+        <item>19:00</item>
+        <item>20:00</item>
+        <item>21:00</item>
+        <item>22:00</item>
+    </string-array>
+    <string-array name="ui_reminder_periods">
+        <item>Daily</item>
+        <item>Weekdays</item>
+        <item>Weekly</item>
+    </string-array>
+    <string name="ui_gamification_about">What’s included</string>
+    <string name="ui_gamification_about_hint">Streaks, XP, levels and achievements. Turn them off to hide them and keep your progress. Reminders and spend-free check-ins work independently.</string>
+    <string name="ui_pin_create">Choose a PIN</string>
+    <string name="ui_pin_repeat">Confirm your PIN</string>
+    <string name="ui_pin_hint">4 digits. Your PIN is stored only on this device.</string>
+    <string name="ui_pin_delete">Delete digit</string>
+    <string name="ui_profile_title">Profile</string>
+    <string name="ui_profile_name_label">Name</string>
+    <string name="ui_profile_name_value">Vilena</string>
+    <string name="ui_profile_email_label">Email</string>
+    <string name="ui_profile_email_value">name@example.com</string>
+    <string name="ui_change_password">Change password</string>
+    <string name="ui_change_password_hint">Your current password is required</string>
+    <string name="ui_level">Level</string>
+    <string name="ui_sign_out">Sign out</string>
+    <string name="ui_delete_account">Delete account</string>
+</resources>

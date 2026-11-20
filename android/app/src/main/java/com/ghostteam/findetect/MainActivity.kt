@@ -2,6 +2,8 @@ package com.ghostteam.findetect
 
 import android.os.Bundle
 import android.content.Intent
+import android.content.Context
+import com.ghostteam.findetect.core.util.ApplicationLanguage
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,11 +22,18 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var lock: AppLockManager
+    @Inject lateinit var reminders: ReminderNotifications
     private var homeRequest by mutableIntStateOf(0)
     private var notificationOwner by mutableStateOf<SessionIdentity?>(null)
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        applyOverrideConfiguration(ApplicationLanguage.configuration(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        reminders.refreshExistingChannel()
         lock.onActivityCreated(restored = savedInstanceState != null)
         enableEdgeToEdge()
         homeRequest = savedInstanceState?.getInt(HOME_REQUEST) ?: if (intent.action == ReminderNotifications.ACTION_OPEN_HOME) 1 else 0

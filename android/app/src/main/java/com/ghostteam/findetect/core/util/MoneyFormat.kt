@@ -26,7 +26,10 @@ fun BigDecimal.formatAmount(locale: Locale = Locale.getDefault()): String {
 
 /** "24 850 ₽" */
 fun formatMoney(amount: BigDecimal, currencyCode: String, locale: Locale = Locale.getDefault()): String =
-    "${amount.formatAmount(locale)}\u00A0${currencySymbol(currencyCode)}"
+    if (locale.language == "en") {
+        val sign = if (amount.signum() < 0) MINUS else ""
+        "$sign${currencySymbol(currencyCode)}${amount.abs().formatAmount(locale)}"
+    } else "${amount.formatAmount(locale)}\u00A0${currencySymbol(currencyCode)}"
 
 /** Расход: "− 980 ₽", доход: "+50 000 ₽" (сумма в базе всегда положительная, знак определяет статья). */
 fun formatSignedMoney(

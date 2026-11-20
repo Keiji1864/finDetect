@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="session_password_required">Enter your password</string>
+    <string name="session_invalid_credentials">Incorrect email or password</string>
+    <string name="session_email_taken">An account with this email already exists</string>
+    <string name="session_network_error">Could not connect. Check your internet connection and try again.</string>
+    <string name="session_server_error">Service temporarily unavailable. Try again later.</string>
+    <string name="session_storage_error">Could not restore your secure session. Try again or sign in again.</string>
+    <string name="session_expired">Your session has ended. Sign in again to continue.</string>
+    <string name="session_sign_in_again">Sign in again</string>
+    <string name="session_logout_title">Sign out?</string>
+    <string name="session_logout_pending">Some changes have not reached the server. Signing out will delete this account’s local data and those changes will be lost.</string>
+    <string name="session_stay">Stay signed in</string>
+    <string name="session_action_error">Could not save changes. Try again.</string>
+</resources>

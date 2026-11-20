@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="transaction_edit_expense">Edit expense</string>
+    <string name="transaction_edit_income">Edit income</string>
+    <string name="transaction_delete">Delete transaction</string>
+    <string name="transaction_delete_title">Delete transaction?</string>
+    <string name="transaction_delete_hint">Your balance and period totals will be recalculated. You can undo deletion for 6 seconds.</string>
+    <string name="transaction_delete_confirm">Delete</string>
+    <string name="transaction_delete_cancel">Cancel</string>
+    <string name="transaction_deleted">Transaction deleted</string>
+    <string name="transaction_undo">Undo</string>
+    <string name="transaction_undo_failed">Could not restore the transaction. The undo window may have expired.</string>
+    <string name="transaction_deleted_account">%1$s (deleted)</string>
+    <string name="transaction_archived_category">%1$s (archived)</string>
+    <string name="transaction_not_found">Transaction deleted or no longer available.</string>
+    <string name="transaction_changed">This transaction has changed. Load the latest data before saving. This will replace your edits.</string>
+    <string name="transaction_reload">Load latest data</string>
+    <string name="transaction_currency_changed">The selected account’s currency changed to %1$s. Check the amount before saving. It will keep its numerical value.</string>
+    <string name="transaction_accept_currency">Use %1$s</string>
+    <string name="transaction_manage_error">Could not update the transaction. Try again.</string>
+</resources>

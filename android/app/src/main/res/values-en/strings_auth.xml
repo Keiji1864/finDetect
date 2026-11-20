@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="auth_email_required">Enter your email</string>
+    <string name="auth_name_length">Use 1 to 50 characters for your name</string>
+    <string name="auth_password_length">Use 8 to 128 characters for your password</string>
+    <string name="auth_invalid_field">Check this field</string>
+    <string name="auth_check_fields">Check your entries</string>
+    <string name="auth_timeout">The request timed out. Check your connection and try again.</string>
+    <string name="auth_rate_limited">Too many attempts. Try again later.</string>
+    <string name="auth_retry_after">Too many attempts. Try again in %1$d s.</string>
+    <string name="auth_account_created">Account created. Sign in with your email and password to continue.</string>
+    <string name="auth_registration_unconfirmed">Could not confirm registration. Your account may have been created. Try signing in with your email.</string>
+    <string name="auth_go_to_login">Go to sign-in</string>
+</resources>

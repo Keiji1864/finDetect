@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="finance_loading">Loading…</string>
+    <string name="finance_retry">Retry</string>
+    <string name="accounts_empty">No accounts in this currency yet</string>
+    <string name="accounts_empty_hint">Add an account to record spending and income.</string>
+    <string name="accounts_read_error">Could not load accounts. Try again.</string>
+    <string name="accounts_save_error">Could not save the account. Your entries are still here. Try again.</string>
+    <string name="accounts_currency_error">Account saved. Could not switch the display currency.</string>
+    <string name="currency_settings_error">Could not read or save the currency. Try again.</string>
+    <string name="accounts_name_error">Enter a name between 1 and 100 characters.</string>
+    <string name="accounts_balance_error">Enter an amount from 0 to 999,999,999.99 with up to two decimal places.</string>
+    <string name="accounts_icon_title">Account icon</string>
+    <string name="accounts_icon_choose">Select</string>
+    <string name="finance_icon_chart">Chart</string>
+    <string name="finance_icon_user">User</string>
+    <string name="finance_icon_gear">Settings</string>
+    <string name="finance_icon_basket">Basket</string>
+    <string name="finance_icon_coffee">Coffee</string>
+    <string name="finance_icon_bus">Bus</string>
+    <string name="finance_icon_calendar">Calendar</string>
+    <string name="finance_icon_trophy">Trophy</string>
+    <string name="finance_icon_flame">Flame</string>
+    <string name="finance_icon_spark">Spark</string>
+    <string name="finance_icon_lock">Lock</string>
+    <string name="finance_icon_receipt">Receipt</string>
+    <string name="finance_icon_plus">Plus</string>
+    <string name="finance_icon_check">Check mark</string>
+</resources>

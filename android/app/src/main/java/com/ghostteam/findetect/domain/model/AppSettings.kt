@@ -9,7 +9,6 @@ enum class AppCurrency(val symbol: String) {
 data class AppSettings(
     val currency: AppCurrency = AppCurrency.RUB,
     val theme: AppTheme = AppTheme.SYSTEM,
-    val language: AppLanguage = AppLanguage.RU,
     val gameElementsEnabled: Boolean = true,
     val forecastTipsEnabled: Boolean = true,
     val dailyReminder: DailyReminderSettings = DailyReminderSettings(),

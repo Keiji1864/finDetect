@@ -122,12 +122,13 @@ internal fun ForecastExplanation(state: ForecastState, back: () -> Unit, retry: 
         if (forecast == null) ForecastReadStatus(state, retry) else {
             FinNotice(stringResource(R.string.forecast_limit), text = stringResource(R.string.forecast_method))
             FinRow(stringResource(R.string.forecast_history), subtitle = stringResource(R.string.forecast_window,
-                forecast.today.minus(28, DateTimeUnit.DAY).formatDate(), forecast.today.minus(1, DateTimeUnit.DAY).formatDate(),
+                forecast.today.minus(28, DateTimeUnit.DAY).formatDate(LocalConfiguration.current.locales[0]),
+                forecast.today.minus(1, DateTimeUnit.DAY).formatDate(LocalConfiguration.current.locales[0]),
                 forecast.knownDays))
             FinRow(stringResource(R.string.forecast_accounts), subtitle = stringResource(R.string.forecast_balances,
                 forecast.accounts, forecast.money(forecast.balance)))
             FinRow(stringResource(R.string.income_schedule_title),
-                subtitle = forecast.income?.formatDate() ?: forecast.statusText())
+                subtitle = forecast.income?.formatDate(LocalConfiguration.current.locales[0]) ?: forecast.statusText())
             FinButton(stringResource(R.string.forecast_accounts_action), accounts, style = FinButtonStyle.Secondary)
         }
     }

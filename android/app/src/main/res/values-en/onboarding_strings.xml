@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_onboarding_income_title">When is your next income?</string>
+    <string name="ui_onboarding_income_hint">Set your next income date to see a daily spending target.</string>
+    <string name="ui_onboarding_income_date">Next income</string>
+    <string name="ui_onboarding_income_repeat">Repeat</string>
+    <string name="income_repeat_monthly">Monthly</string>
+    <string name="income_repeat_biweekly">Every two weeks</string>
+    <string name="income_repeat_weekly">Weekly</string>
+    <string name="income_repeat_once">Once</string>
+    <string name="income_monthly_anchor">Monthly on day %1$d</string>
+    <string name="income_schedule_title">Next income date</string>
+    <string name="income_schedule_unset">Not set</string>
+    <string name="income_schedule_due">%1$s · Set a new date</string>
+    <string name="income_schedule_future">Choose a date after today.</string>
+    <string name="ui_onboarding_income_notice">You can change this later</string>
+    <string name="ui_onboarding_income_notice_hint">This date is used for your financial forecast</string>
+    <string name="ui_onboarding_continue">Continue</string>
+    <string name="ui_onboarding_skip">Skip</string>
+    <string name="ui_onboarding_date_ok">Done</string>
+    <string name="ui_onboarding_date_cancel">Cancel</string>
+    <string name="ui_onboarding_pin_title">Create a PIN</string>
+    <string name="ui_onboarding_pin_hint">4 digits for quick access</string>
+    <string name="ui_onboarding_pin_repeat_hint">Enter the same PIN again</string>
+    <string name="ui_onboarding_pin_mismatch">PINs do not match. Try again</string>
+    <string name="ui_onboarding_pin_notice">Security</string>
+    <string name="ui_onboarding_pin_notice_hint">Avoid easy-to-guess combinations</string>
+</resources>

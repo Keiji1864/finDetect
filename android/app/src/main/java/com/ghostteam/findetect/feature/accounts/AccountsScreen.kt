@@ -22,6 +22,7 @@ import com.ghostteam.findetect.core.designsystem.component.*
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.core.navigation.Destination
 import com.ghostteam.findetect.core.util.formatMoney
+import androidx.compose.ui.platform.LocalConfiguration
 import com.ghostteam.findetect.feature.prototype.MainScreenPreview
 import com.ghostteam.findetect.feature.prototype.PrototypeScreen
 import java.math.BigDecimal
@@ -61,7 +62,7 @@ fun AccountsScreen(
             item(key = "balance") {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(stringResource(R.string.ui_total_balance), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
-                    Text(formatMoney(state.summary?.total ?: BigDecimal.ZERO, state.currency.name),
+                    Text(formatMoney(state.summary?.total ?: BigDecimal.ZERO, state.currency.name, LocalConfiguration.current.locales[0]),
                         style = FinTheme.typography.balance, color = FinTheme.colors.navy)
                 }
             }

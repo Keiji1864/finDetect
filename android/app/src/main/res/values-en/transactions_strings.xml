@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="transactions_read_error">Could not load transactions. Try again.</string>
+    <string name="transactions_no_expenses">No expenses yet</string>
+    <string name="transactions_no_income">No income yet</string>
+    <string name="transactions_empty_hint">No entries in this currency for the selected period. Add your first transaction.</string>
+    <string name="transactions_largest_expense">Top spending category: %1$s</string>
+    <string name="transactions_largest_income">Main income source: %1$s</string>
+    <string name="transactions_category_share">%1$d%% of the total for the selected period</string>
+    <string name="transactions_period_range">%1$s to %2$s</string>
+    <string name="transactions_custom_period">Custom period</string>
+    <string name="transactions_calendar">Calendar</string>
+    <string name="transactions_previous_month">Previous month</string>
+    <string name="transactions_next_month">Next month</string>
+    <string name="transactions_select_month">Select the whole month: %1$s</string>
+    <string name="transactions_period_start">Start date</string>
+    <string name="transactions_period_end">End date</string>
+    <string name="transactions_select_end">Choose the end date.</string>
+    <string name="transactions_period_error">The start date must be on or before the end date.</string>
+    <string name="transactions_apply">Apply</string>
+</resources>

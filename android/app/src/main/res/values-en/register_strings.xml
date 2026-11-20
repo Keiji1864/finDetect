@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_register_title">Create account</string>
+    <string name="ui_register_name_label">Name</string>
+    <string name="ui_register_name_placeholder">Your name</string>
+    <string name="ui_register_name_error">Enter your name</string>
+    <string name="ui_register_password_error">At least 8 characters</string>
+    <string name="ui_register_repeat_label">Confirm password</string>
+    <string name="ui_register_repeat_error">Passwords do not match</string>
+    <string name="ui_register_submit">Create account</string>
+</resources>

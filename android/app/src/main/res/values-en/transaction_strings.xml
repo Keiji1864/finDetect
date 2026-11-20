@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="transaction_done">Done</string>
+    <string name="transaction_understood">Got it</string>
+    <string name="transaction_saved">Transaction saved</string>
+    <string name="transaction_other_currency">Saved to an account in %1$s. Switch the display currency to see this transaction in the list?</string>
+    <string name="transaction_switch_currency">Switch to %1$s</string>
+    <string name="transaction_switch_error">Transaction already saved. Could not switch the display currency to %1$s. Try again.</string>
+    <string name="transaction_account_balance">%1$s · Balance %2$s</string>
+    <string name="transaction_no_accounts">Create an account first to record expenses and income.</string>
+    <string name="transaction_no_categories">No categories available for this transaction type yet.</string>
+    <string name="transaction_amount_error">Enter an amount above zero, with up to 9 digits before the decimal point and 2 after.</string>
+    <string name="transaction_comment_error">Keep the note to 200 characters or fewer.</string>
+    <string name="transaction_account_error">Account unavailable. Choose an active account.</string>
+    <string name="transaction_category_error">This category is unavailable for this transaction. Choose another.</string>
+    <string name="transaction_date_error">Could not save the selected date. Choose it again.</string>
+    <string name="transaction_save_error">Could not save the transaction. Check your entries and try again.</string>
+    <string name="transaction_read_error">Could not load the form. Try again.</string>
+</resources>

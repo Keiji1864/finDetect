@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.util.formatDate
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.datetime.LocalDate
 import com.ghostteam.findetect.core.designsystem.component.FinRow
 import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
@@ -57,8 +58,8 @@ private fun SettingsContent(
         val incomeSummary = when {
             settings == null -> loading
             schedule == null -> stringResource(R.string.income_schedule_unset)
-            else -> schedule.nextAfter(today)?.formatDate()
-                ?: stringResource(R.string.income_schedule_due, schedule.anchor.formatDate())
+            else -> schedule.nextAfter(today)?.formatDate(LocalConfiguration.current.locales[0])
+                ?: stringResource(R.string.income_schedule_due, schedule.anchor.formatDate(LocalConfiguration.current.locales[0]))
         }
         SettingsRow(R.string.income_schedule_title, incomeSummary, R.drawable.ic_calendar, onOpenIncome)
         SettingsRow(R.string.ui_settings_security, stringResource(when (state.pin) {

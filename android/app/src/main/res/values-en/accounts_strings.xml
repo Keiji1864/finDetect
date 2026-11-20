@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_acc_new_title">New account</string>
+    <string name="ui_acc_edit_title">Edit account</string>
+    <string name="ui_acc_name_label">Name</string>
+    <string name="ui_acc_currency_label">Currency</string>
+    <string name="ui_acc_currency_rub">Russian ruble · RUB</string>
+    <string name="ui_acc_balance_label">Opening balance</string>
+    <string name="ui_acc_zero_balance">₽0</string>
+    <string name="ui_acc_icon_label">Icon</string>
+    <string name="ui_acc_icon_cash">Banknotes</string>
+    <string name="ui_acc_forecast">Include in forecast</string>
+    <string name="ui_acc_delete">Delete account</string>
+</resources>

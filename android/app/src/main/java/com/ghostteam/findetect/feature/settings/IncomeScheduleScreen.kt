@@ -49,6 +49,7 @@ import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
 import com.ghostteam.findetect.core.util.formatDate
+import androidx.compose.ui.platform.LocalConfiguration
 import com.ghostteam.findetect.domain.model.IncomeRepeat
 import com.ghostteam.findetect.domain.model.IncomeSchedule
 import kotlinx.datetime.DateTimeUnit
@@ -164,7 +165,7 @@ private fun IncomeScheduleForm(
             )
             FinSelectField(
                 label = stringResource(R.string.ui_onboarding_income_date),
-                value = selected.formatDate(),
+                value = selected.formatDate(LocalConfiguration.current.locales[0]),
                 onClick = { if (!busy) showDate = true },
             )
             FinSelectField(

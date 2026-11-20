@@ -1,6 +1,10 @@
 package com.ghostteam.findetect.feature.settings
 
 import android.content.res.Configuration
+import androidx.activity.compose.LocalActivity
+import androidx.compose.ui.platform.LocalConfiguration
+import com.ghostteam.findetect.core.util.ApplicationLanguage
+import com.ghostteam.findetect.domain.model.AppLanguage
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
@@ -23,11 +27,12 @@ import com.ghostteam.findetect.feature.prototype.DisplayRow
 
 private enum class AppearanceSheet { Theme, Language }
 
-/** Оформление и язык (Figma 07): поля "Тема" и "Язык" открывают шторки выбора. Всё только визуально. */
+/** Оформление и язык (Figma 07). */
 @Composable
 fun AppearanceSettingsScreen(onBack: () -> Unit = {}) {
     var theme by rememberSaveable { mutableIntStateOf(0) }
-    var language by rememberSaveable { mutableIntStateOf(0) }
+    val activity = LocalActivity.current
+    val language = if (LocalConfiguration.current.locales[0].language == "en") AppLanguage.EN else AppLanguage.RU
     var sheet by rememberSaveable { mutableStateOf<AppearanceSheet?>(null) }
 
     val themes = listOf(R.string.ui_theme_light, R.string.ui_theme_dark, R.string.ui_theme_system)
@@ -43,7 +48,7 @@ fun AppearanceSettingsScreen(onBack: () -> Unit = {}) {
         )
         FinSelectField(
             label = stringResource(R.string.ui_language),
-            value = languages[language],
+            value = languages[language.ordinal],
             onClick = { sheet = AppearanceSheet.Language },
         )
         FinCard {
@@ -66,8 +71,15 @@ fun AppearanceSettingsScreen(onBack: () -> Unit = {}) {
         AppearanceSheet.Language -> SettingsChoiceSheet(
             title = stringResource(R.string.ui_language),
             options = languages,
-            selectedIndex = language,
-            onSelect = { language = it; sheet = null },
+            selectedIndex = language.ordinal,
+            onSelect = { index ->
+                sheet = null
+                val selected = AppLanguage.entries[index]
+                if (activity != null && selected != language) {
+                    ApplicationLanguage.save(activity, selected)
+                    activity.recreate()
+                }
+            },
             onDismiss = { sheet = null },
         )
         null -> Unit
