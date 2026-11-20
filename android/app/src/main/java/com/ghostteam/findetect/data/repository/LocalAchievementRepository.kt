@@ -102,6 +102,11 @@ class LocalAchievementRepository @Inject constructor(
         awardPendingRewards()
     }
 
+    internal suspend fun recordForecastReward(code: AchievementCode, date: LocalDate, now: Instant) {
+        saveCandidate(AchievementCandidate(code, date, now), false, now, date)
+        awardPendingRewards()
+    }
+
     internal suspend fun recordTransaction(id: String, enteredOn: LocalDate, transactionOn: LocalDate, zone: TimeZone, at: Instant) =
         database.withTransaction {
             val state = checkNotNull(dao.getState()) { "Achievements must be initialized before user actions" }

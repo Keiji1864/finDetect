@@ -23,6 +23,7 @@ class LocalActivityRepository @Inject constructor(
     private val database: AppDatabase,
     private val dao: ActivityDayDao,
     private val clock: Clock,
+    private val history: ForecastHistory,
     private val xp: LocalXpRepository,
     private val achievements: LocalAchievementRepository,
 ) : ActivityRepository {
@@ -35,16 +36,16 @@ class LocalActivityRepository @Inject constructor(
         dao.observeHasExpense(date.atStartOfDayIn(zone), date.plus(DatePeriod(days = 1)).atStartOfDayIn(zone)),
     ) { activity, hasExpense -> DayActivity(activity?.noSpendingConfirmed == true, hasExpense) }
 
-    override suspend fun confirmNoSpending(expectedDate: LocalDate): ConfirmNoSpendingResult = database.withTransaction {
+    override suspend fun confirmNoSpending(expectedDate: LocalDate): ConfirmNoSpendingResult = history.write {
         val now = clock.now()
         val zone = TimeZone.currentSystemDefault()
         val today = now.toLocalDateTime(zone).date
-        if (today != expectedDate) return@withTransaction ConfirmNoSpendingResult.DAY_CHANGED
+        if (today != expectedDate) return@write ConfirmNoSpendingResult.DAY_CHANGED
         if (dao.get(today.toString())?.noSpendingConfirmed == true) {
-            return@withTransaction ConfirmNoSpendingResult.ALREADY_CONFIRMED
+            return@write ConfirmNoSpendingResult.ALREADY_CONFIRMED
         }
         if (dao.hasExpense(today.atStartOfDayIn(zone), today.plus(DatePeriod(days = 1)).atStartOfDayIn(zone))) {
-            return@withTransaction ConfirmNoSpendingResult.HAS_EXPENSE
+            return@write ConfirmNoSpendingResult.HAS_EXPENSE
         }
         dao.confirmNoSpending(today.toString(), now)
         xp.recordNoSpending(today, now)

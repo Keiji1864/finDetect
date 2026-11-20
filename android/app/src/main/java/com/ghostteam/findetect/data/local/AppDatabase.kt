@@ -1,6 +1,9 @@
 package com.ghostteam.findetect.data.local
 
 import com.ghostteam.findetect.data.local.dao.PersonalSettings
+import com.ghostteam.findetect.data.local.dao.ForecastBalance
+import com.ghostteam.findetect.data.local.dao.ForecastDay
+import com.ghostteam.findetect.data.local.dao.ForecastHistoryDao
 import com.ghostteam.findetect.data.local.dao.PersonalSettingsDao
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -35,12 +38,14 @@ import com.ghostteam.findetect.data.local.entity.AchievementTransactionFactEntit
     entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, AdjustmentEntity::class,
         AccountDeletionEntity::class, BalanceConfirmationEntity::class, TransactionDeletionEntity::class,
         ActivityDayEntity::class, NotificationDayEntity::class, XpEventEntity::class, XpStateEntity::class,
-        AchievementEntity::class, AchievementStateEntity::class, AchievementTransactionFactEntity::class, PersonalSettings::class],
-    version = 8,
+        AchievementEntity::class, AchievementStateEntity::class, AchievementTransactionFactEntity::class, PersonalSettings::class,
+        ForecastDay::class, ForecastBalance::class],
+    version = 9,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun forecastHistoryDao(): ForecastHistoryDao
     abstract fun personalSettingsDao(): PersonalSettingsDao
     abstract fun achievementDao(): AchievementDao
     abstract fun xpDao(): XpDao

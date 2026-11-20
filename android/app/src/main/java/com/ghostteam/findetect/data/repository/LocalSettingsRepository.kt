@@ -37,6 +37,7 @@ class LocalSettingsRepository(
     private val gate: UserAccessGate,
     private val achievements: LocalAchievementRepository,
     private val clock: Clock,
+    private val history: ForecastHistory,
 ) : SettingsRepository {
     private val dao = database.personalSettingsDao()
     override val settings = combine(device.store.data, dao.observe()) { devicePreferences, preferences ->
@@ -60,7 +61,7 @@ class LocalSettingsRepository(
     override val currency = settings.map { it.currency }.distinctUntilChanged()
 
     override suspend fun setIncomeSchedule(schedule: IncomeSchedule?, confirmedDate: LocalDate?) = gate.use {
-        database.withTransaction {
+        history.write {
             val now = clock.now()
             val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
             if (schedule != null) {
@@ -73,6 +74,7 @@ class LocalSettingsRepository(
 
     override suspend fun setCurrency(currency: AppCurrency) = gate.use {
         device.store.edit { it[currencyKey] = currency.name }
+        history.checkpoint()
         Unit
     }
 
@@ -92,7 +94,7 @@ class LocalSettingsRepository(
         Unit
     }
 
-    private companion object {
+    internal companion object {
         val currencyKey = stringPreferencesKey("display_currency")
         val gameKey = booleanPreferencesKey("game_elements_enabled")
         val reminderEnabledKey = booleanPreferencesKey("daily_reminder_enabled")

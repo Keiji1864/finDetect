@@ -23,6 +23,8 @@ import com.ghostteam.findetect.domain.model.OnboardingStep
 import com.ghostteam.findetect.domain.model.SessionIdentity
 import com.ghostteam.findetect.domain.usecase.CalculateStreakUseCase
 import com.ghostteam.findetect.domain.usecase.CalculateAchievementsUseCase
+import com.ghostteam.findetect.data.local.migration.MIGRATION_8_9
+import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.core.time.LocalDayObserver
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -59,18 +61,22 @@ class UserDataScope internal constructor(
     private val mutableSyncFailed = MutableStateFlow(false)
     val syncFailed = mutableSyncFailed.asStateFlow()
     internal fun syncFailed(value: Boolean) { mutableSyncFailed.value = value }
-    internal val exchange = com.ghostteam.findetect.data.sync.RoomExchange(database, gate)
     val xp = LocalXpRepository(database, database.xpDao(), clock, calculateStreak)
     val achievements = LocalAchievementRepository(database, database.achievementDao(), clock, calculateAchievements, xp)
-    val settings = LocalSettingsRepository(device, preferences, database, gate, achievements, clock)
-    val accounts = LocalAccountRepository(database, database.accountDao(), database.accountDeletionDao(), clock)
+    private val history = ForecastHistory(database, clock, achievements) {
+        val saved = device.store.data.first()[LocalSettingsRepository.currencyKey]
+        AppCurrency.entries.firstOrNull { it.name == saved } ?: AppCurrency.RUB
+    }
+    internal val exchange = com.ghostteam.findetect.data.sync.RoomExchange(database, gate, history)
+    val settings = LocalSettingsRepository(device, preferences, database, gate, achievements, clock, history)
+    val accounts = LocalAccountRepository(database, database.accountDao(), database.accountDeletionDao(), clock, history)
     val categories = LocalCategoryRepository(database, database.categoryDao())
     val transactions = LocalTransactionRepository(database, database.transactionDao(), database.accountDao(),
-        database.categoryDao(), database.transactionDeletionDao(), clock, xp, achievements)
+        database.categoryDao(), database.transactionDeletionDao(), clock, history, xp, achievements)
     val adjustments = LocalBalanceAdjustmentRepository(database, database.adjustmentDao(), database.accountDao(),
-        database.balanceDao(), database.balanceConfirmationDao(), clock)
+        database.balanceDao(), database.balanceConfirmationDao(), clock, history)
     val balances = LocalBalanceRepository(database.balanceDao())
-    val activity = LocalActivityRepository(database, database.activityDayDao(), clock, xp, achievements)
+    val activity = LocalActivityRepository(database, database.activityDayDao(), clock, history, xp, achievements)
 
     private val lifetime = SupervisorJob()
     private val background = CoroutineScope(Dispatchers.IO + lifetime)
@@ -78,7 +84,12 @@ class UserDataScope internal constructor(
     /** Keeps completed-day recognition alive without a Home/Profile/Streak navigation owner. */
     internal fun startAchievementChecks(days: LocalDayObserver) {
         background.launch {
-            days.observe().onEach { achievements.reconcile() }
+            days.observe().onEach {
+                gate.use {
+                    history.checkpoint()
+                    achievements.reconcile()
+                }
+            }
                 .retryWhen { error, _ ->
                     if (error is CancellationException) throw error
                     Log.w("AchievementChecks", "Cannot reconcile achievements; retrying", error)
@@ -121,7 +132,7 @@ class UserDataScopes @Inject constructor(
         val id = canonicalUserId(identity.userId)
         val gate = UserAccessGate()
         val database = Room.databaseBuilder(context, AppDatabase::class.java, databaseName(id))
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build()
         try {
             initializer.initialize(database, id)
             val known = database.openHelper.readableDatabase.query("SELECT id FROM categories").use { rows ->

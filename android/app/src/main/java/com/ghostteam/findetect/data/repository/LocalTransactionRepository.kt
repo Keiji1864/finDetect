@@ -37,6 +37,7 @@ class LocalTransactionRepository @Inject constructor(
     private val categoryDao: CategoryDao,
     private val deletionDao: TransactionDeletionDao,
     private val clock: Clock,
+    private val history: ForecastHistory,
     private val xp: LocalXpRepository,
     private val achievements: LocalAchievementRepository,
 ) : TransactionRepository {
@@ -81,7 +82,7 @@ class LocalTransactionRepository @Inject constructor(
 
     override suspend fun getById(id: String): Transaction? = transactionDao.getById(id)?.toDomain()
 
-    override suspend fun create(transaction: Transaction, expectedIsIncome: Boolean): Transaction = database.withTransaction {
+    override suspend fun create(transaction: Transaction, expectedIsIncome: Boolean): Transaction = history.write {
         if (transaction.id.isBlank()) throw TransactionCreationException(TransactionCreationError.INVALID_TRANSACTION_ID)
         if (transaction.isDeleted) throw TransactionCreationException(TransactionCreationError.TRANSACTION_ALREADY_DELETED)
         if (transaction.accountId.isBlank()) throw TransactionCreationException(TransactionCreationError.ACCOUNT_REQUIRED)
@@ -127,7 +128,7 @@ class LocalTransactionRepository @Inject constructor(
         entity.toDomain()
     }
 
-    override suspend fun update(transaction: Transaction, expectedCurrency: String): Transaction = database.withTransaction {
+    override suspend fun update(transaction: Transaction, expectedCurrency: String): Transaction = history.write {
         val existing = transactionDao.getById(transaction.id)
             ?: throw TransactionManagementException(TransactionManagementError.NOT_FOUND)
         if (existing.deletedAt != null || transaction.isDeleted) throw TransactionManagementException(TransactionManagementError.NOT_FOUND)
@@ -168,9 +169,9 @@ class LocalTransactionRepository @Inject constructor(
         entity.toDomain()
     }
 
-    override suspend fun softDelete(id: String): Boolean = database.withTransaction {
-        val existing = transactionDao.getById(id) ?: return@withTransaction false
-        if (existing.deletedAt != null) return@withTransaction false
+    override suspend fun softDelete(id: String): Boolean = history.write {
+        val existing = transactionDao.getById(id) ?: return@write false
+        if (existing.deletedAt != null) return@write false
         val now = nextModifiedAt(existing.modifiedAt)
         check(transactionDao.update(existing.copy(
             deletedAt = now,
@@ -180,7 +181,7 @@ class LocalTransactionRepository @Inject constructor(
         true
     }
 
-    override suspend fun deleteWithUndo(id: String, expectedModifiedAt: Instant): PendingTransactionDeletion = database.withTransaction {
+    override suspend fun deleteWithUndo(id: String, expectedModifiedAt: Instant): PendingTransactionDeletion = history.write {
         val existing = transactionDao.getById(id)
             ?: throw TransactionManagementException(TransactionManagementError.NOT_FOUND)
         if (existing.deletedAt != null) throw TransactionManagementException(TransactionManagementError.NOT_FOUND)
@@ -197,14 +198,14 @@ class LocalTransactionRepository @Inject constructor(
     override fun observePendingDeletions(): Flow<List<PendingTransactionDeletion>> =
         deletionDao.observeAll().map { rows -> rows.map { it.toDomain() } }
 
-    override suspend fun undoDelete(deletion: PendingTransactionDeletion): Boolean = database.withTransaction {
-        val held = deletionDao.getById(deletion.transactionId) ?: return@withTransaction false
+    override suspend fun undoDelete(deletion: PendingTransactionDeletion): Boolean = history.write {
+        val held = deletionDao.getById(deletion.transactionId) ?: return@write false
         if (held.deletedAt != deletion.deletedAt || held.undoUntil != deletion.undoUntil || clock.now() >= held.undoUntil) {
-            return@withTransaction false
+            return@write false
         }
-        val existing = transactionDao.getById(held.transactionId) ?: return@withTransaction false
+        val existing = transactionDao.getById(held.transactionId) ?: return@write false
         if (existing.deletedAt != held.deletedAt || existing.modifiedAt != held.deletedAt || existing.syncStatus != SyncStatus.PENDING_DELETE) {
-            return@withTransaction false
+            return@write false
         }
         check(transactionDao.update(existing.copy(
             deletedAt = null, modifiedAt = nextModifiedAt(existing.modifiedAt), syncStatus = held.previousSyncStatus,
@@ -218,12 +219,12 @@ class LocalTransactionRepository @Inject constructor(
         transactionDao.getPendingChanges().map { it.toDomain() }
     }
 
-    override suspend fun acknowledgeUpsert(sent: Transaction, confirmed: Transaction): Boolean = database.withTransaction {
+    override suspend fun acknowledgeUpsert(sent: Transaction, confirmed: Transaction): Boolean = history.write {
         require(sent.syncStatus.isPendingUpsert() && !sent.isDeleted) { "Expected a pending transaction upsert" }
         require(sent.id == confirmed.id) { "Server response belongs to another transaction" }
         require(confirmed.createdAt != null && confirmed.updatedAt != null) { "Server timestamps are required" }
-        val existing = transactionDao.getById(sent.id) ?: return@withTransaction false
-        if (existing.toDomain() != sent) return@withTransaction false
+        val existing = transactionDao.getById(sent.id) ?: return@write false
+        if (existing.toDomain() != sent) return@write false
         check(transactionDao.update(confirmed.copy(syncStatus = SyncStatus.SYNCED).toEntity()) == 1) {
             "Transaction acknowledgement failed"
         }
