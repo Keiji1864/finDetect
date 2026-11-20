@@ -46,6 +46,7 @@ import kotlinx.datetime.toLocalDateTime
 fun HomeScreen(
     state: HomeUiState,
     userName: String,
+    forecast: @Composable () -> Unit = {},
     onAddTransaction: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
     onOpenStreak: () -> Unit = {},
@@ -122,14 +123,7 @@ fun HomeScreen(
             }
         }
 
-        item(key = "advice") {
-            FinAdviceCard(
-                title = stringResource(R.string.ui_advice_title),
-                text = stringResource(R.string.ui_advice_hint),
-                caption = stringResource(R.string.ui_advice),
-                pager = stringResource(R.string.ui_advice_page),
-            )
-        }
+        item(key = "advice") { forecast() }
 
         if (state.gameElementsEnabled) {
             item(key = "achievements") {

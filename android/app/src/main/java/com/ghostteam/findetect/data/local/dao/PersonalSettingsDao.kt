@@ -20,6 +20,8 @@ interface PersonalSettingsDao {
     suspend fun seed(row: PersonalSettings)
     @Query("SELECT * FROM personal_settings WHERE id=1")
     fun observe(): Flow<PersonalSettings>
+    @Query("SELECT * FROM personal_settings WHERE id=1")
+    suspend fun current(): PersonalSettings
     @Query("UPDATE personal_settings SET nextIncomeDate=:date, incomeRepeat=:repeat, modifiedAt=:now WHERE id=1")
     suspend fun income(date: String?, repeat: String?, now: String): Int
     @Query("UPDATE personal_settings SET gameEnabled=:enabled, modifiedAt=:now WHERE id=1")

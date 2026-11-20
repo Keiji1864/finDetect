@@ -124,6 +124,21 @@ fun TransactionsScreen(
                     text = stringResource(R.string.transactions_category_share, largest.percentage),
                 )
             }
+            state.comparison?.let { comparison ->
+                item(key = "period_comparison") {
+                    val change = comparison.difference
+                    FinAdviceCard(
+                        title = stringResource(when {
+                            change.signum() > 0 -> R.string.forecast_period_more
+                            change.signum() < 0 -> R.string.forecast_period_less
+                            else -> R.string.forecast_period_equal
+                        }, formatMoney(change.abs(), currency, locale)),
+                        text = stringResource(R.string.forecast_periods, comparison.current.start.formatDate(locale),
+                            comparison.current.end.formatDate(locale), comparison.previous.start.formatDate(locale),
+                            comparison.previous.end.formatDate(locale)),
+                    )
+                }
+            }
         }
         summary?.days?.forEach { day ->
             item(key = "day-${day.date}") {

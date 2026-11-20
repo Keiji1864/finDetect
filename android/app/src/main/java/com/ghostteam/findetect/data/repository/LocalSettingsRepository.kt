@@ -26,6 +26,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
+internal fun PersonalSettings.incomeSchedule(): IncomeSchedule? = nextIncomeDate?.let { date ->
+    incomeRepeat?.let { IncomeSchedule(LocalDate.parse(date), IncomeRepeat.valueOf(it)) }
+}
+
 class LocalSettingsRepository(
     private val device: DevicePreferences,
     private val store: DataStore<Preferences>,
@@ -39,9 +43,7 @@ class LocalSettingsRepository(
         AppSettings(
             currency = AppCurrency.entries.firstOrNull { it.name == devicePreferences[currencyKey] } ?: AppCurrency.RUB,
             gameElementsEnabled = preferences.gameEnabled,
-            incomeSchedule = preferences.nextIncomeDate?.let { date ->
-                preferences.incomeRepeat?.let { IncomeSchedule(LocalDate.parse(date), IncomeRepeat.valueOf(it)) }
-            },
+            incomeSchedule = preferences.incomeSchedule(),
             dailyReminder = DailyReminderSettings(
                 enabled = preferences.reminderEnabled,
                 hour = preferences.reminderHour,

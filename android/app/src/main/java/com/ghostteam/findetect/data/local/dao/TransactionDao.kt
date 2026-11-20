@@ -53,6 +53,14 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id")
     suspend fun getById(id: String): TransactionEntity?
 
+    @Query("""SELECT t.*, a.currency AS currency, c.`key` AS categoryKey,
+        c.nameRu AS categoryNameRu, c.nameEn AS categoryNameEn, c.iconId AS categoryIconId,
+        c.isIncome AS categoryIsIncome, c.isArchived AS categoryIsArchived
+        FROM transactions t JOIN accounts a ON a.id=t.accountId JOIN categories c ON c.id=t.categoryId
+        WHERE t.deletedAt IS NULL AND c.isIncome=0 AND a.currency=:currency
+        AND t.transactionDate >= :start AND t.transactionDate < :end ORDER BY t.transactionDate, t.id""")
+    suspend fun forecastExpenses(currency: String, start: Instant, end: Instant): List<TransactionDetailsRow>
+
     @Query("SELECT * FROM transactions WHERE enteredAt <= :until ORDER BY enteredAt, id LIMIT 1")
     suspend fun getFirstEntered(until: Instant): TransactionEntity?
 

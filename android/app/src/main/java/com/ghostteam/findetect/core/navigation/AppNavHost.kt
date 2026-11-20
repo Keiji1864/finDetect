@@ -28,6 +28,7 @@ import com.ghostteam.findetect.feature.analytics.AnalyticsRoute
 import com.ghostteam.findetect.feature.analytics.CategoryDetailRoute
 import com.ghostteam.findetect.feature.expenses.ExpensesRoute
 import com.ghostteam.findetect.feature.home.HomeRoute
+import com.ghostteam.findetect.feature.forecast.*
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
 import com.ghostteam.findetect.feature.settings.IncomeScheduleRoute
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
@@ -66,6 +67,7 @@ fun AppNavHost(
     onExit: () -> Unit = {},
 ) {
     val sessionUi by sessionModel.state.collectAsStateWithLifecycle()
+    val forecastModel: ForecastViewModel = hiltViewModel()
     val start = remember(session.identity) {
         when (session.onboarding) {
             OnboardingStep.INCOME -> Destination.Onboarding.route
@@ -211,6 +213,10 @@ fun AppNavHost(
             composable(Destination.Home.route) {
                 HomeRoute(
                     userName = session.user.name,
+                    forecast = {
+                        val state by forecastModel.state.collectAsStateWithLifecycle()
+                        HomeForecast(state, forecastModel::retry) { open(Destination.Forecast) }
+                    },
                     onAddTransaction = {
                         openTransaction(AddTransactionMode.Switchable)
                     },
@@ -275,6 +281,16 @@ fun AppNavHost(
                         openAnalytics(false)
                     },
                 )
+            }
+
+            composable(Destination.Forecast.route) {
+                val state by forecastModel.state.collectAsStateWithLifecycle()
+                ForecastScreen(state, back, forecastModel::retry, { open(Destination.SettingsIncome) },
+                    { open(Destination.Accounts) }, { open(Destination.ForecastExplanation) })
+            }
+            composable(Destination.ForecastExplanation.route) {
+                val state by forecastModel.state.collectAsStateWithLifecycle()
+                ForecastExplanation(state, back, forecastModel::retry) { open(Destination.Accounts) }
             }
 
             composable(

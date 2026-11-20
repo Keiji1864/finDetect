@@ -1,0 +1,36 @@
+<resources>
+    <string name="forecast_title">ИИ-прогноз</string>
+    <string name="forecast_open">Открыть прогноз</string>
+    <string name="forecast_explanation">Как это работает</string>
+    <string name="forecast_explain_action">Как рассчитан прогноз</string>
+    <string name="forecast_limit">Рекомендуемый ориентир на день</string>
+    <string name="forecast_no_date">Укажите дату следующего дохода</string>
+    <string name="forecast_date_passed">Дата дохода наступила. Выберите следующую дату</string>
+    <string name="forecast_no_accounts">Выберите хотя бы один счёт в этой валюте для прогноза</string>
+    <string name="forecast_collecting">Собираем улики. Дней учёта до первого прогноза: %1$d</string>
+    <string name="forecast_green">В плане</string>
+    <string name="forecast_yellow">Запас небольшой</string>
+    <string name="forecast_red">Денег может не хватить до поступления</string>
+    <string name="forecast_days">Дней до дохода: %1$d</string>
+    <string name="forecast_preliminary">Предварительный расчёт · короткая история учёта</string>
+    <string name="forecast_standard">Расчёт на устройстве по истории расходов</string>
+    <string name="forecast_high">Повышенная уверенность · учтена большая часть месяца</string>
+    <string name="forecast_page">%1$d из %2$d</string>
+    <string name="forecast_error">Не удалось прочитать данные для прогноза</string>
+    <string name="forecast_risk_action">Планируйте покупки в пределах %1$s в день, чтобы сохранить резерв.</string>
+    <string name="forecast_category">%1$s: расходы выросли на %2$s</string>
+    <string name="forecast_category_action">Сравнили две последние двухнедельные суммы. Проверьте покупки этой категории перед следующей тратой.</string>
+    <string name="forecast_pace">Ожидаемые траты за день — %1$s</string>
+    <string name="forecast_pace_action">Учтено дней: %1$d. Сравните привычные траты с дневным ориентиром.</string>
+    <string name="forecast_method">Оставляем 10% положительного остатка в резерве и делим остальное на дни с сегодняшнего до дня перед доходом. Риск оцениваем по расходам за четыре недели: свежие дни весят больше. Отметки без трат учитываем как ноль.</string>
+    <string name="forecast_history">История расходов</string>
+    <string name="forecast_window">%1$s — %2$s · дней с данными: %3$d</string>
+    <string name="forecast_accounts">Выбранные счета</string>
+    <string name="forecast_balances">Счетов: %1$d · остаток %2$s</string>
+    <string name="forecast_accounts_action">Настроить счета</string>
+    <string name="forecast_check_balance">Проверьте остатки выбранных счетов и отложите необязательные покупки до поступления.</string>
+    <string name="forecast_period_more">Сумма записанных операций выросла на %1$s</string>
+    <string name="forecast_period_less">Сумма записанных операций снизилась на %1$s</string>
+    <string name="forecast_period_equal">Суммы записанных операций совпадают</string>
+    <string name="forecast_periods">Период %1$s — %2$s в сравнении с %3$s — %4$s.</string>
+</resources>
