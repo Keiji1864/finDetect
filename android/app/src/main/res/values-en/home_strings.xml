@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_finance_read_error">Could not load your financial data. Try again.</string>
+    <string name="home_finance_unavailable">Data unavailable</string>
+    <string name="home_spending_more">%1$s more than yesterday</string>
+    <string name="home_spending_less">%1$s less than yesterday</string>
+    <string name="home_spending_same">Same as yesterday</string>
+    <string name="home_no_spending_two_days">No spending today or yesterday</string>
+    <string name="home_no_transactions">No transactions in this currency yet</string>
+    <string name="home_no_transactions_hint">Add an expense or income to see recent transactions here.</string>
+    <string name="home_transaction_subtitle">%1$s · %2$s</string>
+</resources>

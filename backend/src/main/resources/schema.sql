@@ -171,6 +171,35 @@ CREATE TABLE IF NOT EXISTS personal_settings (
   PRIMARY KEY (user_id, "id")
 );
 CREATE INDEX IF NOT EXISTS accounts_sync ON accounts(user_id,revision);
+CREATE TABLE IF NOT EXISTS forecast_days (
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  revision bigint NOT NULL,
+  id uuid NOT NULL,
+  currency text NOT NULL CHECK (currency IN ('RUB','USD','EUR','CNY')),
+  day date NOT NULL,
+  stamp bigint NOT NULL,
+  "accountIds" text NOT NULL,
+  "fromUtc" timestamptz NOT NULL,
+  "untilUtc" timestamptz NOT NULL CHECK ("untilUtc" > "fromUtc"),
+  "limitMinor" bigint CHECK ("limitMinor" >= 0),
+  PRIMARY KEY (user_id, id)
+);
+CREATE INDEX IF NOT EXISTS forecast_days_sync ON forecast_days(user_id,revision);
+
+CREATE TABLE IF NOT EXISTS forecast_balances (
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  revision bigint NOT NULL,
+  id uuid NOT NULL,
+  currency text NOT NULL CHECK (currency IN ('RUB','USD','EUR','CNY')),
+  stamp bigint NOT NULL,
+  "localDay" date NOT NULL,
+  "targetDay" date CHECK ("targetDay" > "localDay"),
+  rule text,
+  "accountIds" text NOT NULL,
+  "balanceMinor" bigint NOT NULL,
+  PRIMARY KEY (user_id, id)
+);
+CREATE INDEX IF NOT EXISTS forecast_balances_sync ON forecast_balances(user_id,revision);
 CREATE INDEX IF NOT EXISTS transactions_sync ON transactions(user_id,revision);
 CREATE INDEX IF NOT EXISTS xp_events_sync ON xp_events(user_id,revision);
 CREATE INDEX IF NOT EXISTS balance_adjustments_sync ON balance_adjustments(user_id,revision);

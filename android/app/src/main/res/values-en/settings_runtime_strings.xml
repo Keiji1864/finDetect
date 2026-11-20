@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_read_error">Could not load settings</string>
+    <string name="settings_write_error">Could not save. Try again.</string>
+    <string name="settings_enabled">On</string>
+    <string name="settings_disabled">Off</string>
+    <string name="settings_pin_enabled">PIN enabled</string>
+    <string name="settings_pin_disabled">PIN disabled</string>
+    <string name="settings_pin_error">PIN storage unavailable</string>
+    <string name="reminder_time">%1$02d:00</string>
+    <string name="reminder_daily">Daily</string>
+    <string name="reminder_summary">Daily at %1$s</string>
+    <string name="reminder_system_blocked">Turned off in device settings</string>
+    <string name="reminder_timing_title">Reminder time</string>
+    <string name="reminder_timing_hint">We’ll remind you if you haven’t logged anything today. Android may delay delivery. Reminders expire one hour after the selected time.</string>
+    <string name="reminder_channel">Tracking reminders</string>
+    <string name="reminder_channel_description">Daily reminder to record your transactions</string>
+    <string name="reminder_title">How was your day?</string>
+    <string name="reminder_message">Record income or expenses, or choose “No spending today”.</string>
+    <string name="home_no_spending">No spending today</string>
+    <string name="home_day_confirmed">Day marked</string>
+    <string name="home_has_expense">An expense is recorded for today. Spend-free check-ins cover all currencies.</string>
+    <string name="home_activity_error">Could not load or save your check-in.</string>
+    <string name="home_day_changed">A new day has started. Check your entry again.</string>
+    <string name="pin_enable">Enable PIN</string>
+    <string name="pin_change">Change PIN</string>
+    <string name="pin_disable">Disable PIN</string>
+    <string name="pin_enter_current">Enter your current PIN</string>
+    <string name="pin_enter_to_unlock">Enter your PIN</string>
+    <string name="pin_unlock_title">FinDetect</string>
+    <string name="pin_incorrect">Incorrect PIN. Try again.</string>
+    <string name="pin_mismatch">PINs do not match. Choose a PIN again.</string>
+    <string name="pin_throttled">Too many attempts. Try again in %1$d s.</string>
+    <string name="pin_storage_error">Could not open secure storage. Try again. If this continues, access recovery is currently unavailable.</string>
+    <string name="pin_save_error">Could not save your PIN. Try again.</string>
+    <string name="pin_dots_description">Digits entered: %1$d of 4</string>
+    <string name="pin_security_about">Your PIN is required at startup and after 30 seconds in the background. Enter your current PIN to change or disable it.</string>
+    <string name="pin_already_enabled">A PIN is already set on this device</string>
+</resources>

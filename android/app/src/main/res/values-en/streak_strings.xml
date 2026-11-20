@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="streak_title">Streak</string>
+    <string name="streak_record_title">Personal best</string>
+    <string name="streak_read_error">Could not load your streak.</string>
+    <string name="streak_start_hint">Record a transaction or mark a spend-free day to start a streak.</string>
+    <string name="streak_every_day_title">Every day counts</string>
+    <string name="streak_every_day_hint">Record income and expenses or mark spend-free days. Multiple transactions on the same day count as one active day.</string>
+    <string name="streak_grace_used">Streak protected. Another missed day before protection recharges will restart your streak.</string>
+    <string name="streak_grace_restored">Protection restored. Seven consecutive active days give you another protected missed day.</string>
+    <string name="streak_reset">Start a new streak. Your personal best is saved.</string>
+    <string name="streak_game_disabled">Game features are off</string>
+    <string name="streak_game_disabled_hint">Progress saved. You can still mark spend-free days.</string>
+    <string name="streak_day_active">Day marked</string>
+    <string name="streak_day_inactive">Day not marked</string>
+    <string name="streak_day_today_inactive">Today has not been marked yet</string>
+    <string name="streak_day_future">Upcoming day</string>
+    <string name="streak_day_description">%1$s. %2$s</string>
+    <string name="streak_today_date">%1$s, today</string>
+    <plurals name="streak_tracking_days">
+        <item quantity="one">%1$d day tracked</item>
+        <item quantity="other">%1$d days tracked</item>
+    </plurals>
+    <plurals name="streak_record_days">
+        <item quantity="one">Best: %1$d day</item>
+        <item quantity="other">Best: %1$d days</item>
+    </plurals>
+    <plurals name="streak_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+</resources>

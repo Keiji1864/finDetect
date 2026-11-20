@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ui_categories">Categories</string>
+    <string name="ui_chart_expense_days">Daily spending</string>
+    <string name="ui_chart_expense_months">Monthly spending</string>
+    <string name="ui_chart_income_months">Monthly income</string>
+    <string name="ui_share_of_expense">Share of spending: %1$d%%</string>
+    <string name="ui_share_of_income">Share of income: %1$d%%</string>
+    <string name="analytics_all_accounts">All accounts in the selected currency</string>
+    <string name="analytics_empty_hint">No transactions recorded in this currency for the selected period.</string>
+    <string name="analytics_read_error">Could not load analytics. Try again.</string>
+    <string name="analytics_history">Transactions</string>
+    <string name="analytics_category_empty">No transactions in this category yet</string>
+    <string name="analytics_category_missing">Category unavailable</string>
+    <string name="analytics_months">By month</string>
+    <string name="analytics_month_unfinished">Month in progress</string>
+    <string name="analytics_month_future">Upcoming month</string>
+    <string name="analytics_month_partial">Partial month selected</string>
+    <string name="analytics_current_month_hint">This month is still in progress. Figures as of %1$s.</string>
+    <string name="analytics_zero_months_hint">Zero means no income was recorded for the month.</string>
+    <string name="analytics_chart_expense_weeks">Weekly spending</string>
+    <string name="analytics_chart_currency">Amounts in %1$s</string>
+    <string name="analytics_chart_bucket">%1$s: %2$s</string>
+    <string name="analytics_axis_thousands">%1$sK</string>
+    <string name="analytics_axis_millions">%1$sM</string>
+    <string name="analytics_axis_billions">%1$sB</string>
+    <string name="analytics_month_axis">%1$s\n%2$d</string>
+    <string name="analytics_day_axis">%1$d\n%2$s</string>
+    <string name="analytics_partial_label">%1$s*</string>
+    <string name="analytics_partial_month_hint">* Month in progress or only partly selected.</string>
+    <string name="analytics_open_month_hint">Tap a month to see its income.</string>
+</resources>

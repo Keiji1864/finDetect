@@ -26,6 +26,7 @@ class LocalAccountRepository @Inject constructor(
     private val accountDao: AccountDao,
     private val deletionDao: AccountDeletionDao,
     private val clock: Clock,
+    private val history: ForecastHistory,
 ) : AccountRepository {
     override fun observeActive(currency: String?): Flow<List<Account>> =
         accountDao.observeActive(currency).map { rows -> rows.map { it.toDomain() } }
@@ -34,7 +35,7 @@ class LocalAccountRepository @Inject constructor(
 
     override fun observeHasMovements(id: String): Flow<Boolean> = accountDao.observeHasMovements(id)
 
-    override suspend fun create(account: Account): Account = database.withTransaction {
+    override suspend fun create(account: Account): Account = history.write {
         require(account.id.isNotBlank()) { "An account ID is required" }
         require(!account.isDeleted) { "A new account cannot be deleted" }
         check(accountDao.getById(account.id) == null) { "Account already exists" }
@@ -50,7 +51,7 @@ class LocalAccountRepository @Inject constructor(
         entity.toDomain()
     }
 
-    override suspend fun update(account: Account): Account = database.withTransaction {
+    override suspend fun update(account: Account): Account = history.write {
         val existing = accountDao.getById(account.id)
             ?: throw AccountManagementException(AccountManagementError.NOT_FOUND)
         if (existing.deletedAt != null || account.isDeleted) throw AccountManagementException(AccountManagementError.NOT_FOUND)
@@ -75,9 +76,9 @@ class LocalAccountRepository @Inject constructor(
         entity.toDomain()
     }
 
-    override suspend fun softDelete(id: String): Boolean = database.withTransaction {
-        val existing = accountDao.getById(id) ?: return@withTransaction false
-        if (existing.deletedAt != null) return@withTransaction false
+    override suspend fun softDelete(id: String): Boolean = history.write {
+        val existing = accountDao.getById(id) ?: return@write false
+        if (existing.deletedAt != null) return@write false
         val now = nextModifiedAt(existing.modifiedAt)
         check(accountDao.update(existing.copy(
             deletedAt = now,
@@ -87,7 +88,7 @@ class LocalAccountRepository @Inject constructor(
         true
     }
 
-    override suspend fun deleteWithUndo(id: String, expectedModifiedAt: Instant): PendingAccountDeletion = database.withTransaction {
+    override suspend fun deleteWithUndo(id: String, expectedModifiedAt: Instant): PendingAccountDeletion = history.write {
         val existing = accountDao.getById(id) ?: throw AccountManagementException(AccountManagementError.NOT_FOUND)
         if (existing.deletedAt != null) throw AccountManagementException(AccountManagementError.NOT_FOUND)
         if (existing.modifiedAt != expectedModifiedAt) throw AccountManagementException(AccountManagementError.CHANGED)
@@ -105,14 +106,14 @@ class LocalAccountRepository @Inject constructor(
     override fun observePendingDeletions(): Flow<List<PendingAccountDeletion>> =
         deletionDao.observeAll().map { rows -> rows.map { it.toDomain() } }
 
-    override suspend fun undoDelete(deletion: PendingAccountDeletion): Boolean = database.withTransaction {
-        val held = deletionDao.getById(deletion.accountId) ?: return@withTransaction false
+    override suspend fun undoDelete(deletion: PendingAccountDeletion): Boolean = history.write {
+        val held = deletionDao.getById(deletion.accountId) ?: return@write false
         if (held.deletedAt != deletion.deletedAt || held.undoUntil != deletion.undoUntil || clock.now() >= held.undoUntil) {
-            return@withTransaction false
+            return@write false
         }
-        val existing = accountDao.getById(held.accountId) ?: return@withTransaction false
+        val existing = accountDao.getById(held.accountId) ?: return@write false
         if (existing.deletedAt != held.deletedAt || existing.modifiedAt != held.deletedAt || existing.syncStatus != SyncStatus.PENDING_DELETE) {
-            return@withTransaction false
+            return@write false
         }
         check(accountDao.update(existing.copy(
             deletedAt = null,
@@ -129,12 +130,12 @@ class LocalAccountRepository @Inject constructor(
         accountDao.getPendingChanges().map { it.toDomain() }
     }
 
-    override suspend fun acknowledgeUpsert(sent: Account, confirmed: Account): Boolean = database.withTransaction {
+    override suspend fun acknowledgeUpsert(sent: Account, confirmed: Account): Boolean = history.write {
         require(sent.syncStatus.isPendingUpsert() && !sent.isDeleted) { "Expected a pending account upsert" }
         require(sent.id == confirmed.id) { "Server response belongs to another account" }
         require(confirmed.createdAt != null && confirmed.updatedAt != null) { "Server timestamps are required" }
-        val existing = accountDao.getById(sent.id) ?: return@withTransaction false
-        if (existing.toDomain() != sent) return@withTransaction false
+        val existing = accountDao.getById(sent.id) ?: return@write false
+        if (existing.toDomain() != sent) return@write false
         val entity = confirmed.copy(syncStatus = SyncStatus.SYNCED).toEntity(existing.legacyEmoji)
         check(accountDao.update(entity) == 1) { "Account acknowledgement failed" }
         true

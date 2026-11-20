@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="recovery_mock_code">Mock only: code %1$s. No email is sent. The code works only for an existing account.</string>
+</resources>

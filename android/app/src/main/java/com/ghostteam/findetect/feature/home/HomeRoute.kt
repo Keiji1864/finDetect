@@ -8,6 +8,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 @Composable
 fun HomeRoute(
     userName: String,
+    forecast: @Composable () -> Unit,
     onAddTransaction: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
     onOpenStreak: () -> Unit = {},
@@ -20,6 +21,7 @@ fun HomeRoute(
     HomeScreen(
         state = state,
         userName = userName,
+        forecast = forecast,
         onAddTransaction = onAddTransaction,
         onOpenProfile = onOpenProfile,
         onOpenStreak = onOpenStreak,

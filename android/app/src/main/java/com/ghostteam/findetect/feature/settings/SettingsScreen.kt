@@ -10,6 +10,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.ghostteam.findetect.R
+import com.ghostteam.findetect.core.util.formatDate
+import androidx.compose.ui.platform.LocalConfiguration
+import kotlinx.datetime.LocalDate
 import com.ghostteam.findetect.core.designsystem.component.FinRow
 import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
@@ -19,7 +22,7 @@ import com.ghostteam.findetect.domain.model.AppSettings
 import com.ghostteam.findetect.domain.repository.PinStatus
 
 /**
- * Настройки (Figma 07): пять строк, каждая ведёт на свой подэкран.
+ * Настройки: каждая строка ведёт на свой подэкран.
  * Выхода из аккаунта здесь нет, он только в Профиле.
  */
 @Composable
@@ -30,18 +33,20 @@ fun SettingsScreen(
     onOpenSecurity: () -> Unit = {},
     onOpenReminders: () -> Unit = {},
     onOpenGamification: () -> Unit = {},
+    onOpenIncome: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val today by viewModel.today.collectAsStateWithLifecycle()
     RefreshNotificationPermission(viewModel::refreshSystemPermission)
-    SettingsContent(state, viewModel::retryRead, onBack, onOpenAppearance, onOpenCurrency, onOpenSecurity, onOpenReminders, onOpenGamification)
+    SettingsContent(state, today, viewModel::retryRead, onBack, onOpenAppearance, onOpenCurrency, onOpenSecurity, onOpenReminders, onOpenGamification, onOpenIncome)
 }
 
 @Composable
 private fun SettingsContent(
-    state: SettingsUiState, onRetry: () -> Unit, onBack: () -> Unit,
+    state: SettingsUiState, today: LocalDate, onRetry: () -> Unit, onBack: () -> Unit,
     onOpenAppearance: () -> Unit, onOpenCurrency: () -> Unit, onOpenSecurity: () -> Unit,
-    onOpenReminders: () -> Unit, onOpenGamification: () -> Unit,
+    onOpenReminders: () -> Unit, onOpenGamification: () -> Unit, onOpenIncome: () -> Unit,
 ) {
     val settings = state.settings
     val loading = stringResource(R.string.finance_loading)
@@ -49,6 +54,14 @@ private fun SettingsContent(
         SettingsStatus(state, onRetry)
         SettingsRow(R.string.ui_settings_appearance, stringResource(R.string.ui_settings_appearance_hint), R.drawable.ic_settings, onOpenAppearance)
         SettingsRow(R.string.ui_settings_currency, settings?.let { stringResource(currencyName(it.currency)) } ?: loading, R.drawable.ic_cash, onOpenCurrency)
+        val schedule = settings?.incomeSchedule
+        val incomeSummary = when {
+            settings == null -> loading
+            schedule == null -> stringResource(R.string.income_schedule_unset)
+            else -> schedule.nextAfter(today)?.formatDate(LocalConfiguration.current.locales[0])
+                ?: stringResource(R.string.income_schedule_due, schedule.anchor.formatDate(LocalConfiguration.current.locales[0]))
+        }
+        SettingsRow(R.string.income_schedule_title, incomeSummary, R.drawable.ic_calendar, onOpenIncome)
         SettingsRow(R.string.ui_settings_security, stringResource(when (state.pin) {
             PinStatus.LOADING -> R.string.finance_loading
             PinStatus.DISABLED -> R.string.settings_pin_disabled
@@ -94,5 +107,5 @@ private fun currencyName(currency: AppCurrency): Int = when (currency) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SettingsScreenPreview() {
-    FinDetectTheme { SettingsContent(SettingsUiState(settings = AppSettings(), pin = PinStatus.DISABLED), {}, {}, {}, {}, {}, {}, {}) }
+    FinDetectTheme { SettingsContent(SettingsUiState(settings = AppSettings(), pin = PinStatus.DISABLED), LocalDate(2026, 11, 19), {}, {}, {}, {}, {}, {}, {}, {}) }
 }

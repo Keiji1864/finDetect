@@ -28,8 +28,9 @@ import com.ghostteam.findetect.feature.analytics.AnalyticsRoute
 import com.ghostteam.findetect.feature.analytics.CategoryDetailRoute
 import com.ghostteam.findetect.feature.expenses.ExpensesRoute
 import com.ghostteam.findetect.feature.home.HomeRoute
+import com.ghostteam.findetect.feature.forecast.*
 import com.ghostteam.findetect.feature.incomes.IncomeRoute
-import com.ghostteam.findetect.feature.onboarding.OnboardingIncomeScreen
+import com.ghostteam.findetect.feature.settings.IncomeScheduleRoute
 import com.ghostteam.findetect.feature.onboarding.OnboardingPinScreen
 import com.ghostteam.findetect.feature.profile.ProfileRoute
 import com.ghostteam.findetect.feature.password.ChangePasswordRoute
@@ -66,6 +67,7 @@ fun AppNavHost(
     onExit: () -> Unit = {},
 ) {
     val sessionUi by sessionModel.state.collectAsStateWithLifecycle()
+    val forecastModel: ForecastViewModel = hiltViewModel()
     val start = remember(session.identity) {
         when (session.onboarding) {
             OnboardingStep.INCOME -> Destination.Onboarding.route
@@ -172,14 +174,11 @@ fun AppNavHost(
         NavHost(controller, start, Modifier.padding(padding)) {
             composable(Destination.ChangePassword.route) { ChangePasswordRoute(onBack = back) }
             composable(Destination.Onboarding.route) {
-                OnboardingIncomeScreen(
+                IncomeScheduleRoute(
+                    onboarding = true,
+                    advancing = sessionUi.working,
                     onBack = onExit,
-                    onContinue = { date, repeat ->
-                        sessionModel.saveIncome(date, repeat) {
-                            open(Destination.OnboardingPin)
-                        }
-                    },
-                    onSkip = {
+                    onSaved = {
                         sessionModel.advance(OnboardingStep.PIN) {
                             open(Destination.OnboardingPin)
                         }
@@ -214,6 +213,10 @@ fun AppNavHost(
             composable(Destination.Home.route) {
                 HomeRoute(
                     userName = session.user.name,
+                    forecast = {
+                        val state by forecastModel.state.collectAsStateWithLifecycle()
+                        HomeForecast(state, forecastModel::retry) { open(Destination.Forecast) }
+                    },
                     onAddTransaction = {
                         openTransaction(AddTransactionMode.Switchable)
                     },
@@ -278,6 +281,16 @@ fun AppNavHost(
                         openAnalytics(false)
                     },
                 )
+            }
+
+            composable(Destination.Forecast.route) {
+                val state by forecastModel.state.collectAsStateWithLifecycle()
+                ForecastScreen(state, back, forecastModel::retry, { open(Destination.SettingsIncome) },
+                    { open(Destination.Accounts) }, { open(Destination.ForecastExplanation) })
+            }
+            composable(Destination.ForecastExplanation.route) {
+                val state by forecastModel.state.collectAsStateWithLifecycle()
+                ForecastExplanation(state, back, forecastModel::retry) { open(Destination.Accounts) }
             }
 
             composable(
@@ -370,6 +383,7 @@ fun AppNavHost(
             composable(Destination.Settings.route) {
                 SettingsScreen(
                     onBack = back,
+                    onOpenIncome = { open(Destination.SettingsIncome) },
                     onOpenAppearance = {
                         open(Destination.SettingsAppearance)
                     },
@@ -386,6 +400,10 @@ fun AppNavHost(
                         open(Destination.SettingsGamification)
                     },
                 )
+            }
+
+            composable(Destination.SettingsIncome.route) {
+                IncomeScheduleRoute(onBack = back, onSaved = back)
             }
 
             composable(Destination.SettingsAppearance.route) {

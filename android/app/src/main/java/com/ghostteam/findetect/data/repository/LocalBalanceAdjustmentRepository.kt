@@ -32,6 +32,7 @@ class LocalBalanceAdjustmentRepository @Inject constructor(
     private val balanceDao: BalanceDao,
     private val confirmationDao: BalanceConfirmationDao,
     private val clock: Clock,
+    private val history: ForecastHistory,
 ) : BalanceAdjustmentRepository {
     override fun observe(filter: AdjustmentFilter): Flow<List<BalanceAdjustment>> = adjustmentDao.observeFiltered(
         currency = filter.currency,
@@ -52,14 +53,14 @@ class LocalBalanceAdjustmentRepository @Inject constructor(
 
     override suspend fun getById(id: String): BalanceAdjustment? = adjustmentDao.getById(id)?.toDomain()
 
-    override suspend fun create(adjustment: BalanceAdjustment): BalanceAdjustment = database.withTransaction {
+    override suspend fun create(adjustment: BalanceAdjustment): BalanceAdjustment = history.write {
         require(adjustment.id.isNotBlank()) { "An adjustment ID is required" }
         val entity = adjustment.copy(createdAt = null, syncStatus = SyncStatus.PENDING_CREATE).toEntity()
         val existing = adjustmentDao.getById(adjustment.id)
         if (existing != null) {
             check(existing.accountId == entity.accountId && existing.amountMinor == entity.amountMinor &&
                 existing.occurredAt == entity.occurredAt) { "An immutable adjustment cannot be overwritten" }
-            return@withTransaction existing.toDomain()
+            return@write existing.toDomain()
         }
         val account = requireNotNull(accountDao.getById(adjustment.accountId)) { "Account does not exist" }
         require(account.deletedAt == null) { "A new adjustment requires an active account" }
@@ -72,7 +73,7 @@ class LocalBalanceAdjustmentRepository @Inject constructor(
         actual: BigDecimal,
         currency: String,
         requestId: String,
-    ): BalanceAdjustment? = database.withTransaction {
+    ): BalanceAdjustment? = history.write {
         require(requestId.isNotBlank()) { "A confirmation request ID is required" }
         val actualMinor = try {
             checkedMoney(actual, MoneyRule.NON_NEGATIVE).toMinorUnits()
@@ -86,7 +87,7 @@ class LocalBalanceAdjustmentRepository @Inject constructor(
             if (receipt.accountId != accountId || receipt.actualMinor != actualMinor || receipt.currency != currency) {
                 throw AccountManagementException(AccountManagementError.CHANGED)
             }
-            return@withTransaction receipt.adjustmentId?.let { id ->
+            return@write receipt.adjustmentId?.let { id ->
                 checkNotNull(adjustmentDao.getById(id)) { "Confirmation adjustment is missing" }.toDomain()
             }
         }

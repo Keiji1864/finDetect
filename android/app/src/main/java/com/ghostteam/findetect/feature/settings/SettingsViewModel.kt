@@ -3,6 +3,8 @@ package com.ghostteam.findetect.feature.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ghostteam.findetect.data.reminder.ReminderNotifications
+import com.ghostteam.findetect.core.time.LocalDayObserver
+import com.ghostteam.findetect.domain.model.IncomeSchedule
 import com.ghostteam.findetect.domain.model.AppSettings
 import com.ghostteam.findetect.domain.repository.PinRepository
 import com.ghostteam.findetect.domain.repository.PinStatus
@@ -17,8 +19,12 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDate
 
 data class SettingsUiState(
     val settings: AppSettings? = null,
@@ -35,7 +41,10 @@ class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
     private val pin: PinRepository,
     private val notifications: ReminderNotifications,
+    days: LocalDayObserver,
 ) : ViewModel() {
+    val today = days.observe().map { it.date }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), days.current().date)
     private val reload = MutableStateFlow(0)
     private val mutableState = MutableStateFlow(SettingsUiState(notificationsAllowed = notifications.allowed()))
     val state = mutableState.asStateFlow()
@@ -58,6 +67,10 @@ class SettingsViewModel @Inject constructor(
     fun setGameEnabled(enabled: Boolean) = save { repository.setGameElementsEnabled(enabled) }
     fun setReminderEnabled(enabled: Boolean) = save { repository.setDailyReminderEnabled(enabled) }
     fun setReminderHour(hour: Int) = save { repository.setDailyReminderHour(hour) }
+    fun saveIncome(schedule: IncomeSchedule?, date: LocalDate?, onSaved: () -> Unit) = save {
+        repository.setIncomeSchedule(schedule, date)
+        onSaved()
+    }
 
     private fun save(block: suspend () -> Unit) {
         if (state.value.settings == null || state.value.saving) return

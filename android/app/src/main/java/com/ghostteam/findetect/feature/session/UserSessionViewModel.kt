@@ -22,16 +22,6 @@ class UserSessionViewModel @Inject constructor(private val auth: AuthRepository,
     val state = mutableState.asStateFlow()
     private fun current() = (auth.state.value as? SessionState.Active)?.identity == owner
 
-    fun saveIncome(dateMillis: Long, repeatIndex: Int, onSaved: () -> Unit) = run {
-        val date = kotlinx.datetime.Instant.fromEpochMilliseconds(dateMillis).toString().substringBefore('T')
-        val repeat = listOf("MONTHLY", "BIWEEKLY", "WEEKLY", "ONCE")[repeatIndex]
-        scope.gate.use {
-            scope.database.personalSettingsDao().income(date, repeat, kotlinx.datetime.Clock.System.now().toString())
-        }
-        auth.advanceOnboarding(OnboardingStep.PIN)
-        if (current()) onSaved()
-    }
-
     fun advance(step: OnboardingStep, onSaved: () -> Unit) = run {
         auth.advanceOnboarding(step)
         if (current()) onSaved()

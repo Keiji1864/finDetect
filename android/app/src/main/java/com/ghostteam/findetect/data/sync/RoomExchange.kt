@@ -3,6 +3,7 @@ package com.ghostteam.findetect.data.sync
 import androidx.room.withTransaction
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.ghostteam.findetect.data.local.AppDatabase
+import com.ghostteam.findetect.data.repository.ForecastHistory
 import com.ghostteam.findetect.data.session.UserAccessGate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -32,7 +33,7 @@ private data class Table(val name: String, val fields: String, val hasStatus: Bo
 private data class Batch(val request: Changes, val observed: Map<String, Map<String, WireRow>>)
 
 /** Per-login state. A network round trip never holds a Room transaction or the session gate. */
-internal class RoomExchange(private val room: AppDatabase, private val gate: UserAccessGate) {
+internal class RoomExchange(private val room: AppDatabase, private val gate: UserAccessGate, private val history: ForecastHistory) {
     private val serial = Mutex()
     private val db get() = room.openHelper.writableDatabase
 
@@ -65,6 +66,7 @@ internal class RoomExchange(private val room: AppDatabase, private val gate: Use
                         arrayOf(table.name,id,table.signature(row)))
                 }
             }
+            history.checkpoint()
             db.execSQL("INSERT OR REPLACE INTO sync_shadow VALUES('cursor','','' || ?)",arrayOf(response.revision))
         } }
     }
@@ -135,6 +137,8 @@ internal class RoomExchange(private val room: AppDatabase, private val gate: Use
             Table("achievement_transaction_facts", "transactionId enteredOn transactionOn zoneId enteredAt", false),
             Table("xp_events", "id reason sourceId reasonRef amount counted localDate occurredAt createdAt", true),
             Table("achievements", "code earnedAt earnedOn isLegacy xpEventId createdAt", true),
+            Table("forecast_days", "id currency day stamp accountIds fromUtc untilUtc limitMinor", false),
+            Table("forecast_balances", "id currency stamp localDay targetDay rule accountIds balanceMinor", false),
             Table("personal_settings", "id gameEnabled reminderEnabled reminderHour modifiedAt nextIncomeDate incomeRepeat", false)
         )
     }

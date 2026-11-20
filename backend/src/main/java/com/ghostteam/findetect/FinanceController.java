@@ -35,11 +35,13 @@ public class FinanceController {
             new Table("achievement_transaction_facts", "transactionId enteredOn transactionOn zoneId enteredAt"),
             new Table("xp_events", "id reason sourceId reasonRef amount counted localDate occurredAt createdAt"),
             new Table("achievements", "code earnedAt earnedOn isLegacy xpEventId createdAt"),
+            new Table("forecast_days", "id currency day stamp accountIds fromUtc untilUtc limitMinor"),
+            new Table("forecast_balances", "id currency stamp localDay targetDay rule accountIds balanceMinor"),
             new Table("personal_settings", "id gameEnabled reminderEnabled reminderHour modifiedAt nextIncomeDate incomeRepeat"));
     private static final Set<String> FLAGS = Set.of("isIncome","isArchived","includeInForecast","hadTransaction",
             "noSpendingConfirmed","counted","isLegacy","gameEnabled","reminderEnabled");
     private static final Set<String> TIMES = Set.of("modifiedAt","createdAt","updatedAt","deletedAt",
-            "transactionDate","enteredAt","occurredAt","startedAt","earnedAt");
+            "transactionDate","enteredAt","occurredAt","startedAt","earnedAt","fromUtc","untilUtc");
     private static final java.time.format.DateTimeFormatter UTC = new DateTimeFormatterBuilder().appendInstant(9).toFormatter();
     private final JdbcTemplate db;
     private final AuthController auth;

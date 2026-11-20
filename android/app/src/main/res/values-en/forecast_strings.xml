@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="forecast_title">AI forecast</string>
+    <string name="forecast_open">Open forecast</string>
+    <string name="forecast_explanation">How it works</string>
+    <string name="forecast_explain_action">How the forecast is calculated</string>
+    <string name="forecast_limit">Daily spending target</string>
+    <string name="forecast_no_date">Set your next income date</string>
+    <string name="forecast_date_passed">Your income date has arrived. Choose the next one.</string>
+    <string name="forecast_no_accounts">Select at least one account in this currency for your forecast</string>
+    <string name="forecast_collecting">Gathering clues. More days to track before your first forecast: %1$d</string>
+    <string name="forecast_green">On track</string>
+    <string name="forecast_yellow">Small cushion</string>
+    <string name="forecast_red">Your money may run out before your next income</string>
+    <string name="forecast_days">Days until income: %1$d</string>
+    <string name="forecast_preliminary">Preliminary forecast · limited spending history</string>
+    <string name="forecast_standard">Calculated on your device from your spending history</string>
+    <string name="forecast_high">Higher confidence · most of the month is tracked</string>
+    <string name="forecast_page">%1$d of %2$d</string>
+    <string name="forecast_error">Could not read the forecast data</string>
+    <string name="forecast_risk_action">Aim to spend up to %1$s a day to keep your reserve.</string>
+    <string name="forecast_category">%1$s: spending rose by %2$s</string>
+    <string name="forecast_category_action">Compared the last two 14-day periods. Review purchases in this category before spending more.</string>
+    <string name="forecast_pace">Expected daily spending: %1$s</string>
+    <string name="forecast_pace_action">Days tracked: %1$d. Compare your usual spending with your daily target.</string>
+    <string name="forecast_method">We set aside 10% of a positive balance and divide the rest over the days from today through the day before your next income. We estimate risk from four weeks of spending, giving recent days more weight. Days you mark as spend-free count as zero.</string>
+    <string name="forecast_history">Spending history</string>
+    <string name="forecast_window">%1$s to %2$s · days tracked: %3$d</string>
+    <string name="forecast_accounts">Selected accounts</string>
+    <string name="forecast_balances">Accounts: %1$d · balance: %2$s</string>
+    <string name="forecast_accounts_action">Manage accounts</string>
+    <string name="forecast_check_balance">Check your selected account balances and consider delaying optional purchases until your next income.</string>
+    <string name="forecast_period_more">Recorded transactions totalled %1$s more</string>
+    <string name="forecast_period_less">Recorded transactions totalled %1$s less</string>
+    <string name="forecast_period_equal">Recorded transaction totals were the same</string>
+    <string name="forecast_periods">%1$s to %2$s compared with %3$s to %4$s.</string>
+</resources>

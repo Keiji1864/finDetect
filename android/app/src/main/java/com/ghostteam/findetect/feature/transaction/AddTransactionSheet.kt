@@ -35,9 +35,7 @@ import com.ghostteam.findetect.domain.model.Account
 import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.domain.model.TransactionCreationError
 import com.ghostteam.findetect.feature.accounts.AccountCreationRoute
-import java.text.DateFormat
-import java.util.Calendar
-import java.util.Locale
+import com.ghostteam.findetect.core.util.formatDate
 import kotlinx.datetime.LocalDate
 
 @Composable
@@ -127,7 +125,7 @@ fun AddTransactionSheet(
                         state.accounts.forEach { balance ->
                             FinRow(title = balance.account.displayName(),
                                 subtitle = stringResource(R.string.transaction_account_balance,
-                                    balance.account.currency, formatMoney(balance.balance, balance.account.currency)),
+                                    balance.account.currency, formatMoney(balance.balance, balance.account.currency, LocalConfiguration.current.locales[0])),
                                 leading = { ResourceIcon(balance.account.iconId) }, inSheet = true,
                                 onClick = { onAccount(balance.account.id) },
                                 trailing = { FinRadio(state.pendingAccountId == balance.account.id, onClick = null) })
@@ -173,7 +171,7 @@ fun AddTransactionSheet(
                         if (!state.categoriesLoading && !state.categoriesError && state.categories.isEmpty()) {
                             FinNotice(stringResource(R.string.transaction_no_categories))
                         }
-                        FinSelectField(stringResource(R.string.ui_date), state.date.displayDate(),
+                        FinSelectField(stringResource(R.string.ui_date), state.date.formatDate(LocalConfiguration.current.locales[0]),
                             onClick = { if (!saving) onPicker(TransactionPicker.DATE) })
                         FinTextField(stringResource(R.string.ui_comment), state.comment, onComment, enabled = !state.saving,
                             placeholder = stringResource(R.string.ui_optional),
@@ -252,12 +250,6 @@ internal fun TransactionCurrencyPrompt(state: AddTransactionUiState, onSwitch: (
             Text(stringResource(R.string.transaction_understood))
         } },
     )
-}
-
-private fun LocalDate.displayDate(): String {
-    val date = this
-    val calendar = Calendar.getInstance().apply { clear(); set(date.year, date.monthNumber - 1, date.dayOfMonth) }
-    return DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()).format(calendar.time)
 }
 
 @StringRes
