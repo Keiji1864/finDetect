@@ -1,18 +1,21 @@
 package com.ghostteam.findetect.domain.model
 
 import com.ghostteam.findetect.domain.validation.InitialBalanceParser
+import java.math.BigDecimal
 
 data class CreateAccountInput(
     val name: String = "",
     val currency: String = AppCurrency.RUB.name,
-    val initialBalanceText: String = "0",
+    val initialBalanceText: String = "",
     val iconId: String = FinanceIcon.WALLET.key,
     val includeInForecast: Boolean = true,
 ) {
+    fun initialBalance(parser: InitialBalanceParser): BigDecimal? = parser.parse(initialBalanceText.ifEmpty { "0" })
+
     fun validationError(parser: InitialBalanceParser): AccountCreationError? = when {
         name.trim().length !in 1..100 -> AccountCreationError.INVALID_NAME
         AppCurrency.entries.none { it.name == currency } -> AccountCreationError.INVALID_CURRENCY
-        parser.parse(initialBalanceText) == null -> AccountCreationError.INVALID_BALANCE
+        initialBalance(parser) == null -> AccountCreationError.INVALID_BALANCE
         FinanceIcon.entries.none { it.key == iconId } -> AccountCreationError.INVALID_ICON
         else -> null
     }

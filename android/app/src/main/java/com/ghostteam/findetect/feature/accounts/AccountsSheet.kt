@@ -71,6 +71,7 @@ fun AccountSheet(
                         onClick = { if (!state.isSaving) onOpenPicker(AccountPicker.CURRENCY) })
                     FinTextField(label = stringResource(R.string.ui_acc_balance_label), value = draft.initialBalanceText,
                         onValueChange = { onChange(draft.copy(initialBalanceText = it)) }, enabled = !state.isSaving,
+                        placeholder = stringResource(R.string.ui_zero), showPlaceholderWhenFocused = false,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         errorText = if (state.validationError == AccountCreationError.INVALID_BALANCE)
                             stringResource(R.string.accounts_balance_error) else null)
@@ -79,14 +80,18 @@ fun AccountSheet(
                         leading = { FinIconTile { Icon(painterResource(financeIcon(draft.iconId).drawableResource), null,
                             tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp)) } },
                         inSheet = true, onClick = if (state.isSaving) null else { { onOpenPicker(AccountPicker.ICON) } })
-                    FinSwitchPanel(stringResource(R.string.ui_acc_forecast), draft.includeInForecast,
-                        onCheckedChange = { if (!state.isSaving) onChange(draft.copy(includeInForecast = it)) })
+                    FinSwitchPanel(
+                        title = stringResource(R.string.ui_acc_forecast),
+                        checked = draft.includeInForecast,
+                        onCheckedChange = { onChange(draft.copy(includeInForecast = it)) },
+                        enabled = !state.isSaving,
+                        toggleOnRowClick = true,
+                    )
                     if (state.saveError != null) {
                         Text(stringResource(R.string.accounts_save_error), color = FinTheme.colors.red, style = FinTheme.typography.caption)
                     }
                     FinButton(stringResource(R.string.ui_save), onSave,
                         enabled = state.validationError == null && !state.isSaving, loading = state.isSaving)
-                    FinButton(stringResource(R.string.ui_close), onDismiss, style = FinButtonStyle.Secondary, enabled = !state.isSaving)
                 }
             }
         }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,14 +15,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 
 /**
  * Cream-панель с названием и тумблером справа (DESIGN.md 5.7):
  * "Учитывать в прогнозе", "Напоминать об учёте", "Игровые элементы".
+ * При [toggleOnRowClick] переключатель занимает всю панель.
  * Состояние хранит вызывающий код.
  */
 @Composable
@@ -30,12 +35,18 @@ fun FinSwitchPanel(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    toggleOnRowClick: Boolean = false,
 ) {
+    val toggleModifier = if (toggleOnRowClick) {
+        Modifier.toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+    } else Modifier
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(FinTheme.shapes.r12)
             .background(FinTheme.colors.cream)
+            .then(toggleModifier)
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -45,7 +56,11 @@ fun FinSwitchPanel(
             style = FinTheme.typography.label,
             color = FinTheme.colors.navy,
         )
-        FinSwitch(checked = checked, onCheckedChange = onCheckedChange)
+        FinSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange.takeUnless { toggleOnRowClick },
+            enabled = enabled,
+        )
     }
 }
 
@@ -55,6 +70,11 @@ fun FinSwitchPanel(
 private fun FinSwitchPanelPreview() {
     FinDetectTheme {
         var checked by remember { mutableStateOf(true) }
-        FinSwitchPanel(title = "Учитывать в прогнозе", checked = checked, onCheckedChange = { checked = it })
+        FinSwitchPanel(
+            title = stringResource(R.string.ui_acc_forecast),
+            checked = checked,
+            onCheckedChange = { checked = it },
+            toggleOnRowClick = true,
+        )
     }
 }

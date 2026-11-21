@@ -96,6 +96,7 @@ fun FinSelectField(
  * Открывает системную клавиатуру. Состояния: пустое (placeholder), в фокусе (1.5 dp navy), ошибка (red + текст).
  * Для пароля используй [FinPasswordField] с общим переключателем показа/скрытия.
  * [keyboardActions] lets forms handle IME confirmation with the same guard as their submit button.
+ * [showPlaceholderWhenFocused] controls whether the hint remains visible in an empty field during input.
  * [trailing] adds optional content on the right, such as the password visibility toggle.
  */
 @Composable
@@ -111,6 +112,7 @@ fun FinTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    showPlaceholderWhenFocused: Boolean = true,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = FinTheme.colors
@@ -143,7 +145,7 @@ fun FinTextField(
                         .onFocusChanged { focused = it.isFocused },
                     decorationBox = { inner ->
                         Box {
-                            if (value.isEmpty()) {
+                            if (value.isEmpty() && (showPlaceholderWhenFocused || !focused)) {
                                 Text(placeholder, style = FinTheme.typography.body, color = c.muted)
                             }
                             inner()

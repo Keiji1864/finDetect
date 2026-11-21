@@ -27,10 +27,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.datetime.Clock
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 
 internal data class AnalyticsEnvironment(val today: LocalDate, val zone: TimeZone)
@@ -99,7 +97,7 @@ class AnalyticsViewModel @Inject constructor(
     val isIncome = savedState.getStateFlow("analyticsIncome", savedState.get<String>("type") == "income")
     val expensePeriod = FinancePeriodSelection(savedState.readPeriod("expenseStart", "expenseEnd", entryPeriod))
     val incomePeriod = FinancePeriodSelection(savedState.readPeriod("incomeStart", "incomeEnd",
-        if (monthDetail) entryPeriod else Period(month.start.minus(5, DateTimeUnit.MONTH), month.end)))
+        if (monthDetail) entryPeriod else Period.lastSixCalendarMonths(initialEnvironment.today)))
     private val reload = MutableStateFlow(0)
     private val initialRequest = request()
 

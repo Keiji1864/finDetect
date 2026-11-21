@@ -129,8 +129,13 @@ fun AccountEditorSheet(
                             leading = { FinIconTile { Icon(painterResource(financeIcon(draft.iconId).drawableResource), null,
                                 tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp)) } },
                             inSheet = true, onClick = if (state.busy) null else ({ onPage(AccountEditorPage.ICON) }))
-                        FinSwitchPanel(stringResource(R.string.ui_acc_forecast), draft.includeInForecast,
-                            onCheckedChange = { if (!state.busy) onDraft(draft.copy(includeInForecast = it)) })
+                        FinSwitchPanel(
+                            title = stringResource(R.string.ui_acc_forecast),
+                            checked = draft.includeInForecast,
+                            onCheckedChange = { onDraft(draft.copy(includeInForecast = it)) },
+                            enabled = !state.busy,
+                            toggleOnRowClick = true,
+                        )
                         EditorError(state, onRetry)
                         FinButton(stringResource(R.string.ui_save), onSave, enabled = state.canSave && !state.busy, loading = state.busy)
                         FinButton(stringResource(R.string.ui_acc_delete), onRequestDelete, style = FinButtonStyle.Danger,

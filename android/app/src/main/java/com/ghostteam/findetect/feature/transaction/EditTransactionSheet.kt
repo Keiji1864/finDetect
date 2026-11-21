@@ -100,7 +100,7 @@ fun EditTransactionSheet(
     }
     AddTransactionSheet(state.form, onAmount, onComment, {}, onPicker, onClosePicker, onCategory, onAccount,
         onConfirmAccount, onDate, onCreateAccount, onRetry, onSave, onDismiss,
-        titleResource = if (state.form.isIncome) R.string.transaction_edit_income else R.string.transaction_edit_expense,
+        editTitleResource = if (state.form.isIncome) R.string.transaction_edit_income else R.string.transaction_edit_expense,
         saveEnabled = state.canSave, onDelete = onRequestDelete, deleteEnabled = state.canDelete,
         errorContent = {
             if (state.loadError) {

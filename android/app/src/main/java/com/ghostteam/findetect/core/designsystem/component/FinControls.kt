@@ -30,11 +30,11 @@ import androidx.compose.ui.unit.dp
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 
-/** Тумблер 52 x 32 (DESIGN.md 5.7). ВКЛ: жёлтый трек, ползунок справа. ВЫКЛ: серый трек, ползунок слева. */
+/** Тумблер 52 x 32 (DESIGN.md 5.7). Без обработчика служит индикатором состояния. */
 @Composable
 fun FinSwitch(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
@@ -44,19 +44,22 @@ fun FinSwitch(
         targetValue = if (checked) FinDimens.toggleWidth - FinDimens.toggleThumb - 4.dp else 4.dp,
         label = "switchThumb",
     )
+    val toggleModifier = if (onCheckedChange != null) {
+        Modifier.toggleable(
+            value = checked,
+            enabled = enabled,
+            role = Role.Switch,
+            interactionSource = remember { MutableInteractionSource() },
+            indication = null,
+            onValueChange = onCheckedChange,
+        )
+    } else Modifier
     Box(
         modifier = modifier
             .size(FinDimens.toggleWidth, FinDimens.toggleHeight)
             .clip(FinTheme.shapes.round)
             .background(track)
-            .toggleable(
-                value = checked,
-                enabled = enabled,
-                role = Role.Switch,
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onValueChange = onCheckedChange,
-            ),
+            .then(toggleModifier),
         contentAlignment = Alignment.CenterStart,
     ) {
         Box(
