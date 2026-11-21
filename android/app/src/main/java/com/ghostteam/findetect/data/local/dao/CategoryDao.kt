@@ -1,6 +1,8 @@
 package com.ghostteam.findetect.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import com.ghostteam.findetect.data.local.entity.CategoryEntity
@@ -17,6 +19,9 @@ interface CategoryDao {
 
     @Query("SELECT * FROM categories WHERE id = :id")
     suspend fun getById(id: String): CategoryEntity?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertMissing(entities: List<CategoryEntity>)
 
     @Upsert
     suspend fun upsertAll(entities: List<CategoryEntity>)

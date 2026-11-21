@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_settings_title">Настроить категории</string>
+    <string name="category_settings_hint">Свои категории и выбор в операциях</string>
+    <string name="category_settings_name">Название категории</string>
+    <string name="category_settings_name_too_long">Не больше %1$d символов</string>
+    <string name="category_settings_add">Добавить категорию</string>
+    <string name="category_settings_remove">Удалить свою категорию</string>
+    <string name="category_settings_remove_hint">Категория исчезнет из выбора на этом устройстве. В записанных операциях она сохранится.</string>
+    <string name="category_settings_remove_confirm">Удалить</string>
+    <string name="category_settings_read_error">Не удалось загрузить категории</string>
+    <string name="category_settings_write_error">Не удалось сохранить изменение. Попробуйте ещё раз.</string>
+    <string name="category_settings_empty">Пока нет категорий этого типа</string>
+</resources>

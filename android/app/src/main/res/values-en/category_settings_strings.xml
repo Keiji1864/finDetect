@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="category_settings_title">Manage categories</string>
+    <string name="category_settings_hint">Custom categories and transaction choices</string>
+    <string name="category_settings_name">Category name</string>
+    <string name="category_settings_name_too_long">Maximum %1$d characters</string>
+    <string name="category_settings_add">Add category</string>
+    <string name="category_settings_remove">Delete a custom category</string>
+    <string name="category_settings_remove_hint">This removes the category from the picker on this device. Existing transactions keep their category.</string>
+    <string name="category_settings_remove_confirm">Delete</string>
+    <string name="category_settings_read_error">Could not load categories</string>
+    <string name="category_settings_write_error">Could not save the change. Try again.</string>
+    <string name="category_settings_empty">No categories of this type yet</string>
+</resources>

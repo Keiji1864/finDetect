@@ -63,9 +63,10 @@ fun FinLazySubScreen(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    titleMaxLines: Int = 1,
     content: LazyListScope.() -> Unit,
 ) {
-    FinSubScreenFrame(title, onBack, modifier) {
+    FinSubScreenFrame(title, onBack, modifier, titleMaxLines) {
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(start = FinDimens.screenPadding, end = FinDimens.screenPadding,

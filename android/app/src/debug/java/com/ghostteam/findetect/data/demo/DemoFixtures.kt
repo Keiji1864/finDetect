@@ -1,5 +1,6 @@
 package com.ghostteam.findetect.data.demo
 
+import com.ghostteam.findetect.data.local.defaultCategories
 import com.ghostteam.findetect.data.remote.dto.AccountDto
 import com.ghostteam.findetect.data.remote.dto.BalanceAdjustmentDto
 import com.ghostteam.findetect.data.remote.dto.CategoryDto
@@ -28,11 +29,9 @@ object DemoFixtures {
         // Keep recent fixture dates inside the current UTC month, even on its first days.
         fun recent(daysAgo: Int): Instant = maxOf(monthStart, now - daysAgo.days)
 
-        val categories = listOf(
-            CategoryDto(SALARY, "salary", CategoryNamesDto("Зарплата", "Salary"), "cash", true, false),
-            CategoryDto(GROCERIES, "groceries", CategoryNamesDto("Продукты", "Groceries"), "basket", false, false),
-            CategoryDto(COFFEE, "coffee", CategoryNamesDto("Кофе", "Coffee"), "coffee", false, false),
-        )
+        val categories = defaultCategories.map {
+            CategoryDto(it.id, it.key, CategoryNamesDto(it.nameRu, it.nameEn), it.iconId, it.isIncome, it.isArchived)
+        }
         val accounts = listOf(
             AccountDto(
                 id = RUB_ACCOUNT,

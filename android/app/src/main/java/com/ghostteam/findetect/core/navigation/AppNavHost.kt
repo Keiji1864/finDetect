@@ -37,6 +37,7 @@ import com.ghostteam.findetect.feature.password.ChangePasswordRoute
 import com.ghostteam.findetect.feature.streak.StreakRoute
 import com.ghostteam.findetect.feature.achievements.AchievementsRoute
 import com.ghostteam.findetect.feature.settings.AppearanceSettingsScreen
+import com.ghostteam.findetect.feature.settings.CategorySettingsScreen
 import com.ghostteam.findetect.feature.settings.CurrencySettingsScreen
 import com.ghostteam.findetect.feature.settings.GamificationSettingsScreen
 import com.ghostteam.findetect.feature.settings.RemindersSettingsScreen
@@ -390,6 +391,9 @@ fun AppNavHost(
                     onOpenCurrency = {
                         open(Destination.SettingsCurrency)
                     },
+                    onOpenCategories = {
+                        open(Destination.SettingsCategories)
+                    },
                     onOpenSecurity = {
                         open(Destination.SettingsSecurity)
                     },
@@ -412,6 +416,10 @@ fun AppNavHost(
 
             composable(Destination.SettingsCurrency.route) {
                 CurrencySettingsScreen(onBack = back)
+            }
+
+            composable(Destination.SettingsCategories.route) {
+                CategorySettingsScreen(onBack = back)
             }
 
             composable(Destination.SettingsSecurity.route) {

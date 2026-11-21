@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.room.Room
 import com.ghostteam.findetect.core.data.LocalDataInitializer
 import com.ghostteam.findetect.data.local.AppDatabase
+import com.ghostteam.findetect.data.local.defaultCategories
 import com.ghostteam.findetect.data.local.migration.MIGRATION_1_2
 import com.ghostteam.findetect.data.local.migration.MIGRATION_2_3
 import com.ghostteam.findetect.data.local.migration.MIGRATION_3_4
@@ -70,7 +71,7 @@ class UserDataScope internal constructor(
     internal val exchange = com.ghostteam.findetect.data.sync.RoomExchange(database, gate, history)
     val settings = LocalSettingsRepository(device, preferences, database, gate, achievements, clock, history)
     val accounts = LocalAccountRepository(database, database.accountDao(), database.accountDeletionDao(), clock, history)
-    val categories = LocalCategoryRepository(database, database.categoryDao())
+    val categories = LocalCategoryRepository(database, database.categoryDao(), preferences, gate)
     val transactions = LocalTransactionRepository(database, database.transactionDao(), database.accountDao(),
         database.categoryDao(), database.transactionDeletionDao(), clock, history, xp, achievements)
     val adjustments = LocalBalanceAdjustmentRepository(database, database.adjustmentDao(), database.accountDao(),
@@ -135,10 +136,7 @@ class UserDataScopes @Inject constructor(
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build()
         try {
             initializer.initialize(database, id)
-            val known = database.openHelper.readableDatabase.query("SELECT id FROM categories").use { rows ->
-                    buildSet { while (rows.moveToNext()) add(rows.getString(0)) }
-                }
-            database.categoryDao().upsertAll(com.ghostteam.findetect.data.local.defaultCategories.filter { it.id !in known })
+            database.categoryDao().insertMissing(defaultCategories)
             val pin = PinStorage(context, id, gate)
             pin.refresh()
             UserDataScope(identity, database, gate, pin, device, preferences.forUser(id),
