@@ -21,6 +21,12 @@ data class Period(val start: LocalDate, val end: LocalDate) {
             return Period(first, first.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY))
         }
 
+        /** Текущий календарный месяц целиком и пять предыдущих. */
+        fun lastSixCalendarMonths(today: LocalDate = today()): Period {
+            val month = currentMonth(today)
+            return Period(month.start.minus(5, DateTimeUnit.MONTH), month.end)
+        }
+
         fun lastWeek(today: LocalDate = today()) =
             Period(today.minus(7, DateTimeUnit.DAY), today)
 

@@ -156,33 +156,37 @@ fun FinAdviceCard(
 }
 
 /**
- * Чип периода (DESIGN.md 5.5): cream, скругление 10, текст 13 Medium + шеврон вниз.
+ * Чип периода (DESIGN.md 5.5): cream, скругление 10, текст 13 Medium.
+ * С [onClick] показывает шеврон и открывает выбор периода.
  * selected = true (выбран месяц целиком внутри шторки) красит в yellow.
  */
 @Composable
 fun FinPeriodChip(
     text: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
 ) {
     val c = FinTheme.colors
+    val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
     Row(
         modifier = modifier
             .clip(FinTheme.shapes.chip)
             .background(if (selected) c.yellow else c.cream)
-            .clickable(onClick = onClick)
+            .then(clickModifier)
             .padding(start = 10.dp, top = 8.dp, end = 12.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Text(text, style = FinTheme.typography.chip, color = c.navy)
-        Icon(
-            imageVector = Icons.Filled.KeyboardArrowDown,
-            contentDescription = null,
-            tint = c.navy,
-            modifier = Modifier.size(12.dp),
-        )
+        if (onClick != null) {
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = c.navy,
+                modifier = Modifier.size(12.dp),
+            )
+        }
     }
 }
 

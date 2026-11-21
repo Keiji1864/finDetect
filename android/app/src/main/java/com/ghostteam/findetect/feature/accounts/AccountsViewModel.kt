@@ -57,7 +57,7 @@ class AccountsViewModel @Inject constructor(
     private val restoredDraft = CreateAccountInput(
         name = savedState["name"] ?: "",
         currency = savedState["currency"] ?: AppCurrency.RUB.name,
-        initialBalanceText = savedState["balance"] ?: "0",
+        initialBalanceText = savedState.get<String>("balance")?.takeUnless { it == "0" }.orEmpty(),
         iconId = savedState["icon"] ?: "wallet",
         includeInForecast = savedState["forecast"] ?: true,
     )

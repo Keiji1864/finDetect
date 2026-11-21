@@ -16,13 +16,20 @@ import kotlinx.datetime.LocalDate
 @Composable
 fun IncomeRoute(
     period: Period,
-    onOpenPeriod: () -> Unit,
     onAddTransaction: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},
     onEditTransaction: (String) -> Unit = {},
 ) {
-    TransactionsRoute(true, period, onOpenPeriod, onAddTransaction, onOpenSettings, onOpenAnalytics, onEditTransaction)
+    TransactionsRoute(
+        isIncome = true,
+        period = period,
+        onOpenPeriod = null,
+        onAddTransaction = onAddTransaction,
+        onOpenSettings = onOpenSettings,
+        onOpenAnalytics = onOpenAnalytics,
+        onEditTransaction = onEditTransaction,
+    )
 }
 
 @Preview(showBackground = true, showSystemUi = true, widthDp = 412, heightDp = 892)
@@ -31,6 +38,6 @@ fun IncomeRoute(
 private fun IncomeScreenPreview() {
     MainScreenPreview(Destination.Incomes.route) {
         TransactionsScreen(TransactionsUiState(currency = AppCurrency.RUB, summary = transactionsPreviewSummary(true), loading = false),
-            true, Period.currentMonth(LocalDate(2026, 11, 14)), {}, {})
+            true, Period.lastSixCalendarMonths(LocalDate(2026, 11, 14)), null, {})
     }
 }

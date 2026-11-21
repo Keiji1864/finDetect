@@ -36,7 +36,9 @@ fun AchievementsScreen(state: AchievementsScreenState, onBack: () -> Unit, onRet
             else -> {
                 Text(stringResource(R.string.achievements_count, progress.earnedCount, progress.totalCount),
                     style = FinTheme.typography.sectionTitle, color = FinTheme.colors.navy)
-                progress.achievements.forEach { AchievementCard(it) }
+                progress.achievements
+                    .sortedByDescending { it.earned != null }
+                    .forEach { AchievementCard(it) }
             }
         }
     }

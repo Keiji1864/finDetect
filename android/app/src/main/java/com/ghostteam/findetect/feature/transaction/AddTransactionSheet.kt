@@ -10,14 +10,22 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -83,13 +91,14 @@ fun AddTransactionSheet(
     onRetry: () -> Unit,
     onSave: () -> Unit,
     onDismiss: () -> Unit,
-    @StringRes titleResource: Int? = null,
+    @StringRes editTitleResource: Int? = null,
     saveEnabled: Boolean = state.canSave,
     onDelete: (() -> Unit)? = null,
     deleteEnabled: Boolean = true,
     errorContent: (@Composable () -> Unit)? = null,
 ) {
     val saving by rememberUpdatedState(state.saving)
+    val isEditing = editTitleResource != null
     // A fresh modal when returning from a dismissed selector makes the form visible again.
     val page = state.picker?.takeUnless { it == TransactionPicker.DATE }
     key(page) {
@@ -140,25 +149,9 @@ fun AddTransactionSheet(
                             FinSegmentedSwitch(
                                 options = listOf(false to stringResource(R.string.ui_expenses), true to stringResource(R.string.ui_income)),
                                 selected = state.isIncome, onSelect = { if (!saving) onType(it) })
-                        } else SheetTitle(titleResource ?: if (state.isIncome) R.string.ui_add_income_title else R.string.ui_add_expense_title)
-                        Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(stringResource(R.string.ui_amount), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                BasicTextField(value = state.amount, onValueChange = onAmount, enabled = !state.saving,
-                                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                    textStyle = FinTheme.typography.amountInput.copy(color = if (state.isIncome) FinTheme.colors.green else FinTheme.colors.navy),
-                                    cursorBrush = SolidColor(FinTheme.colors.navy), modifier = Modifier.weight(1f),
-                                    decorationBox = { inner -> Box {
-                                        if (state.amount.isEmpty()) Text(stringResource(R.string.ui_zero),
-                                            style = FinTheme.typography.amountInput, color = FinTheme.colors.muted)
-                                        inner()
-                                    } })
-                                val currency = state.selectedAccount?.account?.currency ?: state.displayCurrency?.name
-                                if (currency != null) Text(currencySymbol(currency),
-                                    style = FinTheme.typography.amountInput, color = FinTheme.colors.muted)
-                            }
-                            if (state.amount.isNotEmpty() && !state.amountValid) ErrorText(R.string.transaction_amount_error)
-                        }
+                        } else SheetTitle(editTitleResource ?: if (state.isIncome) R.string.ui_add_income_title else R.string.ui_add_expense_title)
+                        val amountColor = if (isEditing && state.isIncome) FinTheme.colors.green else FinTheme.colors.navy
+                        TransactionAmountField(state, onAmount, amountColor)
                         FinSelectField(stringResource(R.string.ui_category), state.selectedCategory?.displayName().orEmpty(),
                             onClick = { if (!saving) onPicker(TransactionPicker.CATEGORY) }, placeholder = stringResource(R.string.ui_choose_category))
                         FinSelectField(stringResource(R.string.ui_account), state.selectedAccount?.account?.displayName().orEmpty(),
@@ -183,7 +176,9 @@ fun AddTransactionSheet(
                         FinButton(stringResource(R.string.ui_save), onSave, enabled = saveEnabled, loading = state.saving)
                         if (onDelete != null) FinButton(stringResource(R.string.transaction_delete), onDelete,
                             style = FinButtonStyle.Danger, enabled = deleteEnabled && !state.saving)
-                        FinButton(stringResource(R.string.ui_close), onDismiss, style = FinButtonStyle.Secondary, enabled = !state.saving)
+                        if (isEditing) {
+                            FinButton(stringResource(R.string.ui_close), onDismiss, style = FinButtonStyle.Secondary, enabled = !state.saving)
+                        }
                     }
                 }
             }
@@ -198,6 +193,52 @@ fun AddTransactionSheet(
             dialog.show()
             onDispose { dialog.dismiss() }
         }
+    }
+}
+
+@Composable
+private fun TransactionAmountField(state: AddTransactionUiState, onAmount: (String) -> Unit, amountColor: Color) {
+    val colors = FinTheme.colors
+    val currency = state.selectedAccount?.account?.currency ?: state.displayCurrency?.name
+    val symbol = currency?.let(::currencySymbol).orEmpty()
+    val zero = stringResource(R.string.ui_zero)
+    val amountPresentation = remember(symbol, zero, colors.muted) {
+        VisualTransformation { input ->
+            val displayText = buildAnnotatedString {
+                append(input)
+                withStyle(SpanStyle(color = colors.muted)) {
+                    if (input.isEmpty()) append(zero)
+                    append(symbol)
+                }
+            }
+            // Keep the currency and placeholder out of the editable amount.
+            TransformedText(displayText, object : OffsetMapping {
+                override fun originalToTransformed(offset: Int): Int = offset
+
+                override fun transformedToOriginal(offset: Int): Int =
+                    offset.coerceAtMost(input.length)
+            })
+        }
+    }
+
+    Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(R.string.ui_amount), style = FinTheme.typography.caption, color = colors.muted)
+        BasicTextField(
+            value = state.amount,
+            onValueChange = onAmount,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.saving,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            textStyle = FinTheme.typography.amountInput.copy(
+                color = amountColor,
+                textAlign = TextAlign.Center,
+                textDirection = TextDirection.Ltr,
+            ),
+            cursorBrush = SolidColor(colors.navy),
+            visualTransformation = amountPresentation,
+        )
+        if (state.amount.isNotEmpty() && !state.amountValid) ErrorText(R.string.transaction_amount_error)
     }
 }
 
@@ -269,7 +310,15 @@ private fun TransactionCreationError.messageResource(): Int = when (this) {
 @Composable
 private fun AddTransactionPreview() {
     FinDetectTheme {
-        AddTransactionSheet(AddTransactionUiState(date = LocalDate(2026, 11, 14)), {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        val state = AddTransactionUiState(
+            mode = AddTransactionMode.Income,
+            isIncome = true,
+            amount = "1250",
+            amountValid = true,
+            date = LocalDate(2026, 11, 14),
+            displayCurrency = AppCurrency.RUB,
+        )
+        AddTransactionSheet(state, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
     }
 }
 

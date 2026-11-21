@@ -13,7 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -22,7 +24,9 @@ import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.FinButton
 import com.ghostteam.findetect.core.designsystem.component.FinButtonStyle
 import com.ghostteam.findetect.core.designsystem.component.FinCard
+import com.ghostteam.findetect.core.designsystem.component.FinIconTile
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
+import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 import com.ghostteam.findetect.core.util.formatDate
 import com.ghostteam.findetect.domain.model.AchievementCode
@@ -78,14 +82,29 @@ private fun AchievementContent(achievement: AchievementProgress, compact: Boolea
     val earned = achievement.earned
     val locale = LocalConfiguration.current.locales[0]
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
-        UiIconTile(if (earned == null) R.drawable.ic_lock else achievement.code.iconRes())
+        if (earned != null) {
+            UiIconTile(achievement.code.iconRes())
+        } else {
+            FinIconTile(background = Color.Transparent) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_lock),
+                    contentDescription = stringResource(R.string.achievement_locked),
+                    modifier = Modifier.size(FinDimens.iconSize),
+                    tint = FinTheme.colors.muted,
+                )
+            }
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(achievement.code.nameRes()), style = FinTheme.typography.label, color = FinTheme.colors.navy)
             Text(achievementCondition(achievement.code), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
             if (!compact) {
-                Text(if (earned == null) stringResource(R.string.achievement_locked)
-                    else stringResource(R.string.achievement_earned_on, earned.earnedOn.formatDate(locale)),
-                    style = FinTheme.typography.captionMedium, color = FinTheme.colors.navy)
+                if (earned != null) {
+                    Text(
+                        text = stringResource(R.string.achievement_earned_on, earned.earnedOn.formatDate(locale)),
+                        style = FinTheme.typography.captionMedium,
+                        color = FinTheme.colors.navy,
+                    )
+                }
                 val current = achievement.current
                 val target = achievement.target
                 if (earned == null && current != null && target != null) {

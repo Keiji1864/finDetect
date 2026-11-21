@@ -22,7 +22,7 @@ class CreateAccountUseCase @Inject constructor(
             id = UUID.randomUUID().toString(),
             name = input.name.trim(),
             currency = input.currency,
-            initialBalance = requireNotNull(parser.parse(input.initialBalanceText)),
+            initialBalance = requireNotNull(input.initialBalance(parser)),
             iconId = input.iconId,
             includeInForecast = input.includeInForecast,
             modifiedAt = clock.now(),

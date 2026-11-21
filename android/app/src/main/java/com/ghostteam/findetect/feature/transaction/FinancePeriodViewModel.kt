@@ -1,18 +1,20 @@
 package com.ghostteam.findetect.feature.transaction
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ghostteam.findetect.core.time.LocalDayObserver
 import com.ghostteam.findetect.core.util.Period
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
 
 enum class PeriodField { START, END }
 
@@ -29,12 +31,15 @@ data class FinancePeriodState(
     val valid: Boolean get() = draftStart != null && draftEnd != null && draftStart <= draftEnd
 }
 
-/** Shared by the two tabs for this app session; a fresh process starts at the current full month. */
+/** Expense calendar selection and the rolling six-calendar-month income period. */
 @HiltViewModel
-class FinancePeriodViewModel @Inject constructor(clock: Clock) : ViewModel() {
-    private val initial = Period.currentMonth(clock.now().toLocalDateTime(TimeZone.currentSystemDefault()).date)
-    val selection = FinancePeriodSelection(initial)
+class FinancePeriodViewModel @Inject constructor(days: LocalDayObserver) : ViewModel() {
+    private val today = days.current().date
+    val selection = FinancePeriodSelection(Period.currentMonth(today))
     val state = selection.state
+    val incomePeriod = days.observe()
+        .map { Period.lastSixCalendarMonths(it.date) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Period.lastSixCalendarMonths(today))
 
     fun open() = selection.open()
     fun dismiss() = selection.dismiss()

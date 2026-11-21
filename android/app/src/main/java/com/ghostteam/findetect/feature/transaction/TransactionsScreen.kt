@@ -45,7 +45,7 @@ import kotlinx.datetime.LocalDate
 fun TransactionsRoute(
     isIncome: Boolean,
     period: Period,
-    onOpenPeriod: () -> Unit,
+    onOpenPeriod: (() -> Unit)?,
     onAddTransaction: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAnalytics: () -> Unit,
@@ -74,7 +74,7 @@ fun TransactionsScreen(
     state: TransactionsUiState,
     isIncome: Boolean,
     period: Period,
-    onOpenPeriod: () -> Unit,
+    onOpenPeriod: (() -> Unit)?,
     onAddTransaction: () -> Unit,
     onOpenSettings: () -> Unit = {},
     onOpenAnalytics: () -> Unit = {},

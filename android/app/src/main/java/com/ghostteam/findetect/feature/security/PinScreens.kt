@@ -4,8 +4,10 @@ import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -16,8 +18,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,7 +52,7 @@ fun PinSetupScreen(onBack: () -> Unit, onDone: () -> Unit = onBack, autoCreate: 
     BackHandler { viewModel.cancel(); onBack() }
     FinSubScreen(title = stringResource(if (autoCreate) R.string.ui_onboarding_pin_title else R.string.ui_settings_security), onBack = { viewModel.cancel(); onBack() }) {
         when {
-            state.status == PinStatus.LOADING -> Text(stringResource(R.string.finance_loading), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+            state.status == PinStatus.LOADING -> PinLoadingText()
             state.status == PinStatus.ERROR -> {
                 FinNotice(stringResource(R.string.settings_pin_error), text = stringResource(R.string.pin_storage_error))
                 FinButton(stringResource(R.string.finance_retry), viewModel::retryStorage)
@@ -79,11 +83,43 @@ fun PinUnlockScreen(onExit: () -> Unit, onReauthenticate: () -> Unit = {},
         if (state.stage == PinStage.MENU && state.status == PinStatus.ENABLED) viewModel.begin(PinStage.UNLOCK)
     }
     BackHandler(onBack = onExit)
-    Column(Modifier.fillMaxSize().background(FinTheme.colors.paper).statusBarsPadding().navigationBarsPadding()
-        .verticalScroll(rememberScrollState()).padding(FinDimens.screenPadding), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.pin_unlock_title), style = FinTheme.typography.title, color = FinTheme.colors.navy)
-        PinEntryForm(state, viewModel::digit, viewModel::delete)
-        FinButton(stringResource(R.string.session_sign_in_again), onReauthenticate, style = FinButtonStyle.Secondary)
+    PinUnlockContent(state, viewModel::digit, viewModel::delete, onReauthenticate)
+}
+
+@Composable
+private fun PinUnlockContent(
+    state: PinUiState,
+    onDigit: (Char) -> Unit,
+    onDelete: () -> Unit,
+    onReauthenticate: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(FinTheme.colors.paper)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(FinDimens.screenPadding),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.pin_unlock_title),
+            style = FinTheme.typography.title,
+            color = FinTheme.colors.navy,
+        )
+        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Column(
+                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                PinEntryForm(state, onDigit, onDelete)
+                FinButton(
+                    text = stringResource(R.string.session_sign_in_again),
+                    onClick = onReauthenticate,
+                    style = FinButtonStyle.Secondary,
+                )
+            }
+        }
     }
 }
 
@@ -99,7 +135,7 @@ internal fun PinEntryForm(state: PinUiState, onDigit: (Char) -> Unit, onDelete: 
                 PinStage.UNLOCK -> R.string.pin_enter_to_unlock
             }), filled = state.filled, onDigit = onDigit, onDelete = onDelete, enabled = !state.working && !state.completed && state.stage != PinStage.MENU,
         )
-        if (state.working) Text(stringResource(R.string.finance_loading), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+        if (state.working) PinLoadingText()
         if (state.error != PinError.NONE) Text(
             text = when (state.error) {
                 PinError.INCORRECT -> stringResource(R.string.pin_incorrect)
@@ -107,9 +143,24 @@ internal fun PinEntryForm(state: PinUiState, onDigit: (Char) -> Unit, onDelete: 
                 PinError.THROTTLED -> stringResource(R.string.pin_throttled, state.retrySeconds)
                 PinError.STORAGE -> stringResource(R.string.pin_storage_error)
                 else -> stringResource(R.string.pin_save_error)
-            }, style = FinTheme.typography.caption, color = FinTheme.colors.red,
+            },
+            modifier = Modifier.fillMaxWidth(),
+            style = FinTheme.typography.caption,
+            color = FinTheme.colors.red,
+            textAlign = TextAlign.Center,
         )
     }
+}
+
+@Composable
+private fun PinLoadingText() {
+    Text(
+        text = stringResource(R.string.finance_loading),
+        modifier = Modifier.fillMaxWidth(),
+        style = FinTheme.typography.heading,
+        color = FinTheme.colors.muted,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable
@@ -125,10 +176,13 @@ private fun ClearPinOnLeave(viewModel: PinEntryViewModel) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 700)
 @Preview(showBackground = true, widthDp = 360, heightDp = 700, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
-private fun PinEntryFormPreview() {
+private fun PinUnlockContentPreview() {
     FinDetectTheme {
-        FinSubScreen(stringResource(R.string.ui_settings_security), {}) {
-            PinEntryForm(PinUiState(status = PinStatus.ENABLED, stage = PinStage.UNLOCK, filled = 2), {}, {})
-        }
+        PinUnlockContent(
+            state = PinUiState(status = PinStatus.ENABLED, stage = PinStage.UNLOCK, filled = 4, working = true),
+            onDigit = {},
+            onDelete = {},
+            onReauthenticate = {},
+        )
     }
 }

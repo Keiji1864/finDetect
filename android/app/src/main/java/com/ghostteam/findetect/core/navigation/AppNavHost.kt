@@ -260,9 +260,9 @@ fun AppNavHost(
             }
 
             composable(Destination.Incomes.route) {
+                val incomePeriod by financePeriodViewModel.incomePeriod.collectAsStateWithLifecycle()
                 IncomeRoute(
-                    period = financePeriod.selected,
-                    onOpenPeriod = financePeriodViewModel::open,
+                    period = incomePeriod,
                     onAddTransaction = {
                         openTransaction(AddTransactionMode.Income)
                     },
