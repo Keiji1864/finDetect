@@ -34,12 +34,14 @@ fun SettingsScreen(
     onOpenReminders: () -> Unit = {},
     onOpenGamification: () -> Unit = {},
     onOpenIncome: () -> Unit = {},
+    onOpenCategories: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val today by viewModel.today.collectAsStateWithLifecycle()
     RefreshNotificationPermission(viewModel::refreshSystemPermission)
-    SettingsContent(state, today, viewModel::retryRead, onBack, onOpenAppearance, onOpenCurrency, onOpenSecurity, onOpenReminders, onOpenGamification, onOpenIncome)
+    SettingsContent(state, today, viewModel::retryRead, onBack, onOpenAppearance, onOpenCurrency,
+        onOpenSecurity, onOpenReminders, onOpenGamification, onOpenIncome, onOpenCategories)
 }
 
 @Composable
@@ -47,6 +49,7 @@ private fun SettingsContent(
     state: SettingsUiState, today: LocalDate, onRetry: () -> Unit, onBack: () -> Unit,
     onOpenAppearance: () -> Unit, onOpenCurrency: () -> Unit, onOpenSecurity: () -> Unit,
     onOpenReminders: () -> Unit, onOpenGamification: () -> Unit, onOpenIncome: () -> Unit,
+    onOpenCategories: () -> Unit,
 ) {
     val settings = state.settings
     val loading = stringResource(R.string.finance_loading)
@@ -54,6 +57,7 @@ private fun SettingsContent(
         SettingsStatus(state, onRetry)
         SettingsRow(R.string.ui_settings_appearance, stringResource(R.string.ui_settings_appearance_hint), R.drawable.ic_settings, onOpenAppearance)
         SettingsRow(R.string.ui_settings_currency, settings?.let { stringResource(currencyName(it.currency)) } ?: loading, R.drawable.ic_cash, onOpenCurrency)
+        SettingsRow(R.string.category_settings_title, stringResource(R.string.category_settings_hint), R.drawable.ic_basket, onOpenCategories)
         val schedule = settings?.incomeSchedule
         val incomeSummary = when {
             settings == null -> loading
@@ -107,5 +111,6 @@ private fun currencyName(currency: AppCurrency): Int = when (currency) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun SettingsScreenPreview() {
-    FinDetectTheme { SettingsContent(SettingsUiState(settings = AppSettings(), pin = PinStatus.DISABLED), LocalDate(2026, 11, 19), {}, {}, {}, {}, {}, {}, {}, {}) }
+    FinDetectTheme { SettingsContent(SettingsUiState(settings = AppSettings(), pin = PinStatus.DISABLED),
+        LocalDate(2026, 11, 19), {}, {}, {}, {}, {}, {}, {}, {}, {}) }
 }

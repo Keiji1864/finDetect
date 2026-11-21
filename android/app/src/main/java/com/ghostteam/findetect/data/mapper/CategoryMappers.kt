@@ -1,6 +1,7 @@
 package com.ghostteam.findetect.data.mapper
 
 import com.ghostteam.findetect.data.local.entity.CategoryEntity
+import com.ghostteam.findetect.data.local.withUpdatedSystemNames
 import com.ghostteam.findetect.data.remote.dto.CategoryDto
 import com.ghostteam.findetect.domain.model.Category
 import com.ghostteam.findetect.domain.model.CategoryNames
@@ -12,7 +13,7 @@ fun CategoryEntity.toDomain(): Category = Category(
     iconId = iconId,
     isIncome = isIncome,
     isArchived = isArchived,
-)
+).withUpdatedSystemNames()
 
 fun Category.toEntity(legacyEmoji: String? = null): CategoryEntity = CategoryEntity(
     id = id,

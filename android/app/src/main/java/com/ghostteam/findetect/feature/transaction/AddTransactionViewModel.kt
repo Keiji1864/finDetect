@@ -64,9 +64,11 @@ data class AddTransactionUiState(
     val promptCurrency: AppCurrency? = null,
     val switchingCurrency: Boolean = false,
     val switchError: Boolean = false,
+    val originalCategory: Category? = null,
 ) {
     val selectedAccount: AccountBalance? get() = accounts.firstOrNull { it.account.id == accountId }
     val selectedCategory: Category? get() = categories.firstOrNull { it.id == categoryId }
+        ?: originalCategory?.takeIf { it.id == categoryId }
     val canSave: Boolean get() = amountValid && comment.length <= 200 && selectedAccount != null &&
         selectedCategory != null && !accountsLoading && !categoriesLoading && !accountsError && !categoriesError &&
         displayCurrency != null && !settingsError && !saving && !saved && createAccountRequest == null

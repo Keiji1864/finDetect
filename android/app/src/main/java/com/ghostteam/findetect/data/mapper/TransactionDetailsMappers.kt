@@ -1,6 +1,7 @@
 package com.ghostteam.findetect.data.mapper
 
 import com.ghostteam.findetect.data.local.model.TransactionDetailsRow
+import com.ghostteam.findetect.data.local.withUpdatedSystemNames
 import com.ghostteam.findetect.domain.model.Category
 import com.ghostteam.findetect.domain.model.CategoryNames
 import com.ghostteam.findetect.domain.model.TransactionDetails
@@ -15,5 +16,5 @@ fun TransactionDetailsRow.toDomain(): TransactionDetails = TransactionDetails(
         iconId = categoryIconId,
         isIncome = categoryIsIncome,
         isArchived = categoryIsArchived,
-    ),
+    ).withUpdatedSystemNames(),
 )

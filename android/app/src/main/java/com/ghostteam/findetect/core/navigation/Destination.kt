@@ -42,6 +42,7 @@ sealed class Destination(val route: String) {
     data object SettingsIncome : Destination("settings/income")
     data object SettingsAppearance : Destination("settings/appearance")
     data object SettingsCurrency : Destination("settings/currency")
+    data object SettingsCategories : Destination("settings/categories")
     data object SettingsSecurity : Destination("settings/security")
     data object SettingsReminders : Destination("settings/reminders")
     data object SettingsGamification : Destination("settings/gamification")

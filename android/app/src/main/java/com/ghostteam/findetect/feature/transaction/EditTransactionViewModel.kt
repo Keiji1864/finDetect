@@ -141,18 +141,22 @@ class EditTransactionViewModel @Inject constructor(
                             expectedCurrency = details.currency, form = it.form.copy(
                                 mode = if (details.category.isIncome) AddTransactionMode.Income else AddTransactionMode.Expense,
                                 isIncome = details.category.isIncome, amount = amount, amountValid = amountParser.parse(amount) != null,
-                                accountId = transaction.accountId, categoryId = transaction.categoryId,
+                                accountId = transaction.accountId, categoryId = transaction.categoryId, originalCategory = details.category,
                                 date = transaction.transactionDate.toLocalDateTime(zone).date, comment = transaction.comment.orEmpty(),
                             )) }
                         persist()
                     } else {
                         val changed = details.transaction.modifiedAt.toString() != expectedVersion
-                        mutableState.update { it.copy(
-                            original = if (changed && it.original != null) it.original else details,
-                            loading = false, unavailable = false, changed = changed,
-                            form = it.form.copy(mode = if (details.category.isIncome) AddTransactionMode.Income else AddTransactionMode.Expense,
-                                isIncome = details.category.isIncome),
-                        ) }
+                        mutableState.update {
+                            val original = if (changed) it.original ?: details else details
+                            it.copy(
+                                original = original, loading = false, unavailable = false, changed = changed,
+                                form = it.form.copy(
+                                    mode = if (original.category.isIncome) AddTransactionMode.Income else AddTransactionMode.Expense,
+                                    isIncome = original.category.isIncome, originalCategory = original.category,
+                                ),
+                            )
+                        }
                     }
                 }
             },
@@ -175,7 +179,7 @@ class EditTransactionViewModel @Inject constructor(
                         if (error is CancellationException) throw error
                         mutableState.update { it.copy(form = it.form.copy(categoriesLoading = false, categoriesError = true)) }
                     }.collect { available -> mutableState.update { it.copy(form = it.form.copy(
-                        categories = (available + original).distinctBy { category -> category.id }, categoriesLoading = false)) } }
+                        categories = available, categoriesLoading = false, categoriesError = false)) } }
                 }
             },
             viewModelScope.launch {
