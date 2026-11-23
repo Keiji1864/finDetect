@@ -171,6 +171,18 @@ CREATE TABLE IF NOT EXISTS personal_settings (
   PRIMARY KEY (user_id, "id")
 );
 CREATE INDEX IF NOT EXISTS accounts_sync ON accounts(user_id,revision);
+CREATE TABLE IF NOT EXISTS forecast_plans (
+  user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  revision bigint NOT NULL,
+  currency text NOT NULL CHECK (currency IN ('RUB','USD','EUR','CNY')),
+  "savingsMinor" bigint CHECK ("savingsMinor" BETWEEN 0 AND 99999999999),
+  "paymentsMinor" bigint CHECK ("paymentsMinor" BETWEEN 0 AND 99999999999),
+  "paymentDate" date,
+  "manualDailyMinor" bigint CHECK ("manualDailyMinor" BETWEEN 0 AND 99999999999),
+  "modifiedAt" timestamptz NOT NULL,
+  CHECK (("paymentDate" IS NULL) = ("paymentsMinor" IS NULL)),
+  PRIMARY KEY (user_id, currency)
+);
 CREATE TABLE IF NOT EXISTS forecast_days (
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   revision bigint NOT NULL,
