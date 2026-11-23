@@ -70,7 +70,7 @@ class ForecastHistory internal constructor(
                 val end = today.plus(1, DateTimeUnit.DAY).atStartOfDayIn(zone)
                 val spent = dao.alreadySpent(currency.name, start, end)
                 val limit = if (spent || target == null) null else database.readForecast(currency, LocalDay(today, zone),
-                    accounts, schedule).dailyLimit?.toMinorUnits()
+                    accounts, schedule).recommended?.toMinorUnits()
                 if (spent || limit != null) {
                     dao.insert(ForecastDay(UUID.randomUUID().toString(), currency.name, today.toString(),
                         now.toEpochMilliseconds(), ids, start, end, limit))

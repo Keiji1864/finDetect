@@ -287,11 +287,7 @@ fun AppNavHost(
             composable(Destination.Forecast.route) {
                 val state by forecastModel.state.collectAsStateWithLifecycle()
                 ForecastScreen(state, back, forecastModel::retry, { open(Destination.SettingsIncome) },
-                    { open(Destination.Accounts) }, { open(Destination.ForecastExplanation) })
-            }
-            composable(Destination.ForecastExplanation.route) {
-                val state by forecastModel.state.collectAsStateWithLifecycle()
-                ForecastExplanation(state, back, forecastModel::retry) { open(Destination.Accounts) }
+                    { open(Destination.Accounts) }, forecastModel::save)
             }
 
             composable(

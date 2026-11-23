@@ -35,6 +35,7 @@ public class FinanceController {
             new Table("achievement_transaction_facts", "transactionId enteredOn transactionOn zoneId enteredAt"),
             new Table("xp_events", "id reason sourceId reasonRef amount counted localDate occurredAt createdAt"),
             new Table("achievements", "code earnedAt earnedOn isLegacy xpEventId createdAt"),
+            new Table("forecast_plans", "currency savingsMinor paymentsMinor paymentDate manualDailyMinor modifiedAt"),
             new Table("forecast_days", "id currency day stamp accountIds fromUtc untilUtc limitMinor"),
             new Table("forecast_balances", "id currency stamp localDay targetDay rule accountIds balanceMinor"),
             new Table("personal_settings", "id gameEnabled reminderEnabled reminderHour modifiedAt nextIncomeDate incomeRepeat"));

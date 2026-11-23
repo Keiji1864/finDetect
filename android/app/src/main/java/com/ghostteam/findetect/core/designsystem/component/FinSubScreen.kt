@@ -78,7 +78,7 @@ fun FinLazySubScreen(
 }
 
 @Composable
-private fun FinSubScreenFrame(
+internal fun FinSubScreenFrame(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier,
