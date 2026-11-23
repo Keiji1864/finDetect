@@ -35,6 +35,7 @@ private data class Batch(val request: Changes, val observed: Map<String, Map<Str
 /** Per-login state. A network round trip never holds a Room transaction or the session gate. */
 internal class RoomExchange(private val room: AppDatabase, private val gate: UserAccessGate, private val history: ForecastHistory) {
     private val serial = Mutex()
+    private var serverSupportsPlans = false
     private val db get() = room.openHelper.writableDatabase
 
     suspend fun awaitChange() {
@@ -50,10 +51,21 @@ internal class RoomExchange(private val room: AppDatabase, private val gate: Use
 
     suspend fun exchange(send: suspend (Changes) -> Changes) = serial.withLock {
         val batch = gate.use { room.withTransaction { capture() } } ?: return@withLock
-        val response = send(batch.request)
+        // Older servers reject unknown table names but advertise supported tables in every response.
+        val hasPlanEdits = batch.request.tables.getValue(PLAN_TABLE).isNotEmpty()
+        if (hasPlanEdits && !serverSupportsPlans) {
+            serverSupportsPlans = PLAN_TABLE in send(Changes(batch.request.revision, emptyMap())).tables
+        }
+        val request = if (serverSupportsPlans) batch.request else
+            batch.request.copy(tables = batch.request.tables - PLAN_TABLE)
+        val response = send(request)
+        serverSupportsPlans = PLAN_TABLE in response.tables
+        // If the server was upgraded between requests, submit local plans before applying its copy.
+        check(!hasPlanEdits || !serverSupportsPlans || PLAN_TABLE in request.tables)
         require(response.revision >= batch.request.revision)
         gate.use { room.withTransaction {
             for (table in tables) {
+                if (table.name == PLAN_TABLE && !serverSupportsPlans) continue
                 val incoming = response.tables.getValue(table.name)
                 val before = batch.observed.getValue(table.name)
                 for (row in incoming) {
@@ -125,6 +137,7 @@ internal class RoomExchange(private val room: AppDatabase, private val gate: Use
     }
 
     companion object {
+        private const val PLAN_TABLE = "forecast_plans"
         private val tables = listOf(
             Table("categories", "id key nameRu nameEn iconId isIncome isArchived legacyEmoji", false),
             Table("accounts", "id name iconId currency initialBalanceMinor modifiedAt includeInForecast createdAt updatedAt deletedAt legacyEmoji", true),
@@ -137,6 +150,7 @@ internal class RoomExchange(private val room: AppDatabase, private val gate: Use
             Table("achievement_transaction_facts", "transactionId enteredOn transactionOn zoneId enteredAt", false),
             Table("xp_events", "id reason sourceId reasonRef amount counted localDate occurredAt createdAt", true),
             Table("achievements", "code earnedAt earnedOn isLegacy xpEventId createdAt", true),
+            Table(PLAN_TABLE, "currency savingsMinor paymentsMinor paymentDate manualDailyMinor modifiedAt", false),
             Table("forecast_days", "id currency day stamp accountIds fromUtc untilUtc limitMinor", false),
             Table("forecast_balances", "id currency stamp localDay targetDay rule accountIds balanceMinor", false),
             Table("personal_settings", "id gameEnabled reminderEnabled reminderHour modifiedAt nextIncomeDate incomeRepeat", false)

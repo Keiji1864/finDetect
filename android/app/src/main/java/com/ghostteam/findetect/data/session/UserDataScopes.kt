@@ -24,6 +24,7 @@ import com.ghostteam.findetect.domain.model.OnboardingStep
 import com.ghostteam.findetect.domain.model.SessionIdentity
 import com.ghostteam.findetect.domain.usecase.CalculateStreakUseCase
 import com.ghostteam.findetect.domain.usecase.CalculateAchievementsUseCase
+import com.ghostteam.findetect.data.local.migration.MIGRATION_9_10
 import com.ghostteam.findetect.data.local.migration.MIGRATION_8_9
 import com.ghostteam.findetect.domain.model.AppCurrency
 import com.ghostteam.findetect.core.time.LocalDayObserver
@@ -64,7 +65,7 @@ class UserDataScope internal constructor(
     internal fun syncFailed(value: Boolean) { mutableSyncFailed.value = value }
     val xp = LocalXpRepository(database, database.xpDao(), clock, calculateStreak)
     val achievements = LocalAchievementRepository(database, database.achievementDao(), clock, calculateAchievements, xp)
-    private val history = ForecastHistory(database, clock, achievements) {
+    internal val history = ForecastHistory(database, clock, achievements) {
         val saved = device.store.data.first()[LocalSettingsRepository.currencyKey]
         AppCurrency.entries.firstOrNull { it.name == saved } ?: AppCurrency.RUB
     }
@@ -133,7 +134,7 @@ class UserDataScopes @Inject constructor(
         val id = canonicalUserId(identity.userId)
         val gate = UserAccessGate()
         val database = Room.databaseBuilder(context, AppDatabase::class.java, databaseName(id))
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build()
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build()
         try {
             initializer.initialize(database, id)
             database.categoryDao().insertMissing(defaultCategories)
