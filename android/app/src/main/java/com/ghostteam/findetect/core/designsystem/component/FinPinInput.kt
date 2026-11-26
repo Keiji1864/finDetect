@@ -6,6 +6,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -36,28 +41,34 @@ import com.ghostteam.findetect.core.designsystem.theme.FinTheme
 fun FinPinInput(
     title: String, filled: Int, onDigit: (Char) -> Unit, onDelete: () -> Unit,
     modifier: Modifier = Modifier, enabled: Boolean = true,
+    feedback: @Composable () -> Unit = {},
 ) {
-    val description = stringResource(R.string.pin_dots_description, filled)
-    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = FinTheme.typography.heading, color = FinTheme.colors.navy, textAlign = TextAlign.Center)
-        Text(stringResource(R.string.ui_pin_hint), style = FinTheme.typography.caption, color = FinTheme.colors.muted, textAlign = TextAlign.Center)
-        Row(Modifier.padding(vertical = 16.dp).clearAndSetSemantics { contentDescription = description }, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            repeat(4) { index ->
-                val dot = Modifier.size(20.dp)
-                Box(if (index < filled) dot.background(FinTheme.colors.navy, FinTheme.shapes.round)
-                    else dot.border(3.dp, FinTheme.colors.navy, FinTheme.shapes.round))
-            }
-        }
-        listOf("123", "456", "789", " 0 ").forEachIndexed { rowIndex, row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEachIndexed { column, digit ->
-                    when {
-                        rowIndex == 3 && column == 0 -> Spacer(Modifier.weight(1f))
-                        rowIndex == 3 && column == 2 -> PinKey(Modifier.weight(1f), enabled, onDelete) {
-                            Icon(painterResource(R.drawable.ic_trash), stringResource(R.string.ui_pin_delete), tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp))
-                        }
-                        else -> PinKey(Modifier.weight(1f), enabled, { onDigit(digit) }) {
-                            Text(digit.toString(), style = FinTheme.typography.pinDigit, color = FinTheme.colors.navy)
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val viewport = maxHeight
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = viewport),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.height((viewport / 2 - 100.dp).coerceAtLeast(8.dp)))
+            Text(title, style = FinTheme.typography.heading, color = FinTheme.colors.navy, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.ui_pin_hint), style = FinTheme.typography.caption, color = FinTheme.colors.muted, textAlign = TextAlign.Center)
+            PinDots(filled, Modifier.padding(vertical = 16.dp))
+            feedback()
+            Spacer(Modifier.weight(1f))
+            Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("123", "456", "789", " 0 ").forEachIndexed { rowIndex, row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        row.forEachIndexed { column, digit ->
+                            when {
+                                rowIndex == 3 && column == 0 -> Spacer(Modifier.weight(1f))
+                                rowIndex == 3 && column == 2 -> PinKey(Modifier.weight(1f), enabled, onDelete) {
+                                    Icon(painterResource(R.drawable.ic_pin_backspace), stringResource(R.string.ui_pin_delete), tint = FinTheme.colors.navy, modifier = Modifier.size(24.dp))
+                                }
+                                else -> PinKey(Modifier.weight(1f), enabled, { onDigit(digit) }) {
+                                    Text(digit.toString(), style = FinTheme.typography.pinDigit, color = FinTheme.colors.navy)
+                                }
+                            }
                         }
                     }
                 }
@@ -67,13 +78,25 @@ fun FinPinInput(
 }
 
 @Composable
-private fun PinKey(modifier: Modifier, enabled: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
-    Box(modifier.height(56.dp).clip(FinTheme.shapes.r12).background(FinTheme.colors.white)
+internal fun PinDots(filled: Int, modifier: Modifier = Modifier) {
+    val description = stringResource(R.string.pin_dots_description, filled)
+    Row(modifier.clearAndSetSemantics { contentDescription = description }, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        repeat(4) { index ->
+            val dot = Modifier.size(20.dp)
+            Box(if (index < filled) dot.background(FinTheme.colors.navy, FinTheme.shapes.round)
+                else dot.border(2.dp, FinTheme.colors.navy, FinTheme.shapes.round))
+        }
+    }
+}
+
+@Composable
+internal fun PinKey(modifier: Modifier, enabled: Boolean, onClick: () -> Unit, compact: Boolean = false, action: Boolean = false, content: @Composable () -> Unit) {
+    Box(modifier.height(if (compact) 48.dp else 56.dp).clip(FinTheme.shapes.r12).background(if (action) FinTheme.colors.paper else FinTheme.colors.white)
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) { content() }
 }
 
-@Preview(showBackground = true, widthDp = 360)
-@Preview(showBackground = true, widthDp = 360, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(showBackground = true, widthDp = 360, heightDp = 740)
+@Preview(showBackground = true, widthDp = 360, heightDp = 740, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun FinPinInputPreview() {
     FinDetectTheme { FinPinInput(stringResource(R.string.ui_pin_create), 2, {}, {}) }

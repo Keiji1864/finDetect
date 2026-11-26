@@ -172,7 +172,7 @@ class UserDataScopes @Inject constructor(
     internal suspend fun onboarding(userId: String, isRegistration: Boolean): OnboardingStep {
         val stored = preferences.forUser(userId).data.first()[onboardingKey]
         return OnboardingStep.entries.firstOrNull { it.name == stored }
-            ?: if (isRegistration) OnboardingStep.INCOME else OnboardingStep.DONE
+            ?: if (isRegistration) OnboardingStep.PIN_FIRST else OnboardingStep.DONE
     }
 
     internal suspend fun saveOnboarding(userId: String, step: OnboardingStep) {
@@ -181,7 +181,6 @@ class UserDataScopes @Inject constructor(
 
     internal suspend fun resetPin(userId: String) = withContext(Dispatchers.IO) {
         PinStorage.clearStored(context, userId)
-        saveOnboarding(userId, OnboardingStep.PIN)
     }
 
     internal suspend fun deleteUserData(userId: String) = withContext(Dispatchers.IO) {

@@ -3,6 +3,15 @@ package com.ghostteam.findetect.feature.security
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import com.ghostteam.findetect.core.designsystem.component.PinDots
+import com.ghostteam.findetect.core.designsystem.component.PinKey
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +44,7 @@ import com.ghostteam.findetect.core.designsystem.component.FinButtonStyle
 import com.ghostteam.findetect.core.designsystem.component.FinNotice
 import com.ghostteam.findetect.core.designsystem.component.FinPinInput
 import com.ghostteam.findetect.core.designsystem.component.FinSubScreen
+import com.ghostteam.findetect.core.designsystem.component.FinSubScreenFrame
 import com.ghostteam.findetect.core.designsystem.theme.FinDetectTheme
 import com.ghostteam.findetect.core.designsystem.theme.FinDimens
 import com.ghostteam.findetect.core.designsystem.theme.FinTheme
@@ -49,15 +59,22 @@ fun PinSetupScreen(onBack: () -> Unit, onDone: () -> Unit = onBack, autoCreate: 
         if (autoCreate && state.status == PinStatus.DISABLED && state.stage == PinStage.MENU) viewModel.begin(PinStage.CREATE)
     }
     LaunchedEffect(state.completed) { if (state.completed) onDone() }
-    BackHandler { viewModel.cancel(); onBack() }
-    FinSubScreen(title = stringResource(if (autoCreate) R.string.ui_onboarding_pin_title else R.string.ui_settings_security), onBack = { viewModel.cancel(); onBack() }) {
+    val back = { viewModel.cancel(); onBack() }
+    BackHandler(onBack = back)
+    val title = stringResource(if (autoCreate) R.string.ui_onboarding_pin_title else R.string.ui_settings_security)
+    if (state.stage != PinStage.MENU && state.status != PinStatus.ERROR && state.status != PinStatus.LOADING) {
+        FinSubScreenFrame(title, back, Modifier, highlightBack = false) {
+            PinEntryForm(state, viewModel::digit, viewModel::delete)
+        }
+        return
+    }
+    FinSubScreen(title = title, onBack = back) {
         when {
             state.status == PinStatus.LOADING -> PinLoadingText()
             state.status == PinStatus.ERROR -> {
                 FinNotice(stringResource(R.string.settings_pin_error), text = stringResource(R.string.pin_storage_error))
                 FinButton(stringResource(R.string.finance_retry), viewModel::retryStorage)
             }
-            state.stage != PinStage.MENU -> PinEntryForm(state, viewModel::digit, viewModel::delete)
             else -> {
                 FinNotice(stringResource(if (state.status == PinStatus.ENABLED) R.string.settings_pin_enabled else R.string.settings_pin_disabled), text = stringResource(R.string.pin_security_about))
                 if (autoCreate && state.status == PinStatus.ENABLED) {
@@ -93,31 +110,44 @@ private fun PinUnlockContent(
     onDelete: () -> Unit,
     onReauthenticate: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(FinTheme.colors.paper)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(FinDimens.screenPadding),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = stringResource(R.string.pin_unlock_title),
-            style = FinTheme.typography.title,
-            color = FinTheme.colors.navy,
-        )
-        Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                PinEntryForm(state, onDigit, onDelete)
-                FinButton(
-                    text = stringResource(R.string.session_sign_in_again),
-                    onClick = onReauthenticate,
-                    style = FinButtonStyle.Secondary,
-                )
+    val enabled = state.stage == PinStage.UNLOCK && !state.working && !state.completed
+    BoxWithConstraints(Modifier.fillMaxSize().background(FinTheme.colors.paper)
+        .statusBarsPadding().navigationBarsPadding()) {
+        val viewport = maxHeight
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+            .height(viewport.coerceAtLeast(470.dp)).padding(horizontal = 16.dp, vertical = 12.dp)) {
+            Icon(painterResource(R.drawable.ic_findetective), stringResource(R.string.app_name),
+                modifier = Modifier.padding(start = 4.dp, top = 12.dp).size(width = 104.dp, height = 22.dp),
+                tint = FinTheme.colors.navy)
+            Spacer(Modifier.weight(0.36f))
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                Text(stringResource(R.string.pin_enter_to_unlock), style = FinTheme.typography.heading,
+                    color = FinTheme.colors.navy)
+                PinDots(state.filled)
+                PinFeedback(state)
+            }
+            Spacer(Modifier.weight(0.64f))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("123", "456", "789", "<0>").forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { key ->
+                            when (key) {
+                                '<' -> PinKey(Modifier.weight(1f), true, onReauthenticate, compact = true, action = true) {
+                                    Icon(painterResource(R.drawable.ic_pin_exit), stringResource(R.string.session_sign_in_again),
+                                        modifier = Modifier.size(24.dp), tint = FinTheme.colors.navy)
+                                }
+                                '>' -> PinKey(Modifier.weight(1f), enabled, onDelete, compact = true, action = true) {
+                                    Icon(painterResource(R.drawable.ic_pin_backspace), stringResource(R.string.ui_pin_delete),
+                                        modifier = Modifier.size(24.dp), tint = FinTheme.colors.navy)
+                                }
+                                else -> PinKey(Modifier.weight(1f), enabled, { onDigit(key) }, compact = true) {
+                                    Text(key.toString(), style = FinTheme.typography.pinDigit, color = FinTheme.colors.navy)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -126,15 +156,20 @@ private fun PinUnlockContent(
 /** Common form for setup, confirmation, current PIN checks, and unlocking. */
 @Composable
 internal fun PinEntryForm(state: PinUiState, onDigit: (Char) -> Unit, onDelete: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        FinPinInput(
-            title = stringResource(when (state.stage) {
-                PinStage.CREATE, PinStage.MENU -> R.string.ui_pin_create
-                PinStage.REPEAT -> R.string.ui_pin_repeat
-                PinStage.CURRENT_FOR_CHANGE, PinStage.CURRENT_FOR_DISABLE -> R.string.pin_enter_current
-                PinStage.UNLOCK -> R.string.pin_enter_to_unlock
-            }), filled = state.filled, onDigit = onDigit, onDelete = onDelete, enabled = !state.working && !state.completed && state.stage != PinStage.MENU,
-        )
+    FinPinInput(
+        title = stringResource(when (state.stage) {
+            PinStage.CREATE, PinStage.MENU -> R.string.ui_pin_create
+            PinStage.REPEAT -> R.string.ui_pin_repeat
+            PinStage.CURRENT_FOR_CHANGE, PinStage.CURRENT_FOR_DISABLE -> R.string.pin_enter_current
+            PinStage.UNLOCK -> R.string.pin_enter_to_unlock
+        }), filled = state.filled, onDigit = onDigit, onDelete = onDelete, enabled = !state.working && !state.completed && state.stage != PinStage.MENU,
+        modifier = Modifier.padding(horizontal = FinDimens.screenPadding, vertical = 12.dp),
+        feedback = { PinFeedback(state) },
+    )
+}
+
+@Composable
+private fun PinFeedback(state: PinUiState) {
         if (state.working) PinLoadingText()
         if (state.error != PinError.NONE) Text(
             text = when (state.error) {
@@ -149,7 +184,6 @@ internal fun PinEntryForm(state: PinUiState, onDigit: (Char) -> Unit, onDelete: 
             color = FinTheme.colors.red,
             textAlign = TextAlign.Center,
         )
-    }
 }
 
 @Composable

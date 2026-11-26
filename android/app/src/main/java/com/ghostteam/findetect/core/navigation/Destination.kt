@@ -49,6 +49,7 @@ sealed class Destination(val route: String) {
     data object Register : Destination("register")
     data object Recovery : Destination("recovery")
     data object Onboarding : Destination("onboarding")
+    data object PinOffer : Destination("onboarding/pin-offer")
     data object OnboardingPin : Destination("onboarding/pin")
     data object Lock : Destination("lock")
 }

@@ -72,7 +72,8 @@ fun AppNavHost(
     val start = remember(session.identity) {
         when (session.onboarding) {
             OnboardingStep.INCOME -> Destination.Onboarding.route
-            OnboardingStep.PIN -> Destination.OnboardingPin.route
+            OnboardingStep.PIN_OFFER -> Destination.PinOffer.route
+            OnboardingStep.PIN_FIRST, OnboardingStep.PIN, OnboardingStep.OPTIONAL_PIN -> Destination.OnboardingPin.route
             OnboardingStep.DONE -> Destination.Home.route
         }
     }
@@ -107,6 +108,15 @@ fun AppNavHost(
             launchSingleTop = true
         }
     }
+    fun advance(step: OnboardingStep, destination: Destination) {
+        sessionModel.advance(step) {
+            controller.navigate(destination.route) {
+                popUpTo(controller.graph.id) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
     val openSettings = { open(Destination.Settings) }
 
     /** Иконка графика в шапке: тип по умолчанию зависит от вкладки-источника. */
@@ -179,10 +189,24 @@ fun AppNavHost(
                     onboarding = true,
                     advancing = sessionUi.working,
                     onBack = onExit,
-                    onSaved = {
-                        sessionModel.advance(OnboardingStep.PIN) {
-                            open(Destination.OnboardingPin)
+                    onSaved = { advance(OnboardingStep.DONE, Destination.Home) },
+                )
+            }
+
+            composable(Destination.PinOffer.route) {
+                val later = { advance(OnboardingStep.DONE, Destination.Home) }
+                AlertDialog(
+                    onDismissRequest = later,
+                    title = { Text(stringResource(R.string.pin_offer_title)) },
+                    text = { Text(stringResource(R.string.ui_pin_hint)) },
+                    containerColor = FinTheme.colors.paper,
+                    confirmButton = {
+                        TextButton(onClick = { advance(OnboardingStep.OPTIONAL_PIN, Destination.OnboardingPin) }) {
+                            Text(stringResource(R.string.pin_enable))
                         }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = later) { Text(stringResource(R.string.pin_offer_later)) }
                     },
                 )
             }
@@ -190,22 +214,17 @@ fun AppNavHost(
             composable(Destination.OnboardingPin.route) {
                 OnboardingPinScreen(
                     onBack = {
-                        sessionModel.advance(OnboardingStep.INCOME) {
-                            controller.navigate(Destination.Onboarding.route) {
-                                popUpTo(controller.graph.id) {
-                                    inclusive = true
-                                }
-                            }
+                        if (session.onboarding == OnboardingStep.OPTIONAL_PIN) {
+                            advance(OnboardingStep.DONE, Destination.Home)
+                        } else {
+                            onExit()
                         }
                     },
                     onDone = {
-                        sessionModel.advance(OnboardingStep.DONE) {
-                            controller.navigate(Destination.Home.route) {
-                                popUpTo(controller.graph.id) {
-                                    inclusive = true
-                                }
-                                launchSingleTop = true
-                            }
+                        if (session.onboarding == OnboardingStep.PIN_FIRST) {
+                            advance(OnboardingStep.INCOME, Destination.Onboarding)
+                        } else {
+                            advance(OnboardingStep.DONE, Destination.Home)
                         }
                     },
                 )
