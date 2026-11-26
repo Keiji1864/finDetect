@@ -39,6 +39,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ghostteam.findetect.core.designsystem.component.finDatePickerColors
 import com.ghostteam.findetect.R
 import com.ghostteam.findetect.core.designsystem.component.FinButton
 import com.ghostteam.findetect.core.designsystem.component.FinButtonStyle
@@ -219,7 +220,7 @@ private fun IncomeScheduleForm(
                 TextButton(onClick = { showDate = false }) { Text(stringResource(R.string.ui_onboarding_date_cancel)) }
             },
         ) {
-            DatePicker(state = pickerState)
+            DatePicker(state = pickerState, colors = finDatePickerColors())
         }
     }
     if (showRepeat) {
