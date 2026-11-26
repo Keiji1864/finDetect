@@ -46,7 +46,7 @@ fun XpProgressCard(state: XpProgressUiState, onRetry: () -> Unit, modifier: Modi
 
 /** Shared level/title and XP bar; loading and errors never display a fabricated zero level. */
 @Composable
-fun XpProgressContent(state: XpProgressUiState, onRetry: () -> Unit, modifier: Modifier = Modifier, expanded: Boolean = false) {
+fun XpProgressContent(state: XpProgressUiState, onRetry: () -> Unit, modifier: Modifier = Modifier, expanded: Boolean = false, levelInHeader: Boolean = false) {
     val progress = state.progress
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         when {
@@ -58,13 +58,14 @@ fun XpProgressContent(state: XpProgressUiState, onRetry: () -> Unit, modifier: M
                 Text(stringResource(R.string.finance_loading), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
             }
             else -> {
-                Text(stringResource(R.string.xp_level_title, progress.level, stringResource(progress.title.titleRes())),
+                Text(if (levelInHeader) stringResource(progress.title.titleRes())
+                    else stringResource(R.string.xp_level_title, progress.level, stringResource(progress.title.titleRes())),
                     style = FinTheme.typography.captionMedium, color = FinTheme.colors.navy)
                 val levelLength = progress.xpForCurrentLevel
                 val remaining = progress.xpToNextLevel
                 Text(
                     if (progress.isMaxLevel) stringResource(R.string.xp_max_level)
-                    else stringResource(R.string.xp_level_progress, progress.xpInCurrentLevel, checkNotNull(levelLength)),
+                    else stringResource(if (levelInHeader) R.string.profile_exp_progress else R.string.xp_level_progress, progress.xpInCurrentLevel, checkNotNull(levelLength)),
                     style = FinTheme.typography.caption, color = FinTheme.colors.muted,
                 )
                 val description = if (progress.isMaxLevel) stringResource(R.string.xp_max_accessibility, progress.totalXp)
