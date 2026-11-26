@@ -1,10 +1,8 @@
 package com.ghostteam.findetect.feature.accounts
 
 import android.content.res.Configuration
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -12,12 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -41,10 +34,8 @@ import com.ghostteam.findetect.domain.model.Account
 import com.ghostteam.findetect.domain.model.AccountBalance
 import com.ghostteam.findetect.domain.model.AppCurrency
 import java.math.BigDecimal
-import kotlinx.coroutines.delay
 import kotlinx.datetime.Instant
 
-/** The row opens editing; its balance has a separate action with a visible 200 ms press highlight. */
 @Composable
 fun AccountRow(
     balance: AccountBalance,
@@ -57,27 +48,11 @@ fun AccountRow(
     val amount = formatMoney(balance.balance, account.currency, locale)
     val action = stringResource(R.string.account_balance_action, account.name, amount)
     val interactions = remember(account.id) { MutableInteractionSource() }
-    val pressed by interactions.collectIsPressedAsState()
-    var opening by remember(account.id) { mutableStateOf(false) }
-    val openBalance by rememberUpdatedState(onBalance)
-
-    // A successful click retains the highlight even when the tap was shorter than one frame.
-    // Leaving the composition or disabling the action cancels the delayed navigation.
-    LaunchedEffect(account.id, opening, enabled) {
-        if (opening) {
-            if (enabled) {
-                delay(200)
-                openBalance()
-            }
-            opening = false
-        }
-    }
-
     val currency = AppCurrency.entries.firstOrNull { it.name == account.currency }
     FinRow(
         title = account.name,
         subtitle = currency?.let { stringResource(it.nameResource) } ?: account.currency,
-        onClick = if (enabled && !opening) onEdit else null,
+        onClick = if (enabled) onEdit else null,
         leading = {
             FinIconTile {
                 Icon(painterResource(financeIcon(account.iconId).drawableResource), null,
@@ -89,18 +64,16 @@ fun AccountRow(
                 modifier = Modifier.heightIn(min = 48.dp)
                     .semantics { contentDescription = action }
                     .clickable(
-                        enabled = enabled && !opening,
+                        enabled = enabled,
                         interactionSource = interactions,
                         indication = null,
                         role = Role.Button,
-                        onClick = { opening = true },
+                        onClick = onBalance,
                     ),
                 contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.background(if (enabled && (pressed || opening)) FinTheme.colors.line else FinTheme.colors.white,
-                    FinTheme.shapes.tiny).padding(horizontal = 8.dp, vertical = 6.dp)) {
-                    Text(amount, style = FinTheme.typography.label, color = FinTheme.colors.navy)
-                }
+                Text(amount, modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    style = FinTheme.typography.label, color = FinTheme.colors.navy)
             }
         },
     )

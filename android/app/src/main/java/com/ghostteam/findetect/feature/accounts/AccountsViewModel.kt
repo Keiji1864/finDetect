@@ -19,6 +19,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
@@ -72,12 +74,15 @@ class AccountsViewModel @Inject constructor(
         creationRequestId = savedState["creationRequest"],
     ))
     val state = mutableState.asStateFlow()
+    private val currencyFilter = savedState.getStateFlow<String?>("accountsCurrencyFilter", null)
     private val reload = MutableStateFlow(0)
 
     init {
         viewModelScope.launch {
             reload.flatMapLatest {
-                settings.currency.flatMapLatest { currency ->
+                combine(settings.currency, currencyFilter) { default, filter ->
+                    AppCurrency.entries.firstOrNull { it.name == filter } ?: default
+                }.distinctUntilChanged().flatMapLatest { currency ->
                     mutableState.update {
                         it.copy(currency = currency, currencyReady = true, loading = true, readError = false,
                             summary = it.summary?.takeIf { summary -> summary.currency == currency.name })
@@ -91,9 +96,13 @@ class AccountsViewModel @Inject constructor(
                     mutableState.update { it.copy(loading = false, readError = true, currencyReady = false) }
                 }
             }.collect { summary ->
-                mutableState.update { it.copy(summary = summary, loading = false, readError = false) }
+                mutableState.update { if (it.currency.name == summary.currency) it.copy(summary = summary, loading = false, readError = false) else it }
             }
         }
+    }
+
+    fun filterByCurrency(currency: AppCurrency) {
+        savedState["accountsCurrencyFilter"] = currency.name
     }
 
     fun retryRead() { reload.value += 1 }
@@ -163,6 +172,7 @@ class AccountsViewModel @Inject constructor(
                 is CreateAccountResult.Failure -> mutableState.update { it.copy(isSaving = false, saveError = result.error) }
                 is CreateAccountResult.Success -> {
                     val currency = AppCurrency.valueOf(result.account.currency)
+                    if (currencyFilter.value != null) filterByCurrency(currency)
                     savedState["pendingCurrency"] = currency.name
                     savedState["createdAccountId"] = result.account.id
                     mutableState.update { it.copy(formOpen = false, picker = null, isSaving = false,

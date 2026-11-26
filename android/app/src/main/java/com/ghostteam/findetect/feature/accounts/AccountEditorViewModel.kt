@@ -14,15 +14,15 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
+
 
 data class AccountCurrencySwitch(val currency: AppCurrency, val busy: Boolean = false)
 
-/** Owns editing separately from account creation, including the draft beneath the balance page. */
 @HiltViewModel
 class AccountEditorViewModel @Inject constructor(
     private val accounts: AccountRepository,
@@ -47,6 +47,10 @@ class AccountEditorViewModel @Inject constructor(
         ?.let { AccountCurrencySwitch(AppCurrency.valueOf(it)) })
     val currencySwitch = mutableCurrencySwitch.asStateFlow()
 
+    private var timer: Job? = null
+    private var closing = false
+    private var balanceRequest: String? = savedState["editor_balanceRequest"]
+
     init {
         viewModelScope.launch {
             accounts.observePendingDeletions().catch { error ->
@@ -55,31 +59,21 @@ class AccountEditorViewModel @Inject constructor(
             }.collect { mutableDeletions.value = it }
         }
         accountId?.let { id ->
-            val restored = AccountEditorState(
-                page = savedState.get<String>("editor_page")?.let { AccountEditorPage.valueOf(it) } ?: AccountEditorPage.EDIT,
-                draft = AccountEditDraft(savedState["editor_name"] ?: "", savedState["editor_currency"] ?: "RUB",
-                    savedState["editor_icon"] ?: "wallet", savedState["editor_forecast"] ?: true),
-                actualBalanceText = savedState["editor_actual"] ?: "",
-                pendingIcon = savedState["editor_pendingIcon"] ?: "wallet",
-                returnToEdit = savedState["editor_return"] ?: false,
-                loading = true,
-            )
-            mutableState.value = restored
+            mutableState.value = AccountEditorState(open = true, loading = true)
             observe(id)
         }
         if (mutableCurrencySwitch.value != null) retryCurrencySwitch()
     }
 
-    fun open(id: String, balanceOnly: Boolean = false) {
-        if (state.value.busy || mutableCurrencySwitch.value != null) return
-        clearSession()
+    fun open(id: String) {
+        if (state.value.open || mutableCurrencySwitch.value != null) return
         accountId = id
-        mutableState.value = AccountEditorState(page = if (balanceOnly) AccountEditorPage.BALANCE else AccountEditorPage.EDIT, loading = true)
         savedState["editor_id"] = id
-        savedState["editor_request"] = UUID.randomUUID().toString()
-        persist()
+        mutableState.value = AccountEditorState(open = true, loading = true)
         observe(id)
     }
+
+    private fun Account.draft() = AccountEditDraft(name, currency, iconId, includeInForecast)
 
     private fun observe(id: String) {
         observeJob?.cancel()
@@ -93,117 +87,111 @@ class AccountEditorViewModel @Inject constructor(
                         change { it.copy(balance = null, loading = false, readError = true, error = AccountEditorError.UNAVAILABLE) }
                         return@collect
                     }
-                    if (source == null) {
-                        val marker = savedState.get<String>("editor_base")?.let(Instant::parse)
-                        source = balance.account.copy(modifiedAt = marker ?: balance.account.modifiedAt)
-                        if (savedState.get<Boolean>("editor_draftReady") != true) {
-                            mutableState.update { it.copy(draft = AccountEditDraft(balance.account.name, balance.account.currency,
-                                balance.account.iconId, balance.account.includeInForecast), pendingIcon = balance.account.iconId,
-                                actualBalanceText = balance.balance.takeIf { amount -> amount.signum() >= 0 }?.toPlainString().orEmpty()) }
-                            savedState["editor_draftReady"] = true
-                        }
-                        savedState["editor_base"] = requireNotNull(source).modifiedAt.toString()
+                    val account = balance.account
+                    val previous = source
+                    if (previous != null && account.modifiedAt < previous.modifiedAt) return@collect
+                    val current = state.value
+                    val restored = previous == null && savedState.get<Boolean>("editor_draftReady") == true
+                    val draft = when {
+                        restored -> AccountEditDraft(savedState["editor_name"] ?: account.name,
+                            savedState["editor_currency"] ?: account.currency, savedState["editor_icon"] ?: account.iconId,
+                            savedState["editor_forecast"] ?: account.includeInForecast)
+                        previous == null || current.draft == previous.draft() -> account.draft()
+                        else -> current.draft
                     }
-                    if (state.value.page == AccountEditorPage.BALANCE && savedState.get<String>("editor_balanceCurrency") == null)
-                        savedState["editor_balanceCurrency"] = balance.account.currency
-                    change { previous ->
-                        val currencyReset = locked && previous.draft.currency != balance.account.currency
-                        previous.copy(balance = balance, currencyLocked = locked, loading = false, readError = false,
-                            draft = if (currencyReset) previous.draft.copy(currency = balance.account.currency) else previous.draft,
-                            error = when {
-                                !previous.busy && source?.modifiedAt != balance.account.modifiedAt -> AccountEditorError.CONFLICT
-                                currencyReset -> AccountEditorError.CURRENCY_LOCKED
-                                previous.error == AccountEditorError.LOAD -> null
-                                else -> previous.error
-                            })
+                    val conflict = !current.busy && draft != account.draft() && when {
+                        restored -> savedState.get<String>("editor_base") != account.modifiedAt.toString()
+                        previous != null -> previous.modifiedAt != account.modifiedAt
+                        else -> false
                     }
+                    source = account
+                    change { it.copy(balance = balance, loading = false, readError = false, currencyLocked = locked,
+                        draft = draft.copy(currency = account.currency), actualBalanceText = if (balanceRequest == null) balance.balance.toPlainString()
+                            else if (restored) savedState["editor_actual"] ?: balance.balance.toPlainString() else it.actualBalanceText,
+                        error = if (conflict) AccountEditorError.CONFLICT else it.error) }
                     persist()
+                    if (restored && !conflict) schedule()
                 }
         }
     }
 
     fun changeDraft(draft: AccountEditDraft) {
-        if (state.value.busy) return
-        val allowed = if (state.value.currencyLocked) draft.copy(currency = source?.currency ?: draft.currency) else draft
-        change { it.copy(draft = allowed, error = it.error?.takeIf { error -> error == AccountEditorError.CONFLICT }) }
+        change { it.copy(draft = draft.copy(currency = it.draft.currency)) }
         persist()
-    }
-
-    fun openPage(page: AccountEditorPage) {
-        val current = state.value
-        if (current.busy || current.loading || current.readError) return
-        if (page == AccountEditorPage.CURRENCY && current.currencyLocked) return
-        if (page == AccountEditorPage.BALANCE) {
-            savedState["editor_balanceCurrency"] = current.balance?.account?.currency
-            savedState["editor_request"] = UUID.randomUUID().toString()
-        }
-        change { it.copy(page = page, pendingIcon = it.draft.iconId,
-            returnToEdit = if (page == AccountEditorPage.BALANCE) current.page == AccountEditorPage.EDIT else it.returnToEdit,
-            actualBalanceText = if (page == AccountEditorPage.BALANCE)
-                it.balance?.balance?.takeIf { amount -> amount.signum() >= 0 }?.toPlainString().orEmpty() else it.actualBalanceText,
-            error = null) }
-        persist()
-    }
-
-    fun selectIcon(icon: String) { if (!state.value.busy) { change { it.copy(pendingIcon = icon) }; persist() } }
-    fun confirmIcon() {
-        if (state.value.busy) return
-        changeDraft(state.value.draft.copy(iconId = state.value.pendingIcon))
-        dismiss()
+        schedule()
     }
 
     fun changeActual(text: String) {
-        if (state.value.busy || text == state.value.actualBalanceText) return
-        savedState["editor_request"] = UUID.randomUUID().toString()
-        change { it.copy(actualBalanceText = text, error = null) }
+        if (text == state.value.actualBalanceText) return
+        balanceRequest = UUID.randomUUID().toString()
+        change { it.copy(actualBalanceText = text) }
         persist()
+        schedule()
     }
 
-    fun save() {
+    private fun schedule() {
+        timer?.cancel()
+        timer = viewModelScope.launch {
+            delay(650)
+            flush()
+        }
+    }
+
+    private fun flush() {
         val current = state.value
-        val base = source ?: return
-        if (!current.canSave) return
+        if (current.busy || current.confirmDelete) return
+        val base = source
+        if (base == null || current.readError || current.error == AccountEditorError.CONFLICT) {
+            if (closing) clearSession()
+            return
+        }
+        val draft = current.draft
+        val name = draft.name.trim().takeIf { it.length in 1..100 } ?: base.name
+        val updated = base.copy(name = name, iconId = draft.iconId,
+            includeInForecast = draft.includeInForecast)
+        val request = balanceRequest?.takeIf { parser.parse(current.actualBalanceText) != null }
+        if (base == updated && request == null) {
+            if (closing) clearSession()
+            return
+        }
         change { it.copy(busy = true, error = null) }
         viewModelScope.launch {
-            when (val result = updateAccount(base.copy(name = current.draft.name, currency = current.draft.currency,
-                iconId = current.draft.iconId, includeInForecast = current.draft.includeInForecast))) {
-                is UpdateAccountResult.Failure -> change { it.copy(busy = false, error = result.error.editorError()) }
-                is UpdateAccountResult.Success -> {
-                    clearSession()
-                    if (base.currency != result.account.currency) {
-                        val currency = AppCurrency.valueOf(result.account.currency)
-                        savedState["editor_pendingCurrency"] = currency.name
-                        mutableCurrencySwitch.value = AccountCurrencySwitch(currency)
-                        retryCurrencySwitch()
+            if (base != updated) {
+                when (val result = updateAccount(updated)) {
+                    is UpdateAccountResult.Failure -> { failed(result.error.editorError()); return@launch }
+                    is UpdateAccountResult.Success -> {
+                        source = result.account
+
                     }
                 }
             }
+            if (request != null && request == balanceRequest) {
+                when (val result = adjustBalance(base.id, current.actualBalanceText, updated.currency, request)) {
+                    is AdjustAccountBalanceResult.Failure -> { failed(result.error.editorError(balance = true)); return@launch }
+                    is AdjustAccountBalanceResult.Success -> if (request == balanceRequest) balanceRequest = null
+                }
+            }
+            change { it.copy(busy = false) }
+            persist()
+            if (closing) flush() else if (current.draft != state.value.draft || current.actualBalanceText != state.value.actualBalanceText) schedule()
         }
     }
 
-    fun confirmBalance() {
-        val current = state.value
-        val account = current.balance?.account ?: return
-        if (!current.canConfirmBalance) return
-        val currency = savedState.get<String>("editor_balanceCurrency") ?: return
-        val request = savedState.get<String>("editor_request") ?: UUID.randomUUID().toString().also { savedState["editor_request"] = it }
-        change { it.copy(busy = true, error = null) }
-        viewModelScope.launch {
-            when (val result = adjustBalance(account.id, current.actualBalanceText, currency, request)) {
-                is AdjustAccountBalanceResult.Failure -> change { it.copy(busy = false, error = result.error.editorError(balance = true)) }
-                is AdjustAccountBalanceResult.Success -> {
-                    change { it.copy(busy = false) }
-                    dismiss()
-                }
-            }
-        }
+    private fun failed(error: AccountEditorError) {
+        closing = false
+        change { it.copy(busy = false, error = error) }
+        persist()
     }
 
     fun requestDelete() {
         if (!state.value.busy && !state.value.loading && !state.value.readError && state.value.balance != null)
             change { it.copy(confirmDelete = true) }
     }
-    fun cancelDelete() { if (!state.value.busy) change { it.copy(confirmDelete = false) } }
+    fun cancelDelete() {
+        if (state.value.busy) return
+        change { it.copy(confirmDelete = false) }
+        schedule()
+    }
     fun delete() {
         val base = source ?: return
         if (state.value.busy || !state.value.confirmDelete) return
@@ -234,12 +222,13 @@ class AccountEditorViewModel @Inject constructor(
     fun retry() {
         if (state.value.busy) return
         val id = accountId ?: return
-        source = null
-        savedState["editor_base"] = null
-        if (state.value.page == AccountEditorPage.BALANCE) {
-            savedState["editor_balanceCurrency"] = null
-            savedState["editor_request"] = UUID.randomUUID().toString()
+        if (!state.value.readError && state.value.error in listOf(AccountEditorError.SAVE, AccountEditorError.BALANCE)) {
+            flush()
+            return
         }
+        source = null
+        balanceRequest = null
+        savedState["editor_draftReady"] = false
         change { it.copy(loading = true, readError = false, error = null) }
         observe(id)
     }
@@ -259,38 +248,22 @@ class AccountEditorViewModel @Inject constructor(
     fun dismissCurrencyNotice() { mutableCurrencySwitch.value = null; savedState["editor_pendingCurrency"] = null }
 
     fun dismiss() {
-        val current = state.value
-        if (current.busy) return
-        when (current.page) {
-            AccountEditorPage.ICON, AccountEditorPage.CURRENCY -> change { it.copy(page = AccountEditorPage.EDIT, error = null) }
-            AccountEditorPage.BALANCE -> if (current.returnToEdit) change { it.copy(page = AccountEditorPage.EDIT, returnToEdit = false, error = null) } else clearSession()
-            else -> clearSession()
-        }
-        persist()
+        closing = true
+        timer?.cancel()
+        flush()
     }
 
     private fun change(transform: (AccountEditorState) -> AccountEditorState) {
         mutableState.update { previous ->
-            val transformed = transform(previous)
-            val stale = source != null && transformed.balance != null && source?.modifiedAt != transformed.balance.account.modifiedAt
-            val balanceCurrency = savedState.get<String>("editor_balanceCurrency")
-            val currencyChanged = transformed.page == AccountEditorPage.BALANCE && balanceCurrency != null &&
-                transformed.balance != null && balanceCurrency != transformed.balance.account.currency
-            val next = if (!transformed.busy && (currencyChanged || stale && transformed.page == AccountEditorPage.EDIT))
-                transformed.copy(error = AccountEditorError.CONFLICT) else transformed
-            next.copy(actualBalanceValid = parser.parse(next.actualBalanceText) != null,
-                canConfirmBalance = !next.busy && !next.loading && !next.readError && next.balance != null &&
-                    next.error != AccountEditorError.CONFLICT &&
-                    savedState.get<String>("editor_balanceCurrency") == next.balance.account.currency &&
-                    parser.parse(next.actualBalanceText) != null,
-                canSave = !next.busy && !next.loading && !next.readError && next.balance != null &&
-                    !stale &&
-                    next.error != AccountEditorError.CONFLICT && next.draft.name.trim().length in 1..100 &&
-                    next.draft.iconId.isNotBlank() && AppCurrency.entries.any { it.name == next.draft.currency })
+            val next = transform(previous)
+            next.copy(actualBalanceValid = balanceRequest == null || parser.parse(next.actualBalanceText) != null)
         }
     }
 
     private fun clearSession() {
+        closing = false
+        timer?.cancel()
+        balanceRequest = null
         observeJob?.cancel()
         observeJob = null
         source = null
@@ -302,14 +275,14 @@ class AccountEditorViewModel @Inject constructor(
     private fun persist() {
         if (accountId == null) return
         val current = state.value
-        savedState["editor_page"] = current.page?.name
+        savedState["editor_draftReady"] = source != null
+        savedState["editor_base"] = source?.modifiedAt?.toString()
+        savedState["editor_balanceRequest"] = balanceRequest
         savedState["editor_name"] = current.draft.name
         savedState["editor_currency"] = current.draft.currency
         savedState["editor_icon"] = current.draft.iconId
         savedState["editor_forecast"] = current.draft.includeInForecast
         savedState["editor_actual"] = current.actualBalanceText
-        savedState["editor_pendingIcon"] = current.pendingIcon
-        savedState["editor_return"] = current.returnToEdit
     }
 
     private fun AccountManagementError.editorError(balance: Boolean = false): AccountEditorError = when (this) {
