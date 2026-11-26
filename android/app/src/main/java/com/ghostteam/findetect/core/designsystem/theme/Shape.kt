@@ -36,5 +36,5 @@ fun FinShapes.toMaterial() = Shapes(
     small = r8,
     medium = r12,
     large = r16,
-    extraLarge = sheet,
+    extraLarge = RoundedCornerShape(24.dp),
 )

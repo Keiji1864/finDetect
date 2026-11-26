@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
-    <style name="Theme.FinDetect" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.FinDetect" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">#FFDB46</item>
+        <item name="android:colorControlActivated">#FFDB46</item>
+        <item name="android:colorButtonNormal">#FFF7D7</item>
+        <item name="android:colorBackground">#F8F8F4</item>
+        <item name="android:textColorPrimary">#1E2E47</item>
+        <item name="android:textColorSecondary">#6E7784</item>
+    </style>
 </resources>
