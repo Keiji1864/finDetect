@@ -13,4 +13,5 @@
     <string name="xp_read_error">Could not load XP</string>
     <string name="xp_progress_accessibility">Level progress: %1$d of %2$d XP. XP to next level: %3$d.</string>
     <string name="xp_max_accessibility">Maximum level. %1$d XP in total.</string>
+    <string name="profile_exp_progress">%1$d / %2$d XP</string>
 </resources>

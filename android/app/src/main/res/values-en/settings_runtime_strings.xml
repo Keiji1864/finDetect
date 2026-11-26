@@ -36,4 +36,6 @@
     <string name="pin_dots_description">Digits entered: %1$d of 4</string>
     <string name="pin_security_about">Your PIN is required at startup and after 30 seconds in the background. Enter your current PIN to change or disable it.</string>
     <string name="pin_already_enabled">A PIN is already set on this device</string>
+    <string name="pin_offer_title">Protect the app with a PIN?</string>
+    <string name="pin_offer_later">Later</string>
 </resources>

@@ -36,4 +36,6 @@
     <string name="pin_dots_description">Введено цифр: %1$d из 4</string>
     <string name="pin_security_about">PIN запрашивается при запуске и после 30 секунд в фоне. Для смены или отключения нужен действующий PIN.</string>
     <string name="pin_already_enabled">PIN-код уже настроен на этом устройстве</string>
+    <string name="pin_offer_title">Защитить приложение PIN-кодом?</string>
+    <string name="pin_offer_later">Позже</string>
 </resources>
