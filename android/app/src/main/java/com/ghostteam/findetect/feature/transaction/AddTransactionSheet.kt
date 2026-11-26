@@ -1,6 +1,5 @@
 package com.ghostteam.findetect.feature.transaction
 
-import android.app.DatePickerDialog
 import android.content.res.Configuration
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.*
@@ -14,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -185,14 +183,7 @@ fun AddTransactionSheet(
         }
     }
     if (state.picker == TransactionPicker.DATE) {
-        val context = LocalContext.current
-        DisposableEffect(state.date) {
-            val dialog = DatePickerDialog(context, { _, year, month, day -> onDate(LocalDate(year, month + 1, day)) },
-                state.date.year, state.date.monthNumber - 1, state.date.dayOfMonth)
-            dialog.setOnDismissListener { onClosePicker() }
-            dialog.show()
-            onDispose { dialog.dismiss() }
-        }
+        FinDatePickerDialog(state.date, onClosePicker, onDate)
     }
 }
 
