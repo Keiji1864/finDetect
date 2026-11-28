@@ -1,12 +1,28 @@
 package com.ghostteam.findetect.feature.accounts
 
 import android.content.res.Configuration
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.ghostteam.findetect.domain.model.AppCurrency
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,8 +51,9 @@ fun AccountsRoute(onOpenAnalytics: () -> Unit = {}, onOpenSettings: () -> Unit =
     val currencySwitch by editor.currencySwitch.collectAsStateWithLifecycle()
     Box(Modifier.fillMaxSize()) {
         AccountsScreen(state, viewModel::openForm, viewModel::retryRead, viewModel::retryCurrencySwitch, onOpenAnalytics, onOpenSettings,
-            onEditAccount = { editor.open(it) }, onAdjustBalance = { editor.open(it, balanceOnly = true) },
-            accountActionsEnabled = !state.formOpen && !state.switchingCurrency && editorState.page == null && currencySwitch == null)
+            onFilterCurrency = viewModel::filterByCurrency,
+            onEditAccount = { editor.open(it) }, onAdjustBalance = { editor.open(it) },
+            accountActionsEnabled = !state.formOpen && !state.switchingCurrency && !editorState.open && currencySwitch == null)
         AccountManagementContent(editor, Modifier.align(Alignment.BottomCenter).padding(16.dp))
     }
     if (state.formOpen) {
@@ -56,12 +73,17 @@ fun AccountsScreen(
     onEditAccount: (String) -> Unit = {},
     onAdjustBalance: (String) -> Unit = {},
     accountActionsEnabled: Boolean = true,
+    onFilterCurrency: (AppCurrency) -> Unit = {},
 ) {
     PrototypeScreen(R.string.ui_accounts, onAnalytics = onOpenAnalytics, onSettings = onOpenSettings) {
-        if (state.summary != null || (!state.loading && !state.readError)) {
-            item(key = "balance") {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(stringResource(R.string.ui_total_balance), style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+        item(key = "balance") {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.ui_total_balance), modifier = Modifier.weight(1f),
+                        style = FinTheme.typography.caption, color = FinTheme.colors.muted)
+                    CurrencyFilterChip(state.currency, onFilterCurrency)
+                }
+                if (state.summary != null || (!state.loading && !state.readError)) {
                     Text(formatMoney(state.summary?.total ?: BigDecimal.ZERO, state.currency.name, LocalConfiguration.current.locales[0]),
                         style = FinTheme.typography.balance, color = FinTheme.colors.navy)
                 }
@@ -98,6 +120,37 @@ fun AccountsScreen(
         item(key = "add") {
             FinButton(stringResource(R.string.ui_add_account), onCreate, style = FinButtonStyle.Secondary,
                 enabled = state.currencyReady && !state.switchingCurrency)
+        }
+    }
+}
+
+@Composable
+private fun CurrencyFilterChip(selected: AppCurrency, onSelect: (AppCurrency) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val ink = FinTheme.colors.navy
+    Box {
+        Row(
+            modifier = Modifier.clip(FinTheme.shapes.r12).background(FinTheme.colors.cream)
+                .clickable(role = Role.Button, onClickLabel = stringResource(R.string.ui_acc_currency_label)) { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(selected.name, style = FinTheme.typography.label, color = ink)
+            Canvas(Modifier.size(12.dp)) {
+                val tip = Offset(size.width / 2, size.height * 0.68f)
+                drawLine(ink, Offset(size.width * 0.12f, size.height * 0.32f), tip, 1.6.dp.toPx(), StrokeCap.Round)
+                drawLine(ink, tip, Offset(size.width * 0.88f, size.height * 0.32f), 1.6.dp.toPx(), StrokeCap.Round)
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false },
+            shape = FinTheme.shapes.r16, containerColor = FinTheme.colors.cream) {
+            AppCurrency.entries.forEach { currency ->
+                DropdownMenuItem(text = { Text("${currency.name} (${currency.symbol})") }, onClick = {
+                    expanded = false
+                    onSelect(currency)
+                })
+            }
         }
     }
 }

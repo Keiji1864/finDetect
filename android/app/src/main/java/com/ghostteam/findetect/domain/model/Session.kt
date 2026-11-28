@@ -8,7 +8,7 @@ data class SessionUser(val id: String, val email: String, val name: String)
 /** The login instance changes on sign-in, but remains stable across rotation and restarts. */
 data class SessionIdentity(val userId: String, val sessionId: String)
 
-enum class OnboardingStep { INCOME, PIN, DONE }
+enum class OnboardingStep { INCOME, PIN, DONE, PIN_FIRST, PIN_OFFER, OPTIONAL_PIN }
 
 @Serializable
 enum class ReauthenticationReason { SESSION_EXPIRED, PASSWORD_CHANGED, PASSWORD_CHANGE_UNCONFIRMED }

@@ -1,6 +1,5 @@
 package com.ghostteam.findetect.feature.transaction
 
-import android.app.DatePickerDialog
 import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,14 +11,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -142,19 +139,11 @@ fun PeriodSheet(
             FinButton(stringResource(if (state.custom) R.string.transactions_calendar else R.string.transactions_custom_period),
                 { onShowCustom(!state.custom) }, style = FinButtonStyle.Secondary)
             FinButton(stringResource(R.string.transactions_apply), onApply, enabled = state.valid)
-            FinButton(stringResource(R.string.ui_close), onDismiss, style = FinButtonStyle.Secondary)
         }
     }
     state.editingField?.let { field ->
-        val context = LocalContext.current
         val date = (if (field == PeriodField.START) state.draftStart else state.draftEnd) ?: state.visibleMonth
-        DisposableEffect(field) {
-            val dialog = DatePickerDialog(context, { _, year, month, day -> onFieldDate(LocalDate(year, month + 1, day)) },
-                date.year, date.monthNumber - 1, date.dayOfMonth)
-            dialog.setOnDismissListener { onCloseField() }
-            dialog.show()
-            onDispose { dialog.dismiss() }
-        }
+        FinDatePickerDialog(date, onCloseField, onFieldDate)
     }
 }
 

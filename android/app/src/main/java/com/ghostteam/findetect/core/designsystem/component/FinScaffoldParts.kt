@@ -2,6 +2,7 @@ package com.ghostteam.findetect.core.designsystem.component
 
 import android.content.res.Configuration
 import androidx.annotation.DrawableRes
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -56,6 +57,7 @@ fun FinTopBar(
     onBack: (() -> Unit)? = null,
     titleStyle: TextStyle = FinTheme.typography.heading,
     titleMaxLines: Int = 1,
+    highlightBack: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
@@ -67,7 +69,12 @@ fun FinTopBar(
     ) {
         if (onBack != null) {
             Box(
-                modifier = Modifier.size(40.dp).clickable(onClick = onBack),
+                modifier = Modifier.size(40.dp).clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = if (highlightBack) LocalIndication.current else null,
+                    role = Role.Button,
+                    onClick = onBack,
+                ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

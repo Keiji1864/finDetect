@@ -83,6 +83,7 @@ internal fun FinSubScreenFrame(
     onBack: () -> Unit,
     modifier: Modifier,
     titleMaxLines: Int = 1,
+    highlightBack: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Column(
@@ -93,7 +94,7 @@ internal fun FinSubScreenFrame(
             .navigationBarsPadding()
             .imePadding(),
     ) {
-        FinTopBar(title = title, onBack = onBack, titleStyle = FinTheme.typography.title, titleMaxLines = titleMaxLines)
+        FinTopBar(title = title, onBack = onBack, titleStyle = FinTheme.typography.title, titleMaxLines = titleMaxLines, highlightBack = highlightBack)
         content()
     }
 }

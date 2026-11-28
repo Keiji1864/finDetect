@@ -17,7 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ghostteam.findetect.R
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Shared modal host preserves the edit draft while moving to balance or picker pages. */
+/** Hosts the account editor and the undo action for account deletion. */
 @Composable
 fun AccountManagementContent(viewModel: AccountEditorViewModel, snackbarModifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -45,9 +45,8 @@ fun AccountManagementContent(viewModel: AccountEditorViewModel, snackbarModifier
         }
     }
     SnackbarHost(snackbar, modifier = snackbarModifier)
-    if (state.page != null) {
-        AccountEditorSheet(state, viewModel::changeDraft, viewModel::openPage, viewModel::selectIcon,
-            viewModel::confirmIcon, viewModel::changeActual, viewModel::save, viewModel::confirmBalance,
+    if (state.open) {
+        AccountEditorSheet(state, viewModel::changeDraft, viewModel::changeActual,
             viewModel::requestDelete, viewModel::delete, viewModel::cancelDelete, viewModel::retry, viewModel::dismiss)
     }
     currencySwitch?.let { pending ->

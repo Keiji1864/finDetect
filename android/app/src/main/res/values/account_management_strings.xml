@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="account_editor_balance">Баланс</string>
     <string name="account_balance_title">Баланс счёта</string>
     <string name="account_current_balance">Текущий баланс</string>
     <string name="account_actual_balance">Фактический баланс</string>

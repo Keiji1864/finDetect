@@ -10,6 +10,7 @@ import com.ghostteam.findetect.domain.model.*
 import com.ghostteam.findetect.domain.repository.AuthRepository
 import com.ghostteam.findetect.domain.repository.ProfileRepository
 import com.ghostteam.findetect.domain.repository.PasswordRepository
+import com.ghostteam.findetect.domain.repository.PinStatus
 import dagger.Lazy
 import java.util.UUID
 import javax.inject.Inject
@@ -149,7 +150,7 @@ class SessionManager @Inject constructor(
                     storage.write(next)
                 }
                 record = next
-                activate(next, registration)
+                activate(next, registration, fromLogin = !registration)
             }
         } catch (_: Exception) {
             mutableState.value = SessionState.StorageError(email = response.user.email, accountCreated = registration)
@@ -164,13 +165,12 @@ class SessionManager @Inject constructor(
         users.close()
     }
 
-    private suspend fun activate(saved: StoredSession, registration: Boolean) {
+    private suspend fun activate(saved: StoredSession, registration: Boolean, fromLogin: Boolean = false) {
         val user = checkNotNull(saved.user)
         val identity = SessionIdentity(canonicalUserId(user.id), checkNotNull(saved.sessionId))
         UUID.fromString(identity.sessionId)
         check(!saved.accessToken.isNullOrBlank() && !saved.refreshToken.isNullOrBlank() && saved.expiresAt != null)
-        val step = users.onboarding(user.id, registration)
-        users.saveOnboarding(user.id, step)
+        val previousStep = users.onboarding(user.id, registration)
         val scope = users.open(identity)
         val remote = !com.ghostteam.findetect.BuildConfig.USE_MOCK_API
         if (remote) {
@@ -180,6 +180,14 @@ class SessionManager @Inject constructor(
             catch (_: Exception) { scope.syncFailed(true) }
         }
         users.publish(scope)
+        val step = when {
+            fromLogin && previousStep == OnboardingStep.DONE &&
+                scope.pin.status.value == PinStatus.DISABLED -> OnboardingStep.PIN_OFFER
+            previousStep == OnboardingStep.INCOME &&
+                scope.pin.status.value == PinStatus.DISABLED -> OnboardingStep.PIN_FIRST
+            else -> previousStep
+        }
+        users.saveOnboarding(user.id, step)
         refreshRevision += 1
         profileRevision += 1
         refreshAttempt = null

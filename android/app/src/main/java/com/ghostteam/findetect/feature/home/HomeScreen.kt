@@ -221,7 +221,7 @@ private fun ProfileCard(
                 )
 
                 if (gameElementsEnabled) {
-                    XpProgressContent(xp, onRetry)
+                    XpProgressContent(xp, onRetry, levelInHeader = true)
                 }
             }
 

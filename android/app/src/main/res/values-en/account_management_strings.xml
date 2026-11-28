@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="account_editor_balance">Balance</string>
     <string name="account_balance_title">Account balance</string>
     <string name="account_current_balance">Current balance</string>
     <string name="account_actual_balance">Actual balance</string>
